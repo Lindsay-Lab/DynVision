@@ -28,9 +28,8 @@
 
 from .base_params import BaseParams, DynVisionValidationError, DynVisionConfigError
 from .model_params import ModelParams
-from .trainer_params import TrainerParams
 from .data_params import DataParams
-from .training_params import TrainingParams
+from .trainer_params import TrainerParams
 from .init_params import InitParams
-
-# from test_params import TestParams
+from .training_params import TrainingParams
+from .testing_params import TestingParams

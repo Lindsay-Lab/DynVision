@@ -1,128 +1,111 @@
-"""Energy Loss implementation for neural network activations.
-
-This module provides an implementation of the Energy Loss, which calculates
-the average activation energy per unit across all layers of a neural network.
-This can be used to regularize network activations or implement specific
-energy-based learning objectives.
-
-Example:
-    ```python
-    criterion = EnergyLoss(reduction='mean')
-    loss = criterion((outputs, responses), targets)
-    ```
-"""
-
-import math
-from typing import Dict, Optional
-
 import torch
-
+import torch.nn as nn
+from typing import Dict, Optional, Union, Tuple
 from .base_loss import BaseLoss
 
 
 class EnergyLoss(BaseLoss):
-    """Computes the average activation energy per unit across network layers.
-    
-    This loss calculates the L2 norm of activations for each layer, normalized by
-    the number of units in that layer and the batch size. It can be used to:
-    - Regularize network activations
-    - Implement energy-based learning objectives
-    - Monitor network activity levels
-    
-    The loss requires model responses (layer activations) to be provided along
-    with the model outputs.
+    """Energy loss that computes statistics during forward pass using hooks."""
 
-    Args:
-        reduction: Specifies the reduction to apply to the output.
-            'none': no reduction will be applied
-            'mean': the sum of the output will be divided by the number of elements
-            'sum': the output will be summed
-    """
-
-    def __init__(self, reduction: str = 'mean') -> None:
-        """Initialize the energy loss function.
-
-        Args:
-            reduction: Reduction method to apply to the loss
-        """
+    def __init__(self, reduction: str = "mean") -> None:
         super().__init__(reduction=reduction)
-        self.requires_responses = True
-        self.norm_factors = None
+        self.requires_responses = False  # We don't need stored responses!
+        self.allow_broadcasting = True
+        self.energy_stats = {}
+        self.hooks = []
+        self.norm_factors = {}
 
-    def calculate_norm_factors(self, responses: Dict[str, torch.Tensor]) -> None:
-        """Calculate normalization factors for each layer.
+    def register_hooks(self, model: nn.Module) -> None:
+        """Register forward hooks on model layers to capture energy statistics."""
+        self.remove_hooks()  # Clean up any existing hooks
 
-        This precomputes normalization factors based on the number of units in
-        each layer to ensure fair comparison between layers of different sizes.
+        for name, module in model.named_modules():
+            if self._should_monitor_layer(module):
+                hook = module.register_forward_hook(
+                    lambda module, input, output, name=name: self._accumulate_energy(
+                        name, output
+                    )
+                )
+                self.hooks.append(hook)
 
-        Args:
-            responses: Dictionary of layer responses
-        """
-        self.norm_factors = torch.ones(len(responses))
-        for i, layer_response in enumerate(responses.values()):
-            if isinstance(layer_response, list):
-                # Only use the most recent batch response
-                layer_response = layer_response[-1]
-            
-            # Calculate total number of units in the layer
-            n_units = math.prod(layer_response.shape[1:])
-            self.norm_factors[i] = n_units
+    def _should_monitor_layer(self, module: nn.Module) -> bool:
+        """Determine which layers to monitor for energy calculation."""
+        # Monitor conv layers, linear layers, but skip activations, pooling, etc.
+        return isinstance(module, (nn.Conv2d, nn.Linear, nn.ConvTranspose2d))
 
-    def compute_layer_energy(
+    def _accumulate_energy(self, layer_name: str, activation: torch.Tensor) -> None:
+        """Accumulate energy statistics for a layer during forward pass."""
+        if activation is None:
+            return
+
+        # Calculate energy (L2 norm) for this batch
+        batch_energy = torch.norm(
+            activation, p=2, dim=tuple(range(1, activation.ndim))
+        )
+
+        # Store or accumulate energy statistics
+        if layer_name not in self.energy_stats:
+            self.energy_stats[layer_name] = {
+                "total_energy": 0.0,
+                "count": 0,
+                "current_batch_energy": batch_energy,
+            }
+            # Calculate normalization factor once
+            n_units = activation.shape[1:].numel()  # All dims except batch
+            self.norm_factors[layer_name] = n_units
+        else:
+            self.energy_stats[layer_name]["current_batch_energy"] = batch_energy
+            self.energy_stats[layer_name]["total_energy"] += batch_energy
+            self.energy_stats[layer_name]["count"] += 1
+
+    def forward(
         self,
-        response: torch.Tensor,
-        norm_factor: float
+        outputs: Union[
+            torch.Tensor, Tuple[torch.Tensor, Dict[str, torch.Tensor]]
+        ] = None,
+        targets: torch.Tensor = None,
     ) -> torch.Tensor:
-        """Compute the normalized energy for a single layer.
 
-        Args:
-            response: Layer activation tensor
-            norm_factor: Normalization factor for the layer
+        loss = self.compute_loss()
 
-        Returns:
-            Normalized layer energy
-        """
-        # Compute the L2 norm and normalize by the precomputed factor
-        return torch.norm(response, p=2) / norm_factor
+        return self.apply_reduction(loss)
 
     def compute_loss(
         self,
-        outputs: torch.Tensor,
-        targets: torch.Tensor,
-        responses: Optional[Dict[str, torch.Tensor]] = None
+        outputs: torch.Tensor = None,
+        targets: torch.Tensor = None,
+        responses: Optional[Dict[str, torch.Tensor]] = None,
     ) -> torch.Tensor:
-        """Compute the energy loss across all layers.
+        """Compute energy loss from accumulated statistics."""
+        if not self.energy_stats:
+            return torch.tensor(0.0, requires_grad=True)
 
-        Args:
-            outputs: Model outputs (unused in energy calculation)
-            targets: Target values (unused in energy calculation)
-            responses: Dictionary of layer responses
+        total_energy = torch.tensor(0.0, requires_grad=True)
+        layer_count = 0
 
-        Returns:
-            Computed energy loss
+        for layer_name, stats in self.energy_stats.items():
+            if "current_batch_energy" in stats:
+                # Get the energy for current batch and normalize
+                batch_energy = stats["current_batch_energy"]
+                norm_factor = self.norm_factors[layer_name]
 
-        Note:
-            This loss only uses the responses and ignores the outputs and targets.
-            They are included in the signature for API compatibility.
-        """
-        if self.norm_factors is None:
-            self.calculate_norm_factors(responses)
+                # Ensure gradients flow through
+                if batch_energy.requires_grad:
+                    normalized_energy = batch_energy.mean() / norm_factor
+                    total_energy = total_energy + normalized_energy
+                    layer_count += 1
 
-        energies_per_layer = torch.zeros(
-            len(responses),
-            device=outputs.device
-        )
+        if layer_count > 0:
+            return total_energy / layer_count
+        else:
+            return torch.tensor(0.0, requires_grad=True)
 
-        for i, layer_response in enumerate(responses.values()):
-            if isinstance(layer_response, list):
-                # Only use the most recent batch response
-                layer_response = layer_response[-1]
+    def remove_hooks(self) -> None:
+        """Clean up registered hooks."""
+        for hook in self.hooks:
+            hook.remove()
+        self.hooks = []
 
-            energies_per_layer[i] = self.compute_layer_energy(
-                layer_response,
-                self.norm_factors[i]
-            )
-
-        # Normalize by batch size before reduction
-        batch_size = next(iter(responses.values()))[-1].shape[0]
-        return energies_per_layer.mean() / batch_size
+    def __del__(self):
+        """Ensure hooks are cleaned up."""
+        self.remove_hooks()

@@ -48,18 +48,18 @@ class MonitorClassifierResponses(pl.Callback):
         torch.cuda.empty_cache()
 
     def on_validation_end(self, trainer, model):
+        if hasattr(model, "get_classifier_dataframe"):
+            df = model.get_classifier_dataframe()
 
-        df = model.get_classifier_dataframe()
+            # if not len(df):
+            #     self.run_one_forward_pass(trainer, model)
+            #     df = model.get_classifier_dataframe()
+            #     self.clear_responses(model)
 
-        # if not len(df):
-        #     self.run_one_forward_pass(trainer, model)
-        #     df = model.get_classifier_dataframe()
-        #     self.clear_responses(model)
+            if len(df):
+                fig, ax = plot_classifier_responses(df)
 
-        if len(df):
-            fig, ax = plot_classifier_responses(df)
-
-            trainer.logger.experiment.log(
-                {"validation/classifier_response": wandb.Image(fig)}
-            )
+                trainer.logger.experiment.log(
+                    {"validation/classifier_response": wandb.Image(fig)}
+                )
         return None

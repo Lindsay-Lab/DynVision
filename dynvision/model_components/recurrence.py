@@ -151,6 +151,7 @@ class DepthwiseSeparableConnection(RecurrenceBase):
         self,
         in_channels: int,
         kernel_size: int,
+        out_channels: Optional[int] = None,
         bias: bool = False,
         max_weight_init: float = 0.05,
         parametrization: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
@@ -170,6 +171,7 @@ class DepthwiseSeparableConnection(RecurrenceBase):
 
         # Store initialization arguments as attributes
         self.in_channels = in_channels
+        self.out_channels = in_channels if out_channels is None else out_channels
         self.kernel_size = kernel_size
         self.bias = bias
         self.parametrization = parametrization
@@ -190,7 +192,7 @@ class DepthwiseSeparableConnection(RecurrenceBase):
 
         self.pointwise_conv = nn.Conv2d(
             in_channels=self.in_channels,
-            out_channels=self.in_channels,
+            out_channels=self.out_channels,
             kernel_size=1,
             stride=1,
             padding=0,
@@ -233,6 +235,34 @@ class PointDepthwiseConnection(DepthwiseSeparableConnection):
     Implements a point-depthwise convolution connection.
     """
 
+    def _define_architecture(self) -> None:
+        """Define the architecture of the depthwise separable connection."""
+        self.pointwise_conv = nn.Conv2d(
+            in_channels=self.in_channels,
+            out_channels=self.out_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+            bias=self.bias,
+        )
+        self.depthwise_conv = nn.Conv2d(
+            in_channels=self.out_channels,
+            out_channels=self.out_channels,
+            kernel_size=self.kernel_size,
+            stride=1,
+            padding=self.kernel_size // 2,
+            groups=self.out_channels,
+            bias=self.bias,
+        )
+
+        if self.parametrization is not None:
+            self.depthwise_conv = apply_parametrization(
+                self.depthwise_conv, self.parametrization
+            )
+            self.pointwise_conv = apply_parametrization(
+                self.pointwise_conv, self.parametrization
+            )
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Forward pass for the point-depthwise connection.
@@ -262,6 +292,7 @@ class FullConnection(RecurrenceBase):
         self,
         in_channels: int,
         kernel_size: int,
+        out_channels: Optional[int] = None,
         bias: bool = False,
         max_weight_init: float = 0.05,
         parametrization: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
@@ -281,6 +312,7 @@ class FullConnection(RecurrenceBase):
 
         # Store initialization arguments as attributes
         self.in_channels = in_channels
+        self.out_channels = in_channels if out_channels is None else out_channels
         self.kernel_size = kernel_size
         self.bias = bias
         self.parametrization = parametrization
@@ -291,7 +323,7 @@ class FullConnection(RecurrenceBase):
         """Define the architecture of the full connection."""
         self.conv = nn.Conv2d(
             in_channels=self.in_channels,
-            out_channels=self.in_channels,
+            out_channels=self.out_channels,
             kernel_size=self.kernel_size,
             stride=1,
             padding=self.kernel_size // 2,
@@ -446,7 +478,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         in_channels: int,
         out_channels: int,
         kernel_size: int,
-        stride: int = 1,
+        stride: Optional[int] = None,
         mid_channels: Optional[int] = None,
         padding: Optional[int] = None,
         bias: bool = True,
@@ -454,6 +486,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         dim_x: Optional[int] = None,
         dt: float = 1,  # ms
         tau: float = 1,  # ms
+        recurrence_target: str = "output",
         recurrence_type: str = "self",
         recurrence_delay: float = 0,  # ms
         recurrence_influence: Union[Callable, str] = "additive",
@@ -471,10 +504,12 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self.mid_channels = mid_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.stride = stride
         self.padding = padding
         self.bias = bias
         self.parametrization = parametrization
+        if stride is None:
+            stride = kernel_size // 2
+        self.stride = stride
 
         # Store spatial dimensions
         self.dim_y = dim_y
@@ -485,6 +520,8 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self.tau = tau
         self.recurrence_type = recurrence_type
         self.recurrence_delay = recurrence_delay
+        self.recurrence_influence = recurrence_influence
+        self.recurrence_target = recurrence_target
         self.fixed_self_weight = fixed_self_weight
         self.max_weight_init = max_weight_init
         self.feedforward_only = str_to_bool(feedforward_only)
@@ -567,13 +604,21 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
 
     def _setup_recurrence(self) -> None:
         """Set up the recurrent connection based on specified type."""
+        if self.recurrence_target == "input":
+            out_channels = self.in_channels
+        elif self.recurrence_target == "output":
+            out_channels = self.out_channels
+        else:
+            raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
+
         recurrence_params = dict(
             kernel_size=self.kernel_size,
-            bias=False,
+            bias=self.bias,
             parametrization=self.parametrization,
             max_weight_init=self.max_weight_init,
             fixed_weight=self.fixed_self_weight,
             in_channels=self.out_channels,
+            out_channels=out_channels,
             dim_y=self.dim_y // self.stride,
             dim_x=self.dim_x // self.stride,
         )
@@ -622,12 +667,11 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         if hasattr(self.recurrence, "_init_parameters"):
             self.recurrence._init_parameters()
 
-    def forward(
+    def forward_recurrence(
         self,
         x: Optional[torch.Tensor] = None,
         h: Optional[torch.Tensor] = None,
-        **kwargs,
-    ) -> Optional[torch.Tensor]:
+    ):
         # Get previous activation for recurrent input
         if h is None:  # passed hidden state takes precedence
             h = self.get_hidden_state(-1 * self.recurrence_delay_i)
@@ -638,23 +682,49 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         else:
             h = self.recurrence(h)
 
-        # Response to feedforward input
-        if x is not None:
-            x = self.conv(x)
-
-        # Combine responses
-        if x is None and h is None:
-            out = None
-            return out
-
+        # Mixing-in recurrent influence
+        if h is None:
+            pass
         elif x is None:
-            out = h
-        elif h is None:
-            out = x
+            x = h
         else:
-            out = self.recurrence_influence(x, h)
+            x = self.recurrence_influence(x, h)
 
-        return out
+        return x
+
+    def forward_feedforward(
+        self,
+        x: Optional[torch.Tensor] = None,
+    ):
+        if x is None:
+            return None
+        else:
+            x = self.conv(x)
+        return x
+
+    def forward(
+        self,
+        x: Optional[torch.Tensor] = None,
+        h: Optional[torch.Tensor] = None,
+        **kwargs,
+    ) -> Optional[torch.Tensor]:
+
+        if self.recurrence_target == "input":
+            # Adding recurrence to layer input
+            x = self.forward_recurrence(x, h)
+            # Feedforward combined activity
+            x = self.forward_feedforward(x)
+
+        elif self.recurrence_target == "output":
+            # Feedforward input activity
+            x = self.forward_feedforward(x)
+            # Adding recurrence to layer output
+            x = self.forward_recurrence(x, h)
+
+        else:
+            raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
+
+        return x
 
 
 if __name__ == "__main__":

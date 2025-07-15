@@ -60,5 +60,5 @@ experiment:
 # Training parameters
 loss: 
   - CrossEntropyLoss  # CrossEntropySpatialCorrelationLoss 
-  # - EnergyLoss
+  - EnergyLoss
 

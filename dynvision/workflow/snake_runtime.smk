@@ -127,13 +127,14 @@ rule train_model:
         {params.execution_cmd} \
             --config_path {params.config_path:q} \
             --input_model_state {input.model_state:q} \
+            --output_model_state {output.model_state:q} \
             --model_name {wildcards.model_name} \
             --dataset_link {input.dataset_link:q} \
             --dataset_train {input.dataset_train:q} \
             --dataset_val {input.dataset_val:q} \
             --data_name {wildcards.data_name} \
             --data_group {params.data_group} \
-            --output_model_state {output.model_state:q} \
+            --seed {wildcards.seed} \
             --resolution {params.resolution} \
             --normalize {params.normalize:q} \
             {params.model_arguments} 
@@ -198,13 +199,14 @@ rule test_model:
         {params.execution_cmd} \
             --config_path {params.config_path:q} \
             --input_model_state {input.model_state:q} \
+            --output_results {output.results:q} \
+            --output_responses {output.responses:q} \
             --model_name {wildcards.model_name} \
             --data_name {wildcards.data_name} \
             --dataset {input.dataset:q} \
             --data_loader {wildcards.data_loader} \
-            --output_results {output.results:q} \
-            --output_responses {output.responses:q} \
             --data_group {wildcards.data_group} \
+            --seed {wildcards.seed} \
             --normalize {params.normalize:q} \
             --enable_progress_bar {params.enable_progress_bar} \
             {params.model_arguments} \

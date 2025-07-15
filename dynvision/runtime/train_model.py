@@ -268,21 +268,21 @@ class CallbackManager:
         """Set up training callbacks based on configuration."""
         callbacks = []
 
-        # # Add model-specific callbacks
-        # if self.config.model.n_timesteps > 1:
-        #     callbacks.append(custom_callbacks.MonitorClassifierResponses())
+        # Add model-specific callbacks
+        if self.config.model.n_timesteps > 1:
+            callbacks.append(custom_callbacks.MonitorClassifierResponses())
 
-        # callbacks.append(custom_callbacks.MonitorWeightDistributions())
+        callbacks.append(custom_callbacks.MonitorWeightDistributions())
 
         # Setup checkpointing
         checkpoint_path = self._setup_checkpointing(callbacks)
 
-        # # Add early stopping if configured
-        # early_stopping_kwargs = (
-        #     self.config.trainer.get_early_stopping_callback_kwargs()
-        # )
-        # if early_stopping_kwargs:
-        #     callbacks.append(EarlyStoppingWithMin(**early_stopping_kwargs))
+        # Add early stopping if configured
+        early_stopping_kwargs = (
+            self.config.trainer.get_early_stopping_callback_kwargs()
+        )
+        if early_stopping_kwargs:
+            callbacks.append(EarlyStoppingWithMin(**early_stopping_kwargs))
 
         # Add learning rate monitor
         callbacks.append(pl.callbacks.LearningRateMonitor(logging_interval="epoch"))
@@ -571,7 +571,9 @@ class TrainingOrchestrator:
                 # Train model using DataModule (handles distributed setup properly)
                 logger.info("Starting training...")
                 trainer.fit(
-                    model, datamodule=self.datamodule, ckpt_path=existing_checkpoint
+                    model,
+                    datamodule=self.datamodule,
+                    ckpt_path=existing_checkpoint,
                 )
 
                 # Save trained model

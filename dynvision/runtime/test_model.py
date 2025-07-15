@@ -25,6 +25,7 @@ from typing import Any, Dict, Optional, Tuple
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
+import wandb
 
 from dynvision import models
 from dynvision.data.dataloader import (
@@ -294,6 +295,7 @@ class TestingOrchestrator:
         if unknown:
             logger.debug(f"Filtered unknown trainer kwargs: {list(unknown.keys())}")
 
+        wandb.init()  # hack to log histograms
         return pl.Trainer(**trainer_kwargs)
 
     def save_results(self, model: pl.LightningModule) -> None:

@@ -9,7 +9,9 @@ dt: 2  # ms
 tau: 8  # ms
 t_recurrence: 6  # ms
 t_feedforward: 10  # ms
+recurrence_type: 'none'
 recurrence_influence: 'additive'  # 'additive' or 'multiplicative'
+dynamics_solver: "euler" 
 init_with_pretrained: False
 store_train_responses: 0 # n_samples
 store_val_responses: 0  # n_samples (currently no in use)
@@ -42,7 +44,7 @@ clip_gradients: False
 gradient_clip_algorithm: "norm"  # "norm" or "value"
 gradient_clip_val: 1.0  # global clip value
 deterministic: False  # Consider setting to true if still unstable
-use_distributed: False
+devices: 1
 
 # Test run
 logger: False

@@ -49,7 +49,7 @@ set-resources:
     slurm_extra: "'--gres=gpu:1'"
 
   train_model:
-    mem: 32000 # use 32GB of memory
+    mem: 46000 # use 32GB of memory
     runtime: 360 # run for 24 hours
     gpu: 1 # use one GPU
     cpu: 32
@@ -58,7 +58,7 @@ set-resources:
     slurm_extra: "'--gres=gpu:1'"
 
   # train_model: # distributed
-  #   mem: 32000          # 32GB memory
+  #   mem: 46000          # 32GB memory
   #   runtime: 360        # 6 hours
   #   cpus_per_gpu: 16   # 32 CPU cores
   #   gpus_per_node: 4    # Use 4 GPUs per node

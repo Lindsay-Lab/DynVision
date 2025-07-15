@@ -152,8 +152,8 @@ class DataParams(BaseParams):
         default=None, ge=1, description="Number of batches to prefetch per worker"
     )
 
-    order: OrderOption = Field(
-        default=OrderOption.RANDOM, description="Data traversal order"
+    order: OrderOption | Literal["RANDOM", "QUASI_RANDOM", "SEQUENTIAL"] = Field(
+        default=OrderOption.QUASI_RANDOM, description="Data traversal order"
     )
 
     os_cache: Optional[bool] = Field(
@@ -357,11 +357,7 @@ class DataParams(BaseParams):
     def validate_order(cls, v: Union[OrderOption, str]) -> OrderOption:
         """Validate and convert order specification."""
         if isinstance(v, str):
-            try:
-                return OrderOption(v.lower())
-            except ValueError:
-                valid_orders = [opt.value for opt in OrderOption]
-                raise ValueError(f"order must be one of {valid_orders}, got {v}")
+            return getattr(OrderOption, v)
         return v
 
     @model_validator(mode="after")

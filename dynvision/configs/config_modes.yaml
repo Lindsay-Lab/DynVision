@@ -1,5 +1,5 @@
 # Local Settings
-use_local_mode: False
+use_local_mode: "auto"
 local:
   enable_progress_bar: True
   use_debug_mode: True
@@ -19,7 +19,7 @@ debug:
   enable_progress_bar: True
 
 # Distributed Settings
-use_distributed_mode: True
+use_distributed_mode: False
 distributed:
   use_distributed: True
   strategy: "ddp"  # Use standard DDP for SLURM compatibility
@@ -30,8 +30,10 @@ distributed:
   accelerator: "gpu"  # Explicitly set GPU accelerator
   accumulate_grad_batches: 2
   batch_size: 256
-  num_workers: 16
+  num_workers: 8
   persistent_workers: True
+  order: "RANDOM"
+  os_cache: True
   # Advanced DDP settings
   strategy_kwargs:
     find_unused_parameters: True  # Set to True if your model has unused parameters
@@ -40,12 +42,14 @@ distributed:
     static_graph: True
 
 # Large Dataset Settings
-use_large_dataset_mode: False
+use_large_dataset_mode: "auto"
 large_dataset:
-  use_ffcv: True
   batch_size: 32
+  use_ffcv: True
+  order: "QUASI_RANDOM"
   persistent_workers: False
   num_workers: 4
+  precision: "bf16-mixed"
   pin_memory: False
   os_cache: False
   chunksize: 10000

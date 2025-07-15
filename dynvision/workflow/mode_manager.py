@@ -125,6 +125,7 @@ class ConfigModeManager:
 
         # Known large datasets
         large_datasets = ["imagenet", "coco", "openimages"]
-        if any(large_name in data_name for large_name in large_datasets):
-            return True
+        for large_name in large_datasets:
+            if large_name in data_name:
+                return True
         return False
