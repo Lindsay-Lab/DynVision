@@ -81,7 +81,7 @@ class AnalyzableModel(LightningBase):
         
         # Convert to DataFrame for analysis
         if batch_idx % 100 == 0:
-            df = self.get_classifier_dataframe()
+            df = self.get_dataframe()
             self.log_table("responses", dataframe=df)
 ```
 

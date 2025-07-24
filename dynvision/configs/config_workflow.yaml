@@ -12,22 +12,23 @@ model_name:
   # - ResNet44
 seed: "0016"
 model_args:
-  # tsteps: 20
-  # tau: [5, 8, 11, 14, 17]
+  tsteps: 50
+  rctype: 'full'
+  dt: 2
+  tau: 9
+  # tau: [7, 9, 11, 13]
+  tff: [0, 10]
+  trc: 6
+  # trc: [4, 6, 8, 10]
   # trc: [5, 10, 15, 20]
   # tff: 25
-  # dt: 2
-  # tau: 8
-  # trc: 6
-  # tff: 10
-  rctype: 'full'
   # rctype: ['self', 'full', 'pointdepthwise', 'depthpointwise', 'local', 'localdepthwise']
   # rctype: ['local'] # ['localdepthwise'] 
   # skip: 'true'
   # feedback: 'true'
   # supralin: [1.000000001, 1.0000001, 1.00001, 1.001, 1.1]
   # taugrad: 'true'
-  # lossrt: 20
+  # lossrt: [0, 20, 40, 60, 80, 90, 98]
   # inadapt: 0.9
   # inadapt: [0.3, 0.6, 0.9]
 
@@ -35,8 +36,8 @@ init_with_pretrained: False
 
 # data_name: imagenet
 # data_name: tinyimagenet
-data_name: cifar100
-# data_name: cifar10
+# data_name: cifar100
+data_name: cifar10
 # data_name: mnist
 # data_name: snakenet
 
@@ -44,14 +45,14 @@ data_name: cifar100
 # data_group: "imagenette"  # imagenet
 # data_group: "89"  # mnist
 # data_group: "mollusks"  # tinyimagenet
-data_group: "invertebrates"  # cifar100
-# data_group: "all"
+# data_group: "invertebrates"  # cifar100
+data_group: "all"
 
 experiment: 
   - response
   - responseffonly
   - duration
-  # - stability
+  - stability
   - contrast
   - interval
   # - noiseadaption

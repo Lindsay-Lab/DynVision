@@ -10,7 +10,7 @@ tau: 8  # ms
 t_recurrence: 6  # ms
 t_feedforward: 10  # ms
 recurrence_type: 'none'
-recurrence_influence: 'additive'  # 'additive' or 'multiplicative'
+integration_strategy: 'additive'  # 'additive' or 'multiplicative'
 dynamics_solver: "euler" 
 init_with_pretrained: False
 store_train_responses: 0 # n_samples
@@ -28,7 +28,7 @@ prefetch_factor: 1
 seed: "0000"
 train_ratio: 0.8
 epochs: 200
-batch_size: 257
+batch_size: 256
 check_val_every_n_epoch: 10
 log_every_n_steps: 20
 accumulate_grad_batches: 4
@@ -57,7 +57,8 @@ loss_configs:
     weight: 1
     ignore_index: -1
   EnergyLoss:
-    weight: 100
+    weight: 0.02
+    p: 1
 loss_reaction_time: 0  # ms (+ residual time)
 non_label_index: -1
 

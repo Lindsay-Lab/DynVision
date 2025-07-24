@@ -103,7 +103,8 @@ def plot_classifier_responses(
     top_units = get_top_units(df, n_units)
 
     # Filter data for top units
-    plot_df = df[df.class_index.isin(top_units)].copy()
+    plot_df = df[df.label_set == label_set]
+    plot_df = plot_df[plot_df.class_index.isin(top_units)].copy()
 
     # Create figure and prepare colors
     fig, ax = plt.subplots(figsize=figsize)

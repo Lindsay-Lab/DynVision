@@ -190,8 +190,8 @@ Key parameters when configuring recurrence include:
 - `dt`: Time step for simulation (in milliseconds)
 - `tau`: Time constant for neural dynamics (in milliseconds)
 - `t_recurrence`: Delay for recurrent connections (in milliseconds)
-- `recurrence_delay`: Number of time steps to delay recurrent input
-- `recurrence_influence`: How recurrent input is combined with feedforward input ("additive" or "multiplicative")
+- `delay_recurrence`: Number of time steps to delay recurrent input
+- `integration_strategy`: How recurrent input is combined with feedforward input ("additive" or "multiplicative")
 
 ## Advanced Usage
 

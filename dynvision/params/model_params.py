@@ -39,11 +39,13 @@ class ModelParams(BaseParams):
     dt: float = Field(default=1.0, description="Integration time step (ms)", gt=0.0)
     tau: float = Field(default=10.0, description="Neural time constant (ms)", gt=0.0)
     t_feedforward: float = Field(
-        default=1.0, description="Feedforward delay (ms)", ge=0.0
+        default=0.0, description="Feedforward delay (ms)", ge=0.0
     )
     t_recurrence: float = Field(
-        default=1.0, description="Recurrent delay (ms)", ge=0.0
+        default=1.0, description="Recurrent delay (ms)", ge=1.0
     )
+    t_feedback: float = Field(default=1.0, description="Feedback delay (ms)", ge=1.0)
+    t_skip: float = Field(default=1.0, description="Skip delay (ms)", ge=1.0)
     dynamics_solver: Literal["euler", "rk4"] = Field(
         default="euler", description="Dynamical systems solver"
     )
@@ -166,10 +168,10 @@ class ModelParams(BaseParams):
                 "rctype": "recurrence_type",
                 "trc": "t_recurrence",
                 "tff": "t_feedforward",
+                "tfb": "t_feedback",
+                "tsk": "t_skip",
                 "solver": "dynamics_solver",
                 "lossrt": "loss_reaction_time",
-                "skip": "skip",
-                "feedback": "feedback",
                 "supralin": "supralinearity",
                 "classes": "n_classes",
                 "steps": "n_timesteps",
@@ -351,9 +353,9 @@ class ModelParams(BaseParams):
             )
 
         # Delay constraints
-        if self.t_feedforward < 0 or self.t_recurrence < 0:
+        if self.t_feedforward < 0 or self.t_recurrence < 1:
             raise DynVisionValidationError(
-                "Delays (t_feedforward, t_recurrence) must be non-negative"
+                "t_feedforward must be non-negative, t_recurrence must be at least 1."
             )
 
         # Check if delays are exact multiples of dt (informational)
@@ -414,6 +416,8 @@ class ModelParams(BaseParams):
     @property
     def criterion_params(self) -> List[Tuple[str, Dict[str, Any]]]:
         """Get the parameters for the criterion used in the model."""
+        if not isinstance(self.loss, list):
+            self.loss = [self.loss]
         return [(l, self.loss_configs[l]) for l in self.loss]
 
     def get_timing_summary(self) -> Dict[str, Any]:
@@ -461,6 +465,8 @@ class ModelParams(BaseParams):
             "tau": self.tau,
             "t_feedforward": self.t_feedforward,
             "t_recurrence": self.t_recurrence,
+            "t_feedback": self.t_feedback,
+            "t_skip": self.t_skip,
             "dynamics_solver": self.dynamics_solver,
             "recurrence_type": self.recurrence_type,
             "skip": self.skip,

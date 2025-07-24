@@ -10,6 +10,7 @@ from dynvision.model_components.topographic_recurrence import (
     LocalSeparableConnection,
 )
 from dynvision.model_components.base import DtypeDeviceCoordinatorMixin
+from dynvision.model_components.integration_strategy import setup_integration_strategy
 from dynvision.utils import apply_parametrization, str_to_bool
 from pytorch_lightning import LightningModule
 import logging
@@ -76,16 +77,17 @@ class RecurrenceBase(LightningModule, DtypeDeviceCoordinatorMixin):
 
 class ForwardRecurrenceBase(RecurrenceBase):
     """
-    Base class for recurrence types that use convolutions.
-    Provides common validation for convolution-specific parameters.
+    Base class for combined forward and recurrence operations.
     """
 
     def reset(self) -> None:
         self.hidden_states: Deque[torch.Tensor] = deque(maxlen=self.n_hidden_states)
 
-    def get_hidden_state(self, i: Optional[int] = None) -> Optional[torch.Tensor]:
+    def get_hidden_state(self, delay: Optional[int] = None) -> Optional[torch.Tensor]:
         """
         Get the hidden state at a specific index.
+        The index is the delay in time steps.
+        Index 0 is the newest entry, index 1 is the previous entry.
 
         Args:
             i (Optional[int]): Index of the hidden state. Default is None.
@@ -93,22 +95,41 @@ class ForwardRecurrenceBase(RecurrenceBase):
         Returns:
             Optional[torch.Tensor]: Hidden state tensor.
         """
-        if i is None:
+        if delay is None:
             return self.hidden_states
-        elif i >= 0:
-            i -= self.n_hidden_states
+        elif delay >= 0:
+            i = -1 * (delay + 1)
+        else:
+            i = delay
 
         if abs(i) > len(self.hidden_states):
             return None
         else:
             return self.hidden_states[i]
 
-    def set_hidden_state(self, h: torch.Tensor, i: Optional[int] = None) -> None:
-        """Fast reference storage - only coordinate if actually needed."""
-        if i is None:
-            self.hidden_states.append(h)
+    def get_oldest_hidden_state(self) -> Optional[torch.Tensor]:
+        if len(self.hidden_states):
+            return self.hidden_states[0]
         else:
-            self.hidden_states[i] = h
+            return None
+
+    def get_newest_hidden_state(self) -> Optional[torch.Tensor]:
+        if len(self.hidden_states):
+            return self.hidden_states[-1]
+        else:
+            return None
+
+    def set_hidden_state(self, h: torch.Tensor, delay: Optional[int] = None) -> None:
+        """Fast reference storage - only coordinate if actually needed."""
+        if delay is None:
+            self.hidden_states.append(h)
+            return
+        elif delay >= 0:
+            i = -1 * (delay + 1)
+        else:
+            i = delay
+
+        self.hidden_states[i] = h
 
     def sync_persistent_state(self) -> None:
         """Only sync if there's actually a mismatch."""
@@ -208,15 +229,6 @@ class DepthwiseSeparableConnection(RecurrenceBase):
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for the depthwise separable connection.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            torch.Tensor: Output tensor.
-        """
         h = self.depthwise_conv(x)
         h = self.pointwise_conv(h)
         return h
@@ -264,15 +276,6 @@ class PointDepthwiseConnection(DepthwiseSeparableConnection):
             )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for the point-depthwise connection.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            torch.Tensor: Output tensor.
-        """
         h = self.pointwise_conv(x)
         h = self.depthwise_conv(h)
         return h
@@ -333,15 +336,6 @@ class FullConnection(RecurrenceBase):
             self.conv = apply_parametrization(self.conv, self.parametrization)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for the full connection.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            torch.Tensor: Output tensor.
-        """
         return self.conv(x)
 
 
@@ -385,15 +379,6 @@ class SelfConnection(RecurrenceBase):
             self.bias = nn.Parameter(torch.Tensor([0]), requires_grad=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass for the self-connection.
-
-        Args:
-            x (torch.Tensor): Input tensor.
-
-        Returns:
-            torch.Tensor: Output tensor.
-        """
         if hasattr(self, "bias"):
             return x * self.weight + self.bias
         return x * self.weight
@@ -445,15 +430,6 @@ class InputAdaption(LightningModule):
         self.hidden_state = None
 
     def forward(self, x: Optional[torch.Tensor] = None) -> Optional[torch.Tensor]:
-        """
-        Forward pass for the input adaptation.
-
-        Args:
-            x (Optional[torch.Tensor]): Input tensor.
-
-        Returns:
-            Optional[torch.Tensor]: Output tensor.
-        """
         if self.hidden_state is None:
             self.hidden_state = x
             return x
@@ -488,8 +464,8 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         tau: float = 1,  # ms
         recurrence_target: str = "output",
         recurrence_type: str = "self",
-        recurrence_delay: float = 0,  # ms
-        recurrence_influence: Union[Callable, str] = "additive",
+        t_recurrence: float = 0,  # ms
+        integration_strategy: Union[Callable, str] = "additive",
         history_length: Optional[int] = None,  # ms
         fixed_self_weight: Optional[float] = None,
         max_weight_init: float = 0.001,
@@ -519,15 +495,12 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self.dt = dt
         self.tau = tau
         self.recurrence_type = recurrence_type
-        self.recurrence_delay = recurrence_delay
-        self.recurrence_influence = recurrence_influence
+        self.t_recurrence = t_recurrence
+        self.integration_strategy = integration_strategy
         self.recurrence_target = recurrence_target
         self.fixed_self_weight = fixed_self_weight
         self.max_weight_init = max_weight_init
         self.feedforward_only = str_to_bool(feedforward_only)
-
-        # Configure recurrence influence
-        self._setup_recurrence_influence(recurrence_influence)
 
         # Configure hidden state memory
         self._setup_hidden_state_memory(history_length)
@@ -536,30 +509,14 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self._define_architecture()
         self.reset()
 
-    def _additive_influence(self, x, h):
-        return x + h
-
-    def _multiplicative_influence(self, x, h):
-        return x * (1 + torch.tanh(h))
-
-    def _setup_recurrence_influence(self, influence: Union[Callable, str]) -> None:
-
-        if isinstance(influence, str):
-            if influence == "additive":
-                self.recurrence_influence = self._additive_influence
-            elif influence == "multiplicative":
-                self.recurrence_influence = self._multiplicative_influence
-            else:
-                raise ValueError(f"Invalid recurrence influence: {influence}")
-        else:
-            self.recurrence_influence = influence
-
-    def _setup_hidden_state_memory(self, history_length: Optional[float]) -> None:
+    def _setup_hidden_state_memory(
+        self, history_length: Optional[float] = None
+    ) -> None:
         self.history_length = (
-            self.recurrence_delay if history_length is None else history_length
+            self.t_recurrence if history_length is None else history_length
         )
-        self.n_hidden_states = int(self.history_length / self.dt) + 1
-        self.recurrence_delay_i = int(self.recurrence_delay / self.dt)
+        self.n_hidden_states = int(self.history_length / self.dt)
+        self.delay_recurrence = int(self.t_recurrence / self.dt)
 
     def _define_architecture(self) -> None:
         # Define feedforward convolution
@@ -585,18 +542,16 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
                 **conv_kwargs,
             )
         else:
-            self.conv = nn.Sequential(
-                nn.Conv2d(
-                    in_channels=self.in_channels,
-                    out_channels=self.mid_channels,
-                    **conv_kwargs,
-                ),
-                nn.ReLU(inplace=True),
-                nn.Conv2d(
-                    in_channels=self.mid_channels,
-                    out_channels=self.out_channels,
-                    **conv_kwargs,
-                ),
+            self.conv = nn.Conv2d(
+                in_channels=self.in_channels,
+                out_channels=self.mid_channels,
+                **conv_kwargs,
+            )
+            self.nonlin = nn.ReLU(inplace=False)
+            self.conv2 = nn.Conv2d(
+                in_channels=self.mid_channels,
+                out_channels=self.out_channels,
+                **conv_kwargs,
             )
 
         if self.parametrization is not None:
@@ -634,7 +589,6 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             None: None,
             "none": None,
         }
-
         if self.recurrence_type.lower() not in recurrence_types:
             raise ValueError(f"Invalid recurrence type: {self.recurrence_type}")
 
@@ -644,6 +598,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         else:
             recurrence_class = recurrence_types[self.recurrence_type.lower()]
             self.recurrence = recurrence_class(**recurrence_params)
+
+        # Configure recurrence influence
+        self.integrate_signal = setup_integration_strategy(self.integration_strategy)
 
     def _init_parameters(self) -> None:
         def init_conv_layer(conv_layer):
@@ -672,9 +629,18 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         x: Optional[torch.Tensor] = None,
         h: Optional[torch.Tensor] = None,
     ):
+        # Setup up optional upsampling
+        if (
+            x is not None
+            and h is not None
+            and not self.upsample
+            and not x.shape[-2:] == h.shape[-2:]
+        ):
+            self.upsample = nn.Upsample(size=x.shape[-2:])
+
         # Get previous activation for recurrent input
         if h is None:  # passed hidden state takes precedence
-            h = self.get_hidden_state(-1 * self.recurrence_delay_i)
+            h = self.get_hidden_state(self.delay_recurrence)
 
         # Response to recurrent input
         if h is None or self.recurrence is None:
@@ -688,7 +654,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         elif x is None:
             x = h
         else:
-            x = self.recurrence_influence(x, h)
+            if bool(self.upsample):
+                h = self.upsample(h)
+            x = self.integrate_signal(x, h)
 
         return x
 
@@ -700,6 +668,16 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             return None
         else:
             x = self.conv(x)
+        return x
+
+    def forward_feedforward2(
+        self,
+        x: Optional[torch.Tensor] = None,
+    ):
+        if x is None:
+            return None
+        else:
+            x = self.conv2(x)
         return x
 
     def forward(
@@ -714,12 +692,27 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             x = self.forward_recurrence(x, h)
             # Feedforward combined activity
             x = self.forward_feedforward(x)
+            # Feedforward2 combined activity
+            if self.mid_channels:
+                x = self.forward_feedforward2(x)
 
         elif self.recurrence_target == "output":
             # Feedforward input activity
             x = self.forward_feedforward(x)
+            # Feedforward2 combined activity
+            if self.mid_channels:
+                x = self.forward_feedforward2(x)
             # Adding recurrence to layer output
             x = self.forward_recurrence(x, h)
+
+        elif self.recurrence_target == "middle":
+            # Feedforward input activity
+            x = self.forward_feedforward(x)
+            # Adding recurrence to layer output
+            x = self.forward_recurrence(x, h)
+            # Feedforward2 combined activity
+            if self.mid_channels:
+                x = self.forward_feedforward2(x)
 
         else:
             raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")

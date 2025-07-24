@@ -74,8 +74,10 @@ if [ "$USE_DISTRIBUTED" = "true" ]; then
     echo "Configuring NCCL for distributed training..."
     export NCCL_DEBUG=INFO
     export NCCL_TIMEOUT=1800
+    export NCCL_BLOCKING_WAIT=0
     export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
     export PYTHONFAULTHANDLER=1
+    export PYTHONUNBUFFERED=1
     export CUDA_LAUNCH_BLOCKING=0
     
     # Try to detect network interface automatically

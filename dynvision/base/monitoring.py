@@ -180,7 +180,7 @@ class Monitoring:
 
         Args:
             section (str, optional): Section name for logging. Defaults to "params".
-            metrics (List[str], optional): List of metrics to log. Defaults to ["full", "norm"].
+            metrics (List[str], optional): List of metrics to log. Defaults to ["hist", "norm"].
             log_only_trainable (bool, optional): Whether to log only trainable parameters. Defaults to False.
         """
         for name, param in self.named_parameters():
@@ -202,8 +202,6 @@ class Monitoring:
                                     param.detach().cpu().flatten()
                                 ),
                             }
-                            # param.detach().cpu().flatten(),
-                            # sync_dist=True,
                         )
                     else:
                         logger.debug(f"Metric {metric} not available!")

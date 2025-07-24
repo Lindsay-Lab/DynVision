@@ -469,15 +469,10 @@ class DataBuffer:
         if not isinstance(data[0], torch.Tensor):
             raise ValueError("Buffer does not contain tensor data")
 
-        # Filter valid tensors
         valid_tensors = [item for item in data if isinstance(item, torch.Tensor)]
         if not valid_tensors:
             raise ValueError("No valid tensors in buffer")
 
-        # torch.cat is generally efficient, but performance depends on:
-        # - Number of tensors to concatenate
-        # - Size of each tensor
-        # - Target device (GPU concat is faster than CPU)
         return torch.cat(valid_tensors, dim=dim)
 
     def to_dict(self, dim: int = 0) -> Dict[str, torch.Tensor]:
@@ -519,7 +514,7 @@ class DataBuffer:
             if tensors:
                 try:
                     # This can be expensive for large dicts with many keys
-                    result[key] = torch.cat(tensors, dim=0)
+                    result[key] = torch.cat(tensors, dim=dim)
                 except RuntimeError as e:
                     logger.warning(
                         f"Failed to concatenate tensors for key '{key}': {e}"
@@ -616,7 +611,7 @@ class StorageBuffer:
         self.storage.store_records(guess_indices, label_indices, image_indices)
 
         # In on_validation_end():
-        df = self.storage.get_classifier_dataframe()
+        df = self.storage.get_dataframe()
         self.storage.clear_all()
     """
 
@@ -684,7 +679,7 @@ class StorageBuffer:
 
         return self.records.append(record)
 
-    def get_classifier_dataframe(self, layer_name: str = "classifier") -> pd.DataFrame:
+    def get_dataframe(self, layer_name: str = "classifier") -> pd.DataFrame:
         """
         Generate classifier DataFrame efficiently.
 
@@ -695,7 +690,6 @@ class StorageBuffer:
         """
 
         try:
-            t0 = time.perf_counter()
             # Quick check for zero-capacity buffers
             if self.responses.max_size == 0 or self.records.max_size == 0:
                 return pd.DataFrame()
@@ -709,28 +703,17 @@ class StorageBuffer:
                 )
                 return pd.DataFrame()
 
-            t1 = time.perf_counter()
             # Get raw data from buffers
             response_data = self.responses.get_all()
             record_data = self.records.get_all()
-            t2 = time.perf_counter()
-            logger.info("get_classifier_dataframe: buffer fetch took %.4fs", t2 - t1)
 
             if not response_data or not record_data:
                 logger.warning("No data stored in buffers")
-                logger.info(
-                    "get_classifier_dataframe: empty buffers (%.4fs)",
-                    time.perf_counter() - t0,
-                )
                 return pd.DataFrame()
 
             # Ensure matching lengths between responses and records
             min_length = min(len(response_data), len(record_data))
             if min_length == 0:
-                logger.info(
-                    "get_classifier_dataframe: min_length=0 (%.4fs)",
-                    time.perf_counter() - t0,
-                )
                 return pd.DataFrame()
 
             # Take matching portion from both buffers to ensure alignment
@@ -746,121 +729,72 @@ class StorageBuffer:
                 logger.warning(
                     f"Layer '{layer_name}' not found. Available: {available_layers}"
                 )
-                logger.info(
-                    "get_classifier_dataframe: missing layer (%.4fs)",
-                    time.perf_counter() - t0,
-                )
                 return pd.DataFrame()
 
-            t3 = time.perf_counter()
             # Extract and concatenate responses
             response_tensors = [item[layer_name] for item in response_data]
-            t3a = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: response extraction took %.4fs", t3a - t3
-            )
-            classifier_responses = torch.cat(response_tensors, dim=0)
-            t3b = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: response concat took %.4fs", t3b - t3a
-            )
+            layer_responses = torch.cat(response_tensors, dim=0)
 
             # Extract and concatenate records
             guess_tensors = [record.guess_indices for record in record_data]
-            t3c = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: guess_indices extraction took %.4fs",
-                t3c - t3b,
-            )
             guess_data = torch.cat(guess_tensors, dim=0)
-            t3d = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: guess_indices concat took %.4fs", t3d - t3c
-            )
 
             label_tensors = [record.label_indices for record in record_data]
-            t3e = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: label_indices extraction took %.4fs",
-                t3e - t3d,
-            )
             label_data = torch.cat(label_tensors, dim=0)
-            t3f = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: label_indices concat took %.4fs", t3f - t3e
-            )
 
             image_tensors = [record.image_indices for record in record_data]
-            t3g = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: image_indices extraction took %.4fs",
-                t3g - t3f,
-            )
             image_data = torch.cat(image_tensors, dim=0)
-            t4 = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: image_indices concat took %.4fs", t4 - t3g
-            )
-
-            logger.info(
-                "get_classifier_dataframe: tensor concat total took %.4fs", t4 - t3
-            )
 
             # Ensure all data has the same length (number of samples)
             valid_data_length = min(
-                len(classifier_responses),
+                len(layer_responses),
                 len(guess_data),
                 len(label_data),
                 len(image_data),
             )
 
-            classifier_responses = classifier_responses[:valid_data_length]
+            layer_responses = layer_responses[:valid_data_length]
             guess_data = guess_data[:valid_data_length]
             label_data = label_data[:valid_data_length]
             image_data = image_data[:valid_data_length]
 
             # Convert to CPU and numpy
-            t5 = time.perf_counter()
-            response = classifier_responses.cpu().float().numpy()
+            response = layer_responses.cpu().float().numpy()
             label_indices = label_data.cpu().numpy()
             guess_indices = guess_data.cpu().numpy()
             image_indices = image_data.cpu().numpy()
-            t6 = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: cpu/numpy conversion took %.4fs", t6 - t5
-            )
 
             # Get dimensions
             n_samples, n_timesteps, n_classes = response.shape
 
-            # Create meshgrid for DataFrame structure (same as original)
+            # Create indices for DataFrame structure
             sample_indices, times_indices, class_indices = np.meshgrid(
                 np.arange(n_samples),
                 np.arange(n_timesteps),
                 np.arange(n_classes),
                 indexing="ij",
             )
-
-            # Create label sets (same as original)
             label_sets = np.array(["".join(row.astype(str)) for row in label_indices])
+            label_sets = (
+                label_sets[:, None, None]
+                .repeat(n_timesteps, axis=-2)
+                .repeat(n_classes, axis=-1)
+            )
+            label_indices = label_indices[..., None].repeat(n_classes, axis=-1)
+            guess_indices = guess_indices[..., None].repeat(n_classes, axis=-1)
+            image_indices = image_indices[..., None].repeat(n_classes, axis=-1)
 
-            # Build DataFrame with correct repeat patterns (same as original)
-            t7 = time.perf_counter()
             df = pd.DataFrame(
                 {
                     "sample_index": sample_indices.ravel(),
                     "times_index": times_indices.ravel(),
                     "class_index": class_indices.ravel(),
                     "response": response.ravel(),
-                    "label_index": label_indices.ravel().repeat(n_classes),
-                    "guess_index": guess_indices.ravel().repeat(n_classes),
-                    "image_index": image_indices.ravel().repeat(n_classes),
-                    "label_set": label_sets.repeat(n_classes * n_timesteps),
+                    "label_index": label_indices.ravel(),
+                    "guess_index": guess_indices.ravel(),
+                    "image_index": image_indices.ravel(),
+                    "label_set": label_sets.ravel(),
                 }
-            )
-            t8 = time.perf_counter()
-            logger.info(
-                "get_classifier_dataframe: DataFrame build took %.4fs", t8 - t7
             )
 
             # Clean up memory
@@ -874,9 +808,6 @@ class StorageBuffer:
                 class_indices,
             )
 
-            logger.info(
-                "get_classifier_dataframe: total time %.4fs", time.perf_counter() - t0
-            )
             return df
 
         except Exception as e:
@@ -907,7 +838,7 @@ class StorageBufferMixin(LightningModule):
     """
     Mixin class for automatic StorageBuffer lifecycle management in PyTorch Lightning.
 
-    IMPORTANT: For get_classifier_dataframe() to work correctly, both response and record
+    IMPORTANT: For get_dataframe() to work correctly, both response and record
     buffers must use the same sampling strategy to ensure proper data alignment.
     """
 
@@ -922,8 +853,8 @@ class StorageBufferMixin(LightningModule):
     }
 
     validation_storage_config: Dict[str, Any] = {
-        "max_responses": 0,  # Enabled by default
-        "max_records": 0,  # Enabled by default
+        "max_responses": 1,  # Enabled by default
+        "max_records": 1,  # Enabled by default
         "response_strategy": "fixed",  # Same strategy for alignment
         "record_strategy": "fixed",  # Same strategy for alignment
         "cpu_offload": True,
@@ -942,8 +873,8 @@ class StorageBufferMixin(LightningModule):
             thread_safe=True,
         )
 
-    def get_classifier_dataframe(self, **kwargs) -> pd.DataFrame:
-        return self.storage.get_classifier_dataframe(**kwargs)
+    def get_dataframe(self, **kwargs) -> pd.DataFrame:
+        return self.storage.get_dataframe(**kwargs)
 
     def on_train_epoch_start(self) -> None:
         """Initialize storage buffer at start of training epoch."""
@@ -957,6 +888,10 @@ class StorageBufferMixin(LightningModule):
         self.storage.clear_all()
         self.storage = StorageBuffer(**self.training_storage_config)
         logger.debug(f"Training storage: {self.training_storage_config}")
+
+    # def on_train_batch_end(self, outputs, batch, batch_idx) -> None:
+    #     df = self.storage.get_dataframe()
+    #     breakpoint()
 
     def on_train_epoch_end(self) -> None:
         """Clear storage buffer at end of training epoch."""
@@ -1004,7 +939,7 @@ if __name__ == "__main__":
     print(f"Zero buffer get_all: {zero_buffer.get_all()}")
 
     storage_zero = StorageBuffer(max_responses=0, max_records=0)
-    print(f"Zero storage DataFrame: {storage_zero.get_classifier_dataframe().shape}")
+    print(f"Zero storage DataFrame: {storage_zero.get_dataframe().shape}")
 
     # Test StorageBufferMixin
     print("\n=== Testing StorageBufferMixin ===")
@@ -1057,7 +992,7 @@ if __name__ == "__main__":
         )
 
     # Generate DataFrame
-    df = model.storage.get_classifier_dataframe()
+    df = model.storage.get_dataframe()
     print(f"Generated DataFrame: {df.shape}")
 
     # End validation

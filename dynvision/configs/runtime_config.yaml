@@ -8,7 +8,7 @@
     "tau": 8,
     "t_recurrence": 6,
     "t_feedforward": 10,
-    "recurrence_influence": "additive",
+    "integration_strategy": "additive",
     "init_with_pretrained": false,
     "store_train_responses": 0,
     "store_val_responses": 10,

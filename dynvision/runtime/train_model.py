@@ -269,6 +269,7 @@ class CallbackManager:
         callbacks = []
 
         # Add model-specific callbacks
+        print(f"timesteps: {self.config.model.n_timesteps}")
         if self.config.model.n_timesteps > 1:
             callbacks.append(custom_callbacks.MonitorClassifierResponses())
 
@@ -380,12 +381,11 @@ class ModelManager:
     def save_model(self, model: pl.LightningModule) -> None:
         """Save trained model with configuration."""
         torch.save(model.state_dict(), self.config.output_model_state)
+        logger.info(f"Model saved to {self.config.output_model_state}")
 
         # Export configuration alongside model
         config_path = self.config.output_model_state.with_suffix(".config.yaml")
         self.config.export_full_config(config_path)
-
-        logger.info(f"Model saved to {self.config.output_model_state}")
         logger.info(f"Configuration exported to {config_path}")
 
 

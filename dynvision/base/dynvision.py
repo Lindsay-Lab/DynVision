@@ -8,15 +8,10 @@ from copy import copy
 import logging
 
 from dynvision.data.operations import _adjust_data_dimensions, _adjust_label_dimensions
-from dynvision.utils import alias_kwargs, path_to_index, load_config
-from dynvision.project_paths import project_paths
+from dynvision.utils import alias_kwargs
 from .data_buffer import DataBuffer
 
 logger = logging.getLogger(__name__)
-
-defaults = SimpleNamespace(
-    **load_config(project_paths.scripts.configs / "config_defaults.yaml")
-)
 
 
 class DynVision(nn.Module):
@@ -25,6 +20,8 @@ class DynVision(nn.Module):
     @alias_kwargs(
         trc="t_recurrence",
         tff="t_feedforward",
+        tfb="t_feedback",
+        tsk="t_skip",
         rctype="recurrence_type",
         solver="dynamics_solver",
     )
@@ -35,14 +32,16 @@ class DynVision(nn.Module):
         n_timesteps: int = 1,
         n_classes: int = 1000,
         # Temporal dynamics
-        dt: float = defaults.dt,
-        tau: float = defaults.tau,
-        t_feedforward: float = defaults.t_feedforward,
-        t_recurrence: float = defaults.t_recurrence,
+        dt: float = 1.0,
+        tau: float = 4.0,
+        t_feedforward: float = 0.0,
+        t_recurrence: float = 3.0,
+        t_feedback: Optional[float] = None,
+        t_skip: Optional[float] = None,
         # Architecture configuration
-        classifier_name: str = defaults.classifier_name,
-        dynamics_solver: str = defaults.dynamics_solver,
-        recurrence_type: str = defaults.recurrence_type,
+        classifier_name: str = "classifier",
+        dynamics_solver: str = "euler",
+        recurrence_type: str = "none",
         **kwargs: Any,
     ) -> None:
         nn.Module.__init__(self)
@@ -53,9 +52,14 @@ class DynVision(nn.Module):
         self.tau = float(tau)
         self.t_feedforward = float(t_feedforward)
         self.t_recurrence = float(t_recurrence)
+        self.t_feedback = float(t_feedforward if t_feedback is None else t_feedback)
+        self.t_skip = float(t_skip if t_skip is None else t_feedback)
         self.classifier_name = classifier_name
         self.dynamics_solver = str(dynamics_solver)
         self.recurrence_type = str(recurrence_type)
+
+        # Process feedforward delay
+        self.delay_feedforward = int(t_feedforward / dt)
 
         # Process input dimensions and determine timesteps
         self._process_input_dimensions(input_dims, n_timesteps)
@@ -213,11 +217,11 @@ class DynVision(nn.Module):
 
                 elif operation == "delay" and hasattr(layer, "set_hidden_state"):
                     layer.set_hidden_state(x)
-                    x = layer.get_hidden_state(0)
+                    x = layer.get_hidden_state(self.delay_feedforward)
 
                 elif operation == "tstep" and hasattr(self, module_name):
                     module = getattr(self, module_name)
-                    h = layer.get_hidden_state(-1)
+                    h = layer.get_newest_hidden_state()
                     x = module(x, h)
 
                 # apply layer operations (if defined)
@@ -318,8 +322,9 @@ class DynVision(nn.Module):
         outputs = torch.cat(output_list, dim=1)
 
         if store_responses:
-            self.storage.store_responses(responses)
-            del responses
+            response_dict = responses.to_dict(dim=1)  # Concatenate time dimension
+            self.storage.store_responses(response_dict)
+            del responses, response_dict
 
         del output_list
         return outputs

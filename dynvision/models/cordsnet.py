@@ -173,7 +173,7 @@ class CordsNet(LightningBase):
             dt=self.dt,
             tau=self.tau,
             history_length=self.t_feedforward,
-            recurrence_delay=self.t_recurrence,
+            delay_recurrence=self.t_recurrence,
             dynamics_solver=self.dynamics_solver,
             parametrization=nn.utils.parametrizations.weight_norm,
             device=self.device,

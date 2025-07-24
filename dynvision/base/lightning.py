@@ -13,16 +13,7 @@ import torch.nn as nn
 import wandb
 
 from dynvision import losses
-from dynvision.utils import (
-    load_config,
-    alias_kwargs,
-    path_to_index,
-)
-from dynvision.project_paths import project_paths
-
-defaults = SimpleNamespace(
-    **load_config(project_paths.scripts.configs / "config_defaults.yaml")
-)
+from dynvision.utils import alias_kwargs
 
 logger = logging.getLogger(__name__)
 
@@ -38,26 +29,26 @@ class LightningBase(pl.LightningModule):
     def __init__(
         self,
         # Training configuration
-        retain_graph: bool = defaults.retain_graph,
+        retain_graph: bool = False,
         # Loss configuration
         criterion_params: List[Tuple[str, Dict[str, Any]]] = [
-            (loss, defaults.loss_configs[loss]) for loss in defaults.loss
+            ("CrossEntropyLoss", {"weight": 1.0})
         ],
-        loss_reaction_time: float = defaults.loss_reaction_time,
-        non_label_index: int = defaults.non_label_index,
+        loss_reaction_time: float = 0.0,
+        non_label_index: int = -1,
         # Optimizer configuration
-        optimizer: str = defaults.optimizer,
-        optimizer_kwargs: Dict[str, Any] = defaults.optimizer_kwargs,
-        optimizer_configs: Dict[str, Dict[str, Any]] = defaults.optimizer_configs,
-        learning_rate: float = defaults.learning_rate,
-        lr_parameter_groups: Dict[str, Dict[str, Any]] = defaults.lr_parameter_groups,
+        optimizer: str = "Adam",
+        optimizer_kwargs: Dict[str, Any] = {"weight_decay": 0.0005},
+        optimizer_configs: Dict[str, Dict[str, Any]] = {"monitor": "train_loss"},
+        learning_rate: float = 0.0002,
+        lr_parameter_groups: Dict[str, Dict[str, Any]] = {},
         # Scheduler configuration
-        scheduler: str = defaults.scheduler,
-        scheduler_kwargs: Dict[str, Any] = defaults.scheduler_kwargs,
-        scheduler_configs: Dict[str, Dict[str, Any]] = defaults.scheduler_configs,
+        scheduler: str = "CosineAnnealingLR",
+        scheduler_kwargs: Dict[str, Any] = {"T_max": 250},
+        scheduler_configs: Dict[str, Dict[str, Any]] = {"monitor": "train_loss"},
         # Logging configuration
-        log_level: str = defaults.log_level,
-        log_every_n_steps: int = defaults.log_every_n_steps,
+        log_level: str = "info",
+        log_every_n_steps: int = 50,
         **kwargs: Any,
     ) -> None:
         super().__init__()
@@ -86,9 +77,6 @@ class LightningBase(pl.LightningModule):
         self.log_level = log_level
         self.log_every_n_steps = int(log_every_n_steps)
 
-        # Save hyperparameters for Lightning
-        self.save_hyperparameters()
-
     # Core training steps
     #####################
     def model_step(
@@ -103,12 +91,13 @@ class LightningBase(pl.LightningModule):
         # forward
         outputs = self.forward(inputs, **kwargs)
 
+        if hasattr(self, "responses"):
+            responses = self.responses
+
         # calculate loss
         loss = self.compute_loss(
             outputs,
-            responses=self.responses if hasattr(self, "responses") else None,
             label_indices=label_indices,
-            reaction_time=self.loss_reaction_time,
         )
         # calculate accuracy
         guess_indices = self.predictor(outputs)
@@ -240,16 +229,14 @@ class LightningBase(pl.LightningModule):
         self,
         outputs: torch.Tensor,
         label_indices: torch.Tensor,
-        responses: Optional[Dict[str, torch.Tensor]] = None,
-        reaction_time: float = 0,
     ) -> torch.Tensor:
 
         batch_size, *_, n_classes = outputs.shape
 
         # Apply loss reaction time
-        if reaction_time:
+        if hasattr(self, "loss_reaction_time") and self.loss_reaction_time:
             reaction_timesteps = self.n_residual_timesteps + int(
-                reaction_time / self.dt
+                self.loss_reaction_time / self.dt
             )
             outputs = (
                 outputs[:, reaction_timesteps:, :].contiguous().view(-1, n_classes)
@@ -257,7 +244,7 @@ class LightningBase(pl.LightningModule):
             label_indices = label_indices[:, reaction_timesteps:].contiguous().view(-1)
         else:
             outputs = outputs.view(-1, n_classes)
-            label_indices = label_indices.view(-1)
+            label_indices = label_indices.reshape(-1)
 
         # Quick validation
         invalid_mask = (label_indices < 0) | (label_indices >= n_classes)
@@ -279,7 +266,7 @@ class LightningBase(pl.LightningModule):
             else:
                 weight = 1
 
-            loss_value = weight * criterion_fn((outputs, responses), label_indices)
+            loss_value = weight * criterion_fn(outputs, label_indices)
             loss_values[i] = loss_value
 
             self.log_dict(
@@ -301,24 +288,18 @@ class LightningBase(pl.LightningModule):
         label_indices: torch.Tensor,
         guess_indices: torch.Tensor,
     ) -> float:
+
         # Create mask for valid labels (excluding non_label_index)
-        valid_mask = (
-            (label_indices >= 0)
-            & (label_indices != self.non_label_index)
-            & (label_indices < self.n_classes)
-        )
+        valid_mask = (label_indices >= 0) & (label_indices < self.n_classes)
+        if not valid_mask.all():
+            if valid_mask.any():
+                label_indices = label_indices[valid_mask]
+                guess_indices = guess_indices[valid_mask]
+            else:
+                logger.warning("All labels invalid, returning zero accuracy")
+                return 0.0
 
-        if valid_mask.sum() == 0:
-            # No valid labels, return 0 accuracy
-            logger.warning("No valid labels found for accuracy calculation")
-            return 0.0
-
-        accuracy = (
-            (guess_indices[valid_mask] == label_indices[valid_mask])
-            .float()
-            .mean()
-            .item()
-        )
+        accuracy = (guess_indices == label_indices).float().mean().item()
         return accuracy
 
     def backward(self, loss: torch.Tensor) -> None:

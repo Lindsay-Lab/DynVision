@@ -6,6 +6,7 @@ from typing import Union, Callable, Optional, Dict, Any
 import logging
 from fractions import Fraction
 from dynvision.utils import apply_parametrization
+from dynvision.model_components.integration_strategy import setup_integration_strategy
 
 import torch
 import torch.nn as nn
@@ -39,6 +40,7 @@ class ConnectionBase(LightningModule):
         out_channels: Optional[int] = None,
         scale_factor: float = 1,
         bias: bool = True,
+        integration_strategy: Union[Callable, str] = "additive",
         parametrization: Callable[[torch.Tensor], torch.Tensor] = None,
         upsample_mode: str = "nearest",
         auto_adapt: bool = False,
@@ -50,6 +52,7 @@ class ConnectionBase(LightningModule):
         self.delay_index = delay_index
         self.bias = bias
         self.scale_factor = scale_factor
+        self.integration_strategy = integration_strategy
         self.parametrization = parametrization
         self.setup_transform = True
         self.auto_adapt = auto_adapt
@@ -91,9 +94,8 @@ class ConnectionBase(LightningModule):
 
         in_channels = h.shape[-3]
         out_channels = x.shape[-3]
-        stride = h.shape[-1] // x.shape[-1] or 1
 
-        if in_channels == out_channels and stride == 1:
+        if in_channels == out_channels:
             self.conv = False
             self.setup_transform = False
             return False
@@ -118,7 +120,7 @@ class ConnectionBase(LightningModule):
             in_channels=in_channels,
             out_channels=out_channels,
             kernel_size=1,
-            stride=stride,
+            stride=1,
             padding=0,
             bias=self.bias,
             dtype=dtype,
@@ -128,6 +130,7 @@ class ConnectionBase(LightningModule):
             self.conv = apply_parametrization(self.conv, self.parametrization)
 
         self._init_parameters(in_channels, out_channels)
+        self.integrate_signal = setup_integration_strategy(self.integration_strategy)
         self.setup_transform = False
 
     def _setup_upsample(
@@ -138,7 +141,7 @@ class ConnectionBase(LightningModule):
             return False
 
         scale_factor = x.shape[-1] / h.shape[-1]
-        if scale_factor <= 1:
+        if scale_factor == 1:
             self.upsample = False
             return False
 
@@ -191,9 +194,7 @@ class ConnectionBase(LightningModule):
         # h_norm = torch.norm(h, p=2, dim=(1, 2, 3), keepdim=True)
         # scale = torch.where(h_norm > 1e-6, h_norm, torch.ones_like(h_norm))
         # h = h / scale
-
-        output = x + h
-
+        output = self.integrate_signal(x, h)
         return output
 
 

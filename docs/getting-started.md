@@ -108,7 +108,7 @@ The responses of all layers are stored in the dictionary model attribute `model.
 Additionally, you can extract the activations of the classifying layer combined with the testing results in a handy dataframe.
 
 ```python
-df = model.get_classifier_dataframe()
+df = model.get_dataframe()
 ```
 
 The test results are stored in a pandas DataFrame with the following columns:

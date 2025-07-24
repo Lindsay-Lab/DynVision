@@ -184,7 +184,7 @@ Retrieve stored neural responses.
 
 **Returns**: Dictionary mapping layer names to response tensors
 
-#### `get_classifier_dataframe(layer_name: str = "classifier") -> pd.DataFrame`
+#### `get_dataframe(layer_name: str = "classifier") -> pd.DataFrame`
 Generate a pandas DataFrame with classifier responses and metadata.
 
 **Parameters**:

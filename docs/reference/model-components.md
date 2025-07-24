@@ -59,7 +59,7 @@ Built-in response tracking and analysis:
 def get_responses(self):
     """Get stored model responses."""
     
-def get_classifier_dataframe(self):
+def get_dataframe(self):
     """Get classifier responses as pandas DataFrame."""
     
 def _update_responses(self, response_dict, t=None):
@@ -254,7 +254,7 @@ def _check_responses(self, raise_error=False):
 2. **Response Tracking**
    - Enable with `store_responses=True`
    - Access via `get_responses()`
-   - Convert to DataFrame with `get_classifier_dataframe()`
+   - Convert to DataFrame with `get_dataframe()`
 
 3. **Layer Operations**
    - Define sequence in `layer_operations`

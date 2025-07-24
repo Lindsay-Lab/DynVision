@@ -12,7 +12,7 @@ local:
 # Debugging Settings
 use_debug_mode: False
 debug:
-  batch_size: 32
+  batch_size: 3
   check_val_every_n_epoch: 1
   log_every_n_steps: 1
   accumulate_grad_batches: 1

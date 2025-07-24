@@ -1,4 +1,5 @@
 from typing import Any, List, Optional
+import os
 import torch
 import torch.nn as nn
 import logging
@@ -19,7 +20,12 @@ class DtypeDeviceCoordinator:
         self.child_nodes: List["DtypeDeviceCoordinator"] = []
         self.parent_node: Optional["DtypeDeviceCoordinator"] = None
         self._target_dtype: Optional[torch.dtype] = target_dtype
-        self._coordination_built = False
+
+        # Let lightning handle coordination in distributed setups
+        if os.environ.get("WORLD_SIZE", "1") == "1":
+            self._coordination_built = False
+        else:
+            self._coordination_built = True
 
     def connect_child_node(self, child: "DtypeDeviceCoordinator") -> None:
         """Connect a child node to this coordinator."""
@@ -166,10 +172,9 @@ class DtypeDeviceCoordinator:
         """Enhanced detection for recurrence modules."""
         coordination_indicators = [
             "hidden_states",
-            "stored_activations",
             "responses",
-            "cached_outputs",
-            "state_buffer",
+            "records",
+            "storage",
         ]
         has_coordination_capability = isinstance(module, DtypeDeviceCoordinatorMixin)
         has_persistent_state = any(

@@ -307,9 +307,33 @@ class TrainingParams(BaseParams):
         """Export complete configuration for reproducibility."""
         config_dict = self.get_full_config(flat=flat)
 
+        # Clean config for YAML serialization
+        def clean_for_yaml(obj):
+            if obj is None or isinstance(obj, (str, int, float, bool)):
+                return obj
+            elif isinstance(obj, (Path,)):
+                return str(obj)
+            elif isinstance(obj, dict):
+                return {
+                    str(k): clean_for_yaml(v)
+                    for k, v in obj.items()
+                    if clean_for_yaml(v) is not None
+                }
+            elif isinstance(obj, (list, tuple)):
+                return [
+                    clean_for_yaml(item)
+                    for item in obj
+                    if clean_for_yaml(item) is not None
+                ]
+            else:
+                # Skip non-serializable objects
+                return None
+
+        cleaned_config = clean_for_yaml(config_dict)
+
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
-            yaml.dump(config_dict, f, indent=2, default_flow_style=False)
+            yaml.dump(cleaned_config, f, indent=4, default_flow_style=False)
 
         logger.info(f"Configuration exported to {path}")
 

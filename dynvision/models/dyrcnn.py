@@ -192,8 +192,8 @@ class DyRCNNx4(DyRCNN):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=self.t_feedforward,
-            recurrence_delay=self.t_recurrence,
+            history_length=max(self.t_feedforward, self.t_recurrence),
+            delay_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
         )
@@ -382,8 +382,8 @@ class DyRCNNx8(DyRCNNx4):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=self.t_feedforward,
-            recurrence_delay=self.t_recurrence,
+            history_length=max(self.t_feedforward, self.t_recurrence),
+            delay_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
         )
@@ -551,8 +551,8 @@ class DyRCNNx2(DyRCNN):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=self.t_feedforward,
-            recurrence_delay=self.t_recurrence,
+            history_length=max(self.t_feedforward, self.t_recurrence),
+            delay_recurrence=self.t_recurrence,
             device=self.device,
         )
 

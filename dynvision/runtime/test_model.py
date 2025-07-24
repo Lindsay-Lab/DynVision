@@ -304,7 +304,7 @@ class TestingOrchestrator:
 
         # Save test results (CSV)
         try:
-            results_df = model.get_classifier_dataframe()
+            results_df = model.get_dataframe()
             results_df.to_csv(self.config.output_results, index=False)
             logger.info(f"Test results saved to {self.config.output_results}")
             logger.info(f"Results shape: {results_df.shape}")

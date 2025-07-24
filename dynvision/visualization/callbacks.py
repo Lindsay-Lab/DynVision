@@ -48,12 +48,12 @@ class MonitorClassifierResponses(pl.Callback):
         torch.cuda.empty_cache()
 
     def on_validation_end(self, trainer, model):
-        if hasattr(model, "get_classifier_dataframe"):
-            df = model.get_classifier_dataframe()
+        if hasattr(model, "get_dataframe"):
+            df = model.get_dataframe()
 
             # if not len(df):
             #     self.run_one_forward_pass(trainer, model)
-            #     df = model.get_classifier_dataframe()
+            #     df = model.get_dataframe()
             #     self.clear_responses(model)
 
             if len(df):

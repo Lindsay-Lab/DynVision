@@ -127,7 +127,7 @@ def _define_architecture(self):
         dt=self.dt,
         tau=self.tau,
         history_length=self.delay_ff,
-        recurrence_delay=self.delay_rc,
+        delay_recurrence=self.delay_rc,
         dynamics_solver=self.dynamics_solver,
         bias=self.bias,
         device=self.device
@@ -154,7 +154,7 @@ def _define_architecture(self):
         dt=self.dt,
         tau=self.tau,
         history_length=self.delay_ff,
-        recurrence_delay=self.delay_rc,
+        delay_recurrence=self.delay_rc,
         dynamics_solver=self.dynamics_solver,
         bias=self.bias,
         device=self.device
@@ -181,7 +181,7 @@ def _define_architecture(self):
         dt=self.dt,
         tau=self.tau,
         history_length=self.delay_ff,
-        recurrence_delay=self.delay_rc,
+        delay_recurrence=self.delay_rc,
         dynamics_solver=self.dynamics_solver,
         bias=self.bias,
         device=self.device
@@ -377,7 +377,7 @@ class CustomRCNN(LightningBase):
             dt=self.dt,
             tau=self.tau,
             history_length=self.delay_ff,
-            recurrence_delay=self.delay_rc,
+            delay_recurrence=self.delay_rc,
             dynamics_solver=self.dynamics_solver,
             bias=self.bias,
             device=self.device
@@ -404,7 +404,7 @@ class CustomRCNN(LightningBase):
             dt=self.dt,
             tau=self.tau,
             history_length=self.delay_ff,
-            recurrence_delay=self.delay_rc,
+            delay_recurrence=self.delay_rc,
             dynamics_solver=self.dynamics_solver,
             bias=self.bias,
             device=self.device
@@ -431,7 +431,7 @@ class CustomRCNN(LightningBase):
             dt=self.dt,
             tau=self.tau,
             history_length=self.delay_ff,
-            recurrence_delay=self.delay_rc,
+            delay_recurrence=self.delay_rc,
             dynamics_solver=self.dynamics_solver,
             bias=self.bias,
             device=self.device

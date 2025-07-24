@@ -853,7 +853,7 @@ class UtilityBase(nn.Module):
             else:
                 self.log(f"{section}/{name}", param.data, sync_dist=True)
 
-    def get_classifier_dataframe(
+    def get_dataframe(
         self, layer_name: str = defaults.classifier_name
     ) -> pd.DataFrame:
         """

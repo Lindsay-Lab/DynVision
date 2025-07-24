@@ -5,3 +5,4 @@ from .retina import *
 from .layer_connections import *
 from .supralinearity import *
 from .topographic_recurrence import *
+from .integration_strategy import *
