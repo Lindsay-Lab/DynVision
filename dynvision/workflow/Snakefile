@@ -13,3 +13,23 @@ rule all:
     input:
         expand(project_paths.reports / 'experiment_{experiment}.done',
             experiment = config.experiment)
+
+rule temp_param_scan:
+    input:
+        # check unrolling switch validity
+        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=9+tff=*+trc=6+skip=true_0017_cifar100_trained_alphabet/adaption.flag",
+        # duration scan tau
+        project_paths.figures / "duration/duration_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=*+tff=0+trc=6+skip=true_0017_cifar100_trained_alphabet/adaption.flag",
+        # duration scan trc
+        project_paths.figures / "duration/duration_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=9+tff=0+trc=*+skip=true_0017_cifar100_trained_alphabet/adaption.flag",
+        # stability scan lossrt
+        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=9+tff=0+trc=8+skip=true+lossrt=*_0017_cifar100_trained_alphabet/adaption.flag"
+
+
+rule rctype_scan:
+    input:
+        # scan rctype
+        expand(project_paths.figures / "{experiment}/{experiment}_DyRCNNx8:tsteps=20+rctype=*+dt=2+tau=9+tff=0+trc=6+skip=true_0019_imagenette_trained_all/adaption.flag",
+            experiment = ["responseffonly", "duration", "contrast", "interval"]),
+        expand(project_paths.figures / "{experiment}/{experiment}_DyRCNNx8:tsteps=20+rctype=full+rctarget=*+dt=2+tau=9+tff=0+trc=6+skip=true_0019_imagenette_trained_all/adaption.flag",
+            experiment = ["duration", "interval"])

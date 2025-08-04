@@ -183,6 +183,12 @@ class Monitoring:
             metrics (List[str], optional): List of metrics to log. Defaults to ["hist", "norm"].
             log_only_trainable (bool, optional): Whether to log only trainable parameters. Defaults to False.
         """
+        if torch.distributed.is_initialized():
+            if torch.distributed.get_rank() == 0:
+                metrics = [m for m in metrics if m != "hist"]
+            else:
+                return
+        
         for name, param in self.named_parameters():
             if log_only_trainable and not param.requires_grad:
                 continue
@@ -194,6 +200,7 @@ class Monitoring:
                             f"{section}/{name}_{metric}",
                             getattr(param.detach().data, metric)(),
                             sync_dist=True,
+                            rank_zero_only=True,
                         )
                     elif metric == "hist":
                         wandb.log(
@@ -201,12 +208,12 @@ class Monitoring:
                                 f"{section}/{name}_{metric}": wandb.Histogram(
                                     param.detach().cpu().flatten()
                                 ),
-                            }
+                            },
                         )
                     else:
                         logger.debug(f"Metric {metric} not available!")
             else:
-                self.log(f"{section}/{name}", param.detach().data, sync_dist=True)
+                self.log(f"{section}/{name}", param.detach().data, sync_dist=True, rank_zero_only=True)
 
     # System monitoring
     ###################

@@ -304,7 +304,7 @@ class TestingOrchestrator:
 
         # Save test results (CSV)
         try:
-            results_df = model.get_dataframe()
+            results_df = model.storage.get_dataframe()
             results_df.to_csv(self.config.output_results, index=False)
             logger.info(f"Test results saved to {self.config.output_results}")
             logger.info(f"Results shape: {results_df.shape}")
@@ -313,20 +313,25 @@ class TestingOrchestrator:
 
         # Save model responses (tensors)
         try:
-            if hasattr(model, "responses") and model.responses:
+            if hasattr(model, "storage"):
                 logger.info("Saving model responses...")
                 total_size_mb = 0
-                for layer, response in model.responses.items():
-                    size_mb = response.nbytes / (1024 * 1024)
+                response_data = model.storage.responses.get_all()
+                responses = {}
+                for layer in response_data[0].keys():
+                    layer_responses = [item[layer] for item in response_data]
+                    responses[layer] = torch.cat(layer_responses, dim=0)
+                    size_mb = responses[layer].nbytes / (1024 * 1024)
                     total_size_mb += size_mb
                     logger.info(
-                        f"  Layer {layer}: {response.shape} -> {size_mb:.2f} MB"
+                        f"  Layer {layer}: {responses[layer].shape} -> {size_mb:.2f} MB"
                     )
 
-                torch.save(model.responses, self.config.output_responses)
+                torch.save(responses, self.config.output_responses)
                 logger.info(f"Model responses saved to {self.config.output_responses}")
                 logger.info(f"Total response size: {total_size_mb:.2f} MB")
             else:
+                torch.save({}, self.config.output_responses)
                 logger.warning("No model responses to save")
         except Exception as e:
             logger.error(f"Failed to save model responses: {e}")

@@ -134,10 +134,11 @@ def get_ffcv_dataloader(
             )
             distributed = False
 
-    data_transform = get_data_transform(data_transform) or []
     target_transform = get_target_transform(target_transform) or []
 
-    if not train:
+    if train:    
+        data_transform = get_data_transform(data_transform) or []
+    else:
         encoding = "image"
         data_transform = []
 
@@ -175,4 +176,5 @@ def get_ffcv_dataloader(
         drop_last=drop_last,
         batches_ahead=batches_ahead,
         distributed=distributed,
+        seed=0,
     )

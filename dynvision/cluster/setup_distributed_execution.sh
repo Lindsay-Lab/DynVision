@@ -74,8 +74,10 @@ if [ "$USE_DISTRIBUTED" = "true" ]; then
     echo "Configuring NCCL for distributed training..."
     export NCCL_DEBUG=INFO
     export NCCL_TIMEOUT=1800
-    export NCCL_BLOCKING_WAIT=0
+    # export NCCL_IB_DISABLE=1       # Disable InfiniBand if causing issues
+    export TORCH_NCCL_BLOCKING_WAIT=0
     export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+    export TORCH_DISTRIBUTED_DEBUG=DETAIL  # For debugging
     export PYTHONFAULTHANDLER=1
     export PYTHONUNBUFFERED=1
     export CUDA_LAUNCH_BLOCKING=0
@@ -93,6 +95,13 @@ if [ "$USE_DISTRIBUTED" = "true" ]; then
         export NCCL_SOCKET_IFNAME=""
         echo "WARNING: Could not detect network interface, using defaults"
     fi
+
+    # Better error handling
+    set -e
+    trap 'echo "Job interrupted or failed"; exit 1' SIGUSR1
+    echo "Node: $SLURMD_NODENAME"
+    echo "GPUs: $CUDA_VISIBLE_DEVICES"
+    echo "Memory per CPU: ${SLURM_MEM_PER_CPU}MB"
     
     # Singularity environment variables (explicit container variables)
     export SINGULARITYENV_WORLD_SIZE=$WORLD_SIZE

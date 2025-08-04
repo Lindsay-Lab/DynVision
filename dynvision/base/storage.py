@@ -288,6 +288,12 @@ class DataBuffer:
         else:
             return data
 
+    def should_store(self) -> bool:
+        """Determine if the current data should be stored based on the strategy."""
+        return self._strategy.should_store(
+            self._size, self._total_seen, self.max_size
+        )
+
     def append(self, data: Any) -> bool:
         """
         Append data to buffer.
@@ -311,9 +317,7 @@ class DataBuffer:
     def _append_impl(self, data: Any) -> bool:
         """Internal append implementation."""
         # Check if strategy wants to store this sample
-        if not self._strategy.should_store(
-            self._size, self._total_seen, self.max_size
-        ):
+        if not self.should_store():
             self._total_seen += 1
             return False
 
@@ -346,10 +350,6 @@ class DataBuffer:
 
         self._total_seen += 1
         return True
-
-    def should_store(self) -> bool:
-        """Determine if the current data should be stored based on the strategy."""
-        return self._strategy.should_store(self._size, self._total_seen, self.max_size)
 
     def get(self, index: int) -> Any:
         """
@@ -445,6 +445,11 @@ class DataBuffer:
         self._size = 0
         self._total_seen = 0
         self._strategy.reset()
+        
+        # clear GPU memory if offloading
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            torch.cuda.synchronize()
 
         # Force garbage collection
         gc.collect()
@@ -665,6 +670,10 @@ class StorageBuffer:
             label_indices: Ground truth labels (batch_size, n_timesteps)
             image_indices: Unique image identifiers (batch_size, n_timesteps)
         """
+        if not self.records.should_store():
+            self.records._total_seen += 1
+            return False
+        
         record = Record(
             guess_indices=guess_indices,
             label_indices=label_indices,
@@ -861,9 +870,31 @@ class StorageBufferMixin(LightningModule):
         "thread_safe": True,
     }
 
-    def __init__(self, *args, **kwargs):
+    testing_storage_config: Dict[str, Any] = {
+        "max_responses": 10,  # Enabled by default for analysis
+        "max_records": 10,  # Enabled by default for analysis
+        "response_strategy": "fixed",  # Same strategy for alignment
+        "record_strategy": "fixed",  # Same strategy for alignment
+        "cpu_offload": True,
+        "thread_safe": True,
+    }
+
+    def __init__(
+        self,
+        store_train_responses: int = 0,
+        store_val_responses: int = 1,
+        store_test_responses: int = 10,
+        **kwargs,
+    ):
         """Initialize with empty storage buffer."""
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
+
+        self.training_storage_config["max_responses"] = store_train_responses
+        self.training_storage_config["max_records"] = store_train_responses
+        self.validation_storage_config["max_responses"] = store_val_responses
+        self.validation_storage_config["max_records"] = store_val_responses
+        self.testing_storage_config["max_responses"] = store_test_responses
+        self.testing_storage_config["max_records"] = store_test_responses
 
         # Always create a storage instance (with zero capacity initially)
         self.storage = StorageBuffer(
@@ -889,10 +920,6 @@ class StorageBufferMixin(LightningModule):
         self.storage = StorageBuffer(**self.training_storage_config)
         logger.debug(f"Training storage: {self.training_storage_config}")
 
-    # def on_train_batch_end(self, outputs, batch, batch_idx) -> None:
-    #     df = self.storage.get_dataframe()
-    #     breakpoint()
-
     def on_train_epoch_end(self) -> None:
         """Clear storage buffer at end of training epoch."""
         try:
@@ -912,14 +939,25 @@ class StorageBufferMixin(LightningModule):
         except AttributeError:
             pass
 
+        self.storage.clear_all()
+    
+    def on_validation_epoch_start(self) -> None:
+        """Initialize storage buffer at start of validation epoch."""
+        try:
+            super().on_validation_epoch_start()
+        except AttributeError:
+            pass
+
+        logger.info(f"Storage: {self.storage.get_storage_size('GB')} GB")
+        self.storage.clear_all()
         # Create storage with validation configuration
         self.storage = StorageBuffer(**self.validation_storage_config)
         logger.debug(f"Validation storage: {self.validation_storage_config}")
 
-    def on_validation_end(self) -> None:
+    def on_validation_epoch_end(self) -> None:
         """Clear storage buffer at end of validation."""
         try:
-            super().on_validation_end()
+            super().on_validation_epoch_end()
         except AttributeError:
             pass
 
@@ -927,6 +965,25 @@ class StorageBufferMixin(LightningModule):
         self.storage.clear_all()
         self.storage = StorageBuffer(max_responses=0, max_records=0)
         logger.debug("Validation storage cleared")
+
+    def on_test_start(self) -> None:
+        """Initialize storage buffer at start of testing."""
+        try:
+            super().on_test_start()
+        except AttributeError:
+            pass
+
+        # Create storage with testing configuration
+        self.storage.clear_all()
+        self.storage = StorageBuffer(**self.testing_storage_config)
+        logger.debug(f"Testing storage: {self.testing_storage_config}")
+
+    def on_test_end(self) -> None:
+        """Clear storage buffer at end of testing."""
+        try:
+            super().on_test_end()
+        except AttributeError:
+            pass
 
 
 if __name__ == "__main__":

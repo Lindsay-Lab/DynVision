@@ -33,14 +33,11 @@ import torch
 from .base_loss import BaseLoss
 from .cross_entropy_loss import CrossEntropyLoss
 from .energy_loss import EnergyLoss
-from .mean_squared_activation_loss import MeanSquaredActivationLoss
 
-# Define package exports
 __all__ = [
     "BaseLoss",
     "CrossEntropyLoss",
     "EnergyLoss",
-    "MeanSquaredActivationLoss",
 ]
 
 

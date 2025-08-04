@@ -1,9 +1,10 @@
 data_timesteps: 1
+data_presentation_pattern: [1]
 
 mounted_datasets:
     - imagenet
 
-use_ffcv: True
+use_ffcv: False
 
 # used for setup the ffcv dataloader
 data_resolution:
@@ -14,7 +15,6 @@ data_resolution:
     imagenet: 224
     snakenet: 224
     imagenette: 224
-    gabordetect: 48
 
 data_statistics:
     mnist:

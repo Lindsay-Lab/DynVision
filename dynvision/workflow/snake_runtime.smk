@@ -140,6 +140,13 @@ rule train_model:
             {params.model_arguments} 
         """
 
+use rule train_model as train_model_distributed with:
+    output:
+        # todo: automatically select for registered "large datasets" or incorporate the use_distributed_mode config value
+        model_state = project_paths.models \
+            / '{model_name}' \
+            / '{model_name}{model_args}_{seed}_{data_name,imagenet}_trained.pt'
+
 rule test_model:
     """Evaluate a trained model on test data.
 

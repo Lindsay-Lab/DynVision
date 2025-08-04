@@ -20,7 +20,7 @@ The primary class that combines all functionality for typical use cases.
 
 ```python
 class BaseModel(
-    DynVision,
+    TemporalBase,
     LightningBase, 
     StorageBufferMixin,
     MonitoringMixin,
@@ -62,12 +62,12 @@ model = MyModel(
 )
 ```
 
-### DynVision
+### TemporalBase
 
 Core neural network functionality for biologically-inspired models.
 
 ```python
-class DynVision(nn.Module)
+class TemporalBase(nn.Module)
 ```
 
 **Purpose**: Implements fundamental neural network computation including forward passes, temporal dynamics, and parameter management.
@@ -106,7 +106,7 @@ Set or automatically determine the number of residual timesteps required for sig
 
 **Example**:
 ```python
-class CoreModel(DynVision, DtypeDeviceCoordinator):
+class CoreModel(TemporalBase, DtypeDeviceCoordinator):
     def _define_architecture(self):
         self.layer_names = ['layer1', 'layer2']
         self.layer1 = nn.Conv2d(3, 64, 3)
@@ -151,7 +151,7 @@ Configure optimizers and learning rate schedulers with parameter grouping.
 
 **Example**:
 ```python
-class TrainingModel(DynVision, LightningBase):
+class TrainingModel(TemporalBase, LightningBase):
     def _define_architecture(self):
         # Define architecture
         pass
@@ -256,19 +256,19 @@ For advanced users who need specific functionality combinations:
 
 ### CoreModel
 ```python
-class CoreModel(DynVision, DtypeDeviceCoordinator):
+class CoreModel(TemporalBase, DtypeDeviceCoordinator):
     """Neural network with device coordination only"""
 ```
 
 ### MonitoredModel  
 ```python
-class MonitoredModel(DynVision, Monitoring, DtypeDeviceCoordinator):
+class MonitoredModel(TemporalBase, Monitoring, DtypeDeviceCoordinator):
     """Neural network with monitoring but no Lightning integration"""
 ```
 
 ### LightningOnlyModel
 ```python
-class LightningOnlyModel(DynVision, LightningBase, MonitoringMixin):
+class LightningOnlyModel(TemporalBase, LightningBase, MonitoringMixin):
     """Training framework without automatic storage"""
 ```
 
@@ -310,9 +310,9 @@ model = ResearchModel(input_dims=(5, 1, 28, 28))
 
 ### Custom Lightning Integration
 ```python
-from dynvision.base import DynVision, LightningBase
+from dynvision.base import TemporalBase, LightningBase
 
-class CustomTrainingModel(DynVision, LightningBase):
+class CustomTrainingModel(TemporalBase, LightningBase):
     def _define_architecture(self):
         # Custom architecture
         pass
@@ -326,13 +326,13 @@ class CustomTrainingModel(DynVision, LightningBase):
 
 ### Method Resolution Order (MRO)
 The inheritance order in `BaseModel` ensures proper method resolution:
-1. `DynVision` provides core neural network methods
+1. `TemporalBase` provides core neural network methods
 2. `LightningBase` can call DynVision methods in training steps
 3. Storage and monitoring mixins add Lightning hooks
 4. Device coordination ensures consistency across all components
 
 ### Parameter Flow
-- Core neural network parameters are handled by `DynVision`
+- Core neural network parameters are handled by `TemporalBase`
 - Training configuration is managed by `LightningBase` 
 - Component-specific parameters are stored by respective classes
 - All classes accept `**kwargs` for flexible parameter passing

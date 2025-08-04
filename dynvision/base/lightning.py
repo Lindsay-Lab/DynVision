@@ -1,15 +1,11 @@
 import io
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 import logging
-from types import SimpleNamespace
-import os
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import pytorch_lightning as pl
 import torch
-import torch.nn as nn
 import wandb
 
 from dynvision import losses
@@ -91,9 +87,6 @@ class LightningBase(pl.LightningModule):
         # forward
         outputs = self.forward(inputs, **kwargs)
 
-        if hasattr(self, "responses"):
-            responses = self.responses
-
         # calculate loss
         loss = self.compute_loss(
             outputs,
@@ -133,7 +126,7 @@ class LightningBase(pl.LightningModule):
         loss, accuracy = self.model_step(batch, batch_idx)
 
         metrics = {"train_loss": loss, "train_accuracy": accuracy}
-        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True)
+        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True)
         return loss
 
     def validation_step(
@@ -156,7 +149,7 @@ class LightningBase(pl.LightningModule):
         loss, accuracy = self.model_step(batch, batch_idx)
 
         metrics = {"val_loss": loss, "val_accuracy": accuracy}
-        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True)
+        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True)
 
         return loss, accuracy
 
@@ -178,7 +171,7 @@ class LightningBase(pl.LightningModule):
 
         metrics = {"test_loss": loss, "test_accuracy": accuracy}
         self.log_dict(
-            metrics, prog_bar=True, on_step=True, batch_size=batch_size, sync_dist=True
+            metrics, prog_bar=True, on_step=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True
         )
         return loss, accuracy
 
@@ -186,6 +179,14 @@ class LightningBase(pl.LightningModule):
     ###################
     def _init_loss(self) -> None:
         self.criterion = []
+        
+        if hasattr(self, "loss_reaction_time") and self.loss_reaction_time:
+            self.ignore_initial_n_labels = self.n_residual_timesteps + int(
+                self.loss_reaction_time / self.dt
+            )
+        else:
+            self.ignore_initial_n_labels = 0
+
 
         for criterion_name, criterion_config in self.criterion_params:
             # Set criterion weight
@@ -234,25 +235,21 @@ class LightningBase(pl.LightningModule):
         batch_size, *_, n_classes = outputs.shape
 
         # Apply loss reaction time
-        if hasattr(self, "loss_reaction_time") and self.loss_reaction_time:
-            reaction_timesteps = self.n_residual_timesteps + int(
-                self.loss_reaction_time / self.dt
-            )
-            outputs = (
-                outputs[:, reaction_timesteps:, :].contiguous().view(-1, n_classes)
-            )
-            label_indices = label_indices[:, reaction_timesteps:].contiguous().view(-1)
-        else:
-            outputs = outputs.view(-1, n_classes)
-            label_indices = label_indices.reshape(-1)
+        if hasattr(self, "ignore_initial_n_labels") and self.ignore_initial_n_labels:
+            label_indices[:, :self.ignore_initial_n_labels] = self.non_label_index
+
+        # Flatten time dimension
+        outputs = outputs.view(-1, n_classes)
+        label_indices = label_indices.reshape(-1)
 
         # Quick validation
         invalid_mask = (label_indices < 0) | (label_indices >= n_classes)
         if invalid_mask.any():
             valid_mask = ~invalid_mask
             if valid_mask.any():
-                outputs = outputs[valid_mask]
-                label_indices = label_indices[valid_mask]
+                pass
+                # outputs = outputs[valid_mask]
+                # label_indices = label_indices[valid_mask]
             else:
                 logger.warning("All labels invalid, returning zero loss")
                 return torch.tensor(0.0, device=outputs.device, requires_grad=True)
@@ -273,6 +270,7 @@ class LightningBase(pl.LightningModule):
                 {f"loss/{criterion_fn.__class__.__name__}": loss_value},
                 batch_size=batch_size,
                 sync_dist=True,
+                rank_zero_only=True,
             )
 
         loss = loss_values.sum()

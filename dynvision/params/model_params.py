@@ -34,6 +34,10 @@ class ModelParams(BaseParams):
     n_timesteps: int = Field(
         default=1, description="Number of timesteps for model processing", ge=1
     )
+    data_presentation_pattern: List[int] = Field(
+        default=[1],
+        description="Pattern for data presentation across timesteps (1 = present, 0 = absent)",
+    )
 
     # ===== BIOLOGICAL PARAMETERS =====
     dt: float = Field(default=1.0, description="Integration time step (ms)", gt=0.0)
@@ -166,6 +170,7 @@ class ModelParams(BaseParams):
                 "opt": "optimizer",
                 "sched": "scheduler",
                 "rctype": "recurrence_type",
+                "rctarget": "recurrence_target",
                 "trc": "t_recurrence",
                 "tff": "t_feedforward",
                 "tfb": "t_feedback",
@@ -461,6 +466,7 @@ class ModelParams(BaseParams):
             "n_classes": self.n_classes,
             "input_dims": self.input_dims,
             "n_timesteps": self.n_timesteps,
+            "data_presentation_pattern": self.data_presentation_pattern,
             "dt": self.dt,
             "tau": self.tau,
             "t_feedforward": self.t_feedforward,

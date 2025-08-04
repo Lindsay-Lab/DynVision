@@ -10,7 +10,7 @@ model_name:
   # - ResNet18
   # - ResNet1202
   # - ResNet44
-seed: "0016"
+seed: "0017"
 model_args:
   tsteps: 50
   rctype: 'full'
@@ -36,6 +36,7 @@ init_with_pretrained: False
 
 # data_name: imagenet
 # data_name: tinyimagenet
+# data_name: imagenette
 # data_name: cifar100
 data_name: cifar10
 # data_name: mnist
@@ -49,12 +50,13 @@ data_name: cifar10
 data_group: "all"
 
 experiment: 
-  - response
+  # - response
   - responseffonly
   - duration
-  - stability
+  # - stability
   - contrast
   - interval
+  
   # - noiseadaption
   # - spatialsplit
 

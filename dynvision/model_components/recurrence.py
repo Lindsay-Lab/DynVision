@@ -11,7 +11,7 @@ from dynvision.model_components.topographic_recurrence import (
 )
 from dynvision.model_components.base import DtypeDeviceCoordinatorMixin
 from dynvision.model_components.integration_strategy import setup_integration_strategy
-from dynvision.utils import apply_parametrization, str_to_bool
+from dynvision.utils import apply_parametrization, str_to_bool, calculate_conv_out_dim
 from pytorch_lightning import LightningModule
 import logging
 
@@ -157,7 +157,7 @@ class ForwardRecurrenceBase(RecurrenceBase):
                     synced_states.append(hidden)  # Keep original reference
 
             self.hidden_states = synced_states
-
+            
 
 class DepthwiseSeparableConnection(RecurrenceBase):
     """
@@ -480,13 +480,18 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self.mid_channels = mid_channels
         self.out_channels = out_channels
         self.kernel_size = kernel_size
-        self.padding = padding
         self.bias = bias
         self.parametrization = parametrization
-        if stride is None:
-            stride = kernel_size // 2
-        self.stride = stride
 
+        if padding is None:
+            padding = kernel_size // 2
+        self.padding = padding
+
+        if mid_channels is not None and not isinstance(stride, (list, tuple)):
+            self.stride = (stride, stride)
+        else:
+            self.stride = stride
+            
         # Store spatial dimensions
         self.dim_y = dim_y
         self.dim_x = dim_x
@@ -509,13 +514,50 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self._define_architecture()
         self.reset()
 
+    def _calculate_conv_out_dim(self, in_dim=None, kernel_size=None, padding=None, stride=None) -> int:
+        in_dim = in_dim or self.dim_y
+        kernel_size = kernel_size or self.kernel_size
+        padding = padding or self.padding
+        stride = stride or self.stride
+        return calculate_conv_out_dim(in_dim, kernel_size, padding, stride)
+
+    def _calculate_feedforward_output_dims(self) -> tuple[int, int]:
+        """
+        Calculate the output dimensions after convolution.
+        """
+        if self.mid_channels is None:
+            dim_y = self._calculate_conv_out_dim(self.dim_y)
+            dim_x = self._calculate_conv_out_dim(self.dim_x)
+        else:
+            dim_y = self._calculate_conv_out_dim(self.dim_y, stride=self.stride[0])
+            dim_y = self._calculate_conv_out_dim(dim_y, stride=self.stride[1])
+            dim_x = self._calculate_conv_out_dim(self.dim_x, stride=self.stride[0])
+            dim_x = self._calculate_conv_out_dim(dim_x, stride=self.stride[1])
+        return dim_y, dim_x
+
+    def _calculate_recurrence_output_dims(self) -> tuple[int, int]:
+        """
+        Calculate the output dimensions after recurrence.
+        """
+        if self.recurrence_target == "input":
+            dim_y = self.dim_y
+            dim_x = self.dim_x
+        elif self.recurrence_target == "middle":
+            dim_y = self._calculate_conv_out_dim(self.dim_y, stride=self.stride[0])
+            dim_x = self._calculate_conv_out_dim(self.dim_x, stride=self.stride[0])
+        elif self.recurrence_target == "output":
+            dim_y, dim_x = self._calculate_feedforward_output_dims()
+        else:
+            raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
+        return dim_y, dim_x
+    
     def _setup_hidden_state_memory(
         self, history_length: Optional[float] = None
     ) -> None:
         self.history_length = (
             self.t_recurrence if history_length is None else history_length
         )
-        self.n_hidden_states = int(self.history_length / self.dt)
+        self.n_hidden_states = int(self.history_length / self.dt) + 1
         self.delay_recurrence = int(self.t_recurrence / self.dt)
 
     def _define_architecture(self) -> None:
@@ -527,11 +569,10 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             self._setup_recurrence()
 
     def _setup_feedforward_conv(self) -> None:
-        padding = self.kernel_size // 2 if self.padding is None else self.padding
         conv_kwargs = dict(
             kernel_size=self.kernel_size,
             stride=self.stride,
-            padding=padding,
+            padding=self.padding,
             bias=self.bias,
         )
 
@@ -545,26 +586,37 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             self.conv = nn.Conv2d(
                 in_channels=self.in_channels,
                 out_channels=self.mid_channels,
-                **conv_kwargs,
+                **conv_kwargs | {"stride": self.stride[0]},
             )
             self.nonlin = nn.ReLU(inplace=False)
             self.conv2 = nn.Conv2d(
                 in_channels=self.mid_channels,
                 out_channels=self.out_channels,
-                **conv_kwargs,
+                **conv_kwargs | {"stride": self.stride[1]},
             )
 
         if self.parametrization is not None:
             self.conv = apply_parametrization(self.conv, self.parametrization)
 
     def _setup_recurrence(self) -> None:
-        """Set up the recurrent connection based on specified type."""
+        """Set up the recurrent connection based on specified type."""        
         if self.recurrence_target == "input":
             out_channels = self.in_channels
+        elif self.recurrence_target == "middle":
+            out_channels = self.mid_channels
         elif self.recurrence_target == "output":
             out_channels = self.out_channels
         else:
             raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
+        
+        # Setup up upsampling if needed
+        in_dim_y, in_dim_x = self._calculate_feedforward_output_dims()
+        out_dim_y, out_dim_x = self._calculate_recurrence_output_dims()
+
+        if in_dim_y == out_dim_y and in_dim_x == out_dim_x:
+            self.upsample = False
+        else:
+            self.upsample = nn.Upsample(size=(out_dim_y, out_dim_x))
 
         recurrence_params = dict(
             kernel_size=self.kernel_size,
@@ -574,8 +626,8 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             fixed_weight=self.fixed_self_weight,
             in_channels=self.out_channels,
             out_channels=out_channels,
-            dim_y=self.dim_y // self.stride,
-            dim_x=self.dim_x // self.stride,
+            dim_y=in_dim_y,
+            dim_x=in_dim_x,
         )
 
         # Map recurrence types to their implementations
@@ -615,11 +667,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             if hasattr(conv_layer, "bias") and conv_layer.bias is not None:
                 nn.init.constant_(conv_layer.bias, 0)
 
-        if self.mid_channels is None:
-            init_conv_layer(self.conv)
-        else:
-            init_conv_layer(self.conv[0])
-            init_conv_layer(self.conv[2])
+        init_conv_layer(self.conv)
+        if self.mid_channels is not None:
+            init_conv_layer(self.conv2)
 
         if hasattr(self.recurrence, "_init_parameters"):
             self.recurrence._init_parameters()
@@ -629,15 +679,6 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         x: Optional[torch.Tensor] = None,
         h: Optional[torch.Tensor] = None,
     ):
-        # Setup up optional upsampling
-        if (
-            x is not None
-            and h is not None
-            and not self.upsample
-            and not x.shape[-2:] == h.shape[-2:]
-        ):
-            self.upsample = nn.Upsample(size=x.shape[-2:])
-
         # Get previous activation for recurrent input
         if h is None:  # passed hidden state takes precedence
             h = self.get_hidden_state(self.delay_recurrence)
@@ -656,6 +697,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         else:
             if bool(self.upsample):
                 h = self.upsample(h)
+
             x = self.integrate_signal(x, h)
 
         return x

@@ -79,7 +79,7 @@ class DyRCNN(BaseModel):
     )
     def __init__(
         self,
-        # Core neural network parameters (passed to DynVision)
+        # Core neural network parameters (passed to TemporalBase)
         n_classes: int = 200,
         input_dims: tuple = (14, 3, 64, 64),  # (t, c, y, x)
         dt: float = 2,  # ms
@@ -87,6 +87,7 @@ class DyRCNN(BaseModel):
         t_feedforward: float = 10,  # ms
         t_recurrence: float = 6,  # ms
         recurrence_type: str = "none",
+        recurrence_target: str = "output",  # Target for recurrent connections
         # DyRCNN-specific biological parameters
         train_tau: bool = False,
         bias: bool = True,
@@ -112,9 +113,9 @@ class DyRCNN(BaseModel):
         self.feedforward_only = str_to_bool(feedforward_only)
 
         # Pass core neural network parameters to parent classes
-        # BaseModel will distribute these properly to DynVision and LightningBase
+        # BaseModel will distribute these properly to TemporalBase and LightningBase
         super().__init__(
-            # Core parameters for DynVision
+            # Core parameters for TemporalBase
             n_classes=n_classes,
             input_dims=input_dims,
             dt=float(dt),
@@ -122,6 +123,7 @@ class DyRCNN(BaseModel):
             t_feedforward=float(t_feedforward),
             t_recurrence=float(t_recurrence),
             recurrence_type=recurrence_type,
+            recurrence_target=recurrence_target,
             # All other Lightning/training parameters pass through kwargs
             **kwargs,
         )
@@ -193,9 +195,10 @@ class DyRCNNx4(DyRCNN):
             dt=self.dt,
             tau=self.tau,
             history_length=max(self.t_feedforward, self.t_recurrence),
-            delay_recurrence=self.t_recurrence,
+            t_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
+            recurrence_target=self.recurrence_target,
         )
 
         # Input adaptation
@@ -383,9 +386,10 @@ class DyRCNNx8(DyRCNNx4):
             dt=self.dt,
             tau=self.tau,
             history_length=max(self.t_feedforward, self.t_recurrence),
-            delay_recurrence=self.t_recurrence,
+            t_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
+            recurrence_target=self.recurrence_target,
         )
 
         # Input adaptation
@@ -401,7 +405,7 @@ class DyRCNNx8(DyRCNNx4):
             mid_channels=64,
             out_channels=64,
             kernel_size=5,
-            stride=2,
+            stride=(2, 1),
             dim_y=self.dim_y,
             dim_x=self.dim_x,
             **layer_params,
@@ -417,17 +421,17 @@ class DyRCNNx8(DyRCNNx4):
         # V2
         self.V2 = RecurrentConnectedConv2d(
             in_channels=self.V1.out_channels,
-            mid_channels=128,
-            out_channels=128,
+            mid_channels=144,
+            out_channels=144,
             kernel_size=3,
-            stride=2,
+            stride=(2, 1),
             dim_y=self.V1.dim_y
-            // self.V1.stride
-            // self.V1.stride
+            // self.V1.stride[0]
+            // self.V1.stride[1]
             // self.pool_V1.stride,
             dim_x=self.V1.dim_x
-            // self.V1.stride
-            // self.V1.stride
+            // self.V1.stride[0]
+            // self.V1.stride[1]
             // self.pool_V1.stride,
             **layer_params,
         )
@@ -445,14 +449,14 @@ class DyRCNNx8(DyRCNNx4):
             mid_channels=256,
             out_channels=256,
             kernel_size=3,
-            stride=2,
+            stride=(2, 1),
             dim_y=self.V2.dim_y
-            // self.V2.stride
-            // self.V2.stride
+            // self.V2.stride[0]
+            // self.V2.stride[1]
             // self.pool_V2.stride,
             dim_x=self.V2.dim_x
-            // self.V2.stride
-            // self.V2.stride
+            // self.V2.stride[0]
+            // self.V2.stride[1]
             // self.pool_V2.stride,
             **layer_params,
         )
@@ -475,12 +479,12 @@ class DyRCNNx8(DyRCNNx4):
         # IT
         self.IT = RecurrentConnectedConv2d(
             in_channels=self.V4.out_channels,
-            mid_channels=512,
-            out_channels=512,
+            mid_channels=529,
+            out_channels=529,
             kernel_size=3,
-            stride=2,
-            dim_y=self.V4.dim_y // self.V4.stride // self.V4.stride,
-            dim_x=self.V4.dim_x // self.V4.stride // self.V4.stride,
+            stride=(2, 1),
+            dim_y=self.V4.dim_y // self.V4.stride[0] // self.V4.stride[1],
+            dim_x=self.V4.dim_x // self.V4.stride[0] // self.V4.stride[1],
             **layer_params,
         )
         if self.skip:
@@ -552,8 +556,8 @@ class DyRCNNx2(DyRCNN):
             dt=self.dt,
             tau=self.tau,
             history_length=max(self.t_feedforward, self.t_recurrence),
-            delay_recurrence=self.t_recurrence,
-            device=self.device,
+            t_recurrence=self.t_recurrence,
+            recurrence_target=self.recurrence_target,
         )
 
         # Define the convolutional layers
@@ -629,7 +633,7 @@ class DyRCNNx2(DyRCNN):
         nn.init.constant_(self.classifier[-1].bias, 0)
 
 
-# Aliases for compatibility
+# Aliases for backwards compatibility
 FourLayerCNN = DyRCNNx4
 TwoLayerCNN = DyRCNNx2
 

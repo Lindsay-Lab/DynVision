@@ -178,8 +178,7 @@ class DataModule(pl.LightningDataModule):
         if self.config.data.use_ffcv:
             self._preview_loader = self._create_ffcv_loader(
                 self.config.dataset_train,
-                preview_config,
-                train=True,
+                preview_config | {"train": False, "distributed": False},
             )
         else:
             self._preview_loader = self._create_pytorch_loader(preview_config)
@@ -211,14 +210,14 @@ class DataModule(pl.LightningDataModule):
     def _setup_ffcv_loaders(self, config: Dict[str, Any]) -> None:
         """Set up FFCV data loaders."""
         self.train_loader = self._create_ffcv_loader(
-            self.config.dataset_train, config, train=True
+            self.config.dataset_train, config | {"train": True}
         )
         self.val_loader = self._create_ffcv_loader(
-            self.config.dataset_val, config, train=False
+            self.config.dataset_val, config | {"train": False}
         )
 
     def _create_ffcv_loader(
-        self, path: Path, config: Dict[str, Any], train: bool
+        self, path: Path, config: Dict[str, Any]
     ) -> ffcv.loader.Loader:
         """Create a single FFCV data loader."""
         return get_ffcv_dataloader(path=path, **config)

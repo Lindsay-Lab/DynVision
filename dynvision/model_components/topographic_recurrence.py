@@ -175,8 +175,6 @@ class LocalLateralConnection(LightningModule):
     ):
         super(LocalLateralConnection, self).__init__()
         # Validate parameters
-        if not is_square_number(in_channels):
-            logger.warning(f"in_channels={in_channels} is not a perfect square")
         if dim_y <= 0 or dim_x <= 0:
             raise ValueError(f"Invalid dimensions: dim_y={dim_y}, dim_x={dim_x}")
 
@@ -187,16 +185,22 @@ class LocalLateralConnection(LightningModule):
         self.plane_dim_y = self.feature_dim * dim_y
         self.plane_dim_x = self.feature_dim * dim_x
         self.mixed_precision = mixed_precision
+        
+        if is_square_number(in_channels):
+            self.square_n_channels = in_channels
+        else:
+            logger.warning(f"in_channels={in_channels} is not a perfect square, internally extending to next square number")
+            self.square_n_channels = next_square_number(in_channels)
 
         # Create lookup mappings
         # Note: The naming may be a bit counter-intuitive:
         # - plane_to_layer_mapping is used in layer_to_plane (maps plane coordinates to layer indices).
         # - layer_to_plane_mapping is used in plane_to_layer (maps layer coordinates to plane indices).
         self.plane_to_layer_mapping = create_plane_to_layer_mapping(
-            in_channels, dim_y, dim_x
+            self.square_n_channels, dim_y, dim_x
         )
         self.layer_to_plane_mapping = create_layer_to_plane_mapping(
-            in_channels, dim_y, dim_x
+            self.square_n_channels, dim_y, dim_x
         )
 
         # Precompute flat index mappings for efficient gather operations.
@@ -273,28 +277,29 @@ class LocalLateralConnection(LightningModule):
         layer_flat = torch.gather(
             plane_flat, 1, self.flat_layer_mapping.expand(batch_size, -1)
         )
-        layer = layer_flat.view(batch_size, self.n_channels, self.dim_y, self.dim_x)
+        layer = layer_flat.view(batch_size, self.square_n_channels, self.dim_y, self.dim_x)
         return layer
 
     def forward(self, x0: torch.Tensor) -> torch.Tensor:
 
         batch_size = x0.size(0)
+        
+        # Extend input to square channel number if necessary
+        x0 = extend_to_square_channel_number(x0, dim=1)
 
-        # Efficient computation with mixed precision
-        with torch.amp.autocast("cuda", enabled=self.mixed_precision):
-            # Map the layer to a plane efficiently
-            p0 = self.optimized_layer_to_plane(x0)
+        # Map the layer to a plane efficiently
+        p0 = self.optimized_layer_to_plane(x0)
 
-            # Apply convolution on the plane
-            p1 = self.conv(p0)
+        # Apply convolution on the plane
+        p1 = self.conv(p0)
 
-            # Map back from plane to layer
-            x1 = self.optimized_plane_to_layer(p1)
+        # Map back from plane to layer
+        x1 = self.optimized_plane_to_layer(p1)
 
-            # Trim any extra channels
-            x1 = x1[:, : self.n_channels]
+        # Trim any extra channels
+        x1 = x1[:, : self.n_channels]
 
-            return x1
+        return x1
 
     def trace_forward(self, x0: torch.Tensor) -> torch.jit.ScriptModule:
         return torch.jit.trace(self.forward, x0)
@@ -331,14 +336,6 @@ class LocalSeparableConnection(LightningModule):
         **kwargs: Any,
     ):
         super(LocalSeparableConnection, self).__init__()
-
-        # Validate parameters
-        if not is_square_number(in_channels):
-            logger.warning(f"in_channels={in_channels} is not a perfect square")
-        if dim_y <= 0 or dim_x <= 0:
-            raise ValueError(f"Invalid dimensions: dim_y={dim_y}, dim_x={dim_x}")
-        if kernel_size <= 0:
-            raise ValueError(f"Invalid kernel_size: {kernel_size}")
 
         self.stability_threshold = stability_threshold
         self.mixed_precision = mixed_precision

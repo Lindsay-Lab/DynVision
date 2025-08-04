@@ -51,7 +51,7 @@ rule plot_confusion_matrix:
         ),
     output:
         plot = project_paths.figures / '{path}_{data_name}_confusion.{format}'
-    group: "visualization"
+    # group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -91,7 +91,7 @@ rule plot_classifier_responses:
         directory(project_paths.figures \
             / 'classifier_response' \
             / '{model_name}{data_identifier}')
-    group: "visualization"
+    # group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -128,7 +128,7 @@ rule plot_weight_distributions:
         plot = project_paths.figures \
             / 'weight_distributions' \
             / '{model_name}{data_identifier}_{status}_weights.{format}'
-    group: "visualization"
+    # group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -169,7 +169,7 @@ rule plot_experiment_outputs:
         ),
     output:
         plot = project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{category}=*_{seed}_{data_name}_{status}_{data_group}' / 'experiment_outputs_label{label_target}.{format}'
-    group: "visualization"
+    # group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -221,7 +221,7 @@ checkpoint plot_adaption:
         ),
     output:
         flag = project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / '{plot}.flag'
-    group: "visualization"
+    # group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -251,7 +251,7 @@ rule plot_experiments:
             status = config.status,
             data_group = config.data_group,
         )
-    group: "visualization"
+    # group: "visualization"
 
 rule plot_experiments_on_models:
     """Generate comparative visualizations across models.

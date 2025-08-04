@@ -361,14 +361,6 @@ class DataParams(BaseParams):
         return v
 
     @model_validator(mode="after")
-    def validate_distributed_settings(self) -> "DataParams":
-        if self.use_distributed:
-            self.update_field("order", OrderOption.RANDOM, verbose=True)
-            self.update_field("os_cache", True, verbose=True)
-            self.update_field("drop_last", True, verbose=True)
-        return self
-
-    @model_validator(mode="after")
     def validate_persistent_workers(self) -> "DataParams":
         if self.num_workers == 0 and self.persistent_workers:
             logger.info(

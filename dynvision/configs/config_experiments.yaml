@@ -1,9 +1,13 @@
 experiment_config:
 
   categories:
-    rctype: ['depthpointwise', 'pointdepthwise', 'full', 'self'] #, 'local', 'localdepthwise']
-    supralin: [1.00000001, 1.0000001, 1.000001, 1.00001]  #[1.01, 1.1, 1.3, 1.5, 1.7]
+    rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full'] #, 'local', 'localdepthwise']
+    rctarget: ['output', 'input', 'middle']  # Target for recurrent connections
     tsteps: [20]
+    tau: [7, 9, 11, 13]
+    tff: [0, 10]
+    trc: [4, 6, 8, 10]
+    lossrt: [0, 20, 40, 60, 80, 90, 98]
 
   response:
     status: trained
@@ -30,7 +34,7 @@ experiment_config:
     data_loader: StimulusDuration
     data_args:
       tsteps: 200
-      stim: [10, 100, 150]
+      stim: [100]
 
   duration:
     status: trained
@@ -39,9 +43,9 @@ experiment_config:
     data_args:
       # tsteps: 20
       # stim: [1,2,3,4,6,8,10,12,14,16]
-      intro: 10
       tsteps: 60
-      stim: [20]
+      intro: 2
+      stim: [2,4,6,8,10,20,30,40,50]
 
   contrast:
     status: trained

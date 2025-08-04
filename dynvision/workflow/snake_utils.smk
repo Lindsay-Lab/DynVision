@@ -66,7 +66,7 @@ wildcard_constraints:
     layer_name = r'(layer1|layer2|V1|V2|V4|IT)'
 
 localrules: all, symlink_data_subsets, symlink_data_groups, experiment
-ruleorder: symlink_data_groups > symlink_data_subsets
+ruleorder: symlink_data_groups > symlink_data_subsets > train_model_distributed > train_model
 
 def run_mode_manager():
     """Initialize and apply mode manager after CLI config overrides"""

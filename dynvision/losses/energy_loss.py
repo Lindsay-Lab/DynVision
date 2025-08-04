@@ -17,11 +17,11 @@ class EnergyLoss(BaseLoss):
         self.p = p
 
     def register_hooks(self, model: nn.Module) -> None:
-        """Register forward hooks on model layers to capture energy statistics."""
+        """Register forward hooks on model modules to capture energy statistics."""
         self.remove_hooks()  # Clean up any existing hooks
 
         for name, module in model.named_modules():
-            if self._should_monitor_layer(module):
+            if self._should_monitor_module(module):
                 hook = module.register_forward_hook(
                     lambda module, input, output, name=name: self._accumulate_energy(
                         name, output
@@ -29,13 +29,13 @@ class EnergyLoss(BaseLoss):
                 )
                 self.hooks.append(hook)
 
-    def _should_monitor_layer(self, module: nn.Module) -> bool:
-        """Determine which layers to monitor for energy calculation."""
-        # Monitor conv layers, linear layers, but skip activations, pooling, etc.
+    def _should_monitor_module(self, module: nn.Module) -> bool:
+        """Determine which modules to monitor for energy calculation."""
+        # Monitor conv modules, linear modules, but skip activations, pooling, etc.
         return isinstance(module, (nn.Conv2d, nn.Linear, nn.ConvTranspose2d))
 
-    def _accumulate_energy(self, layer_name: str, activation: torch.Tensor) -> None:
-        """Store current batch energy for a layer during forward pass."""
+    def _accumulate_energy(self, module_name: str, activation: torch.Tensor) -> None:
+        """Store current batch energy for a module during forward pass."""
         if activation is None:
             return
 
@@ -44,12 +44,12 @@ class EnergyLoss(BaseLoss):
             activation, p=self.p, dim=tuple(range(1, activation.ndim))
         )
 
-        if layer_name not in self.norm_factors:
+        if module_name not in self.norm_factors:
             # Calculate normalization factor once
             n_units = activation.shape[1:].numel()  # All dims except batch
-            self.norm_factors[layer_name] = n_units ** (1 / self.p)
+            self.norm_factors[module_name] = n_units ** (1 / self.p)
 
-        self.batch_energy[layer_name] = batch_energy
+        self.batch_energy[module_name] = batch_energy
 
     def forward(
         self,
@@ -74,11 +74,11 @@ class EnergyLoss(BaseLoss):
             return torch.tensor(0.0, requires_grad=True)
 
         total_energy = torch.tensor(0.0, requires_grad=True)
-        layer_count = 0
+        module_count = 0
 
-        for layer_name, batch_energy in self.batch_energy.items():
+        for module_name, batch_energy in self.batch_energy.items():
             # Get the energy for current batch and normalize
-            norm_factor = self.norm_factors[layer_name]
+            norm_factor = self.norm_factors[module_name]
 
             # Ensure gradients flow through
             if batch_energy.requires_grad:
@@ -86,14 +86,14 @@ class EnergyLoss(BaseLoss):
                     normalized_energy = batch_energy / norm_factor
 
                 total_energy = total_energy + normalized_energy
-                layer_count += 1
+                module_count += 1
 
         # Clear current batch energy immediately after use to free memory
         del self.batch_energy
         self.batch_energy = {}
 
-        if layer_count > 0:
-            return total_energy / layer_count
+        if module_count > 0:
+            return total_energy / module_count
         else:
             return torch.tensor(0.0, requires_grad=True)
 

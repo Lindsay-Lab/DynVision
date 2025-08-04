@@ -10,9 +10,9 @@ import torch
 import numpy as np
 from types import FunctionType, MethodType
 from .coordination import DtypeDeviceCoordinator, DtypeDeviceCoordinatorMixin
-from .data_buffer import StorageBuffer, StorageBufferMixin
+from .storage import StorageBuffer, StorageBufferMixin
 from .monitoring import Monitoring, MonitoringMixin
-from .dynvision import DynVision
+from .temporal import TemporalBase
 from .lightning import LightningBase
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,7 @@ __all__ = [
     "CoreModel",  # Just core neural network + coordination
     "MonitoredModel",  # Core + monitoring, no Lightning
     # Individual components
-    "DynVision",  # Core neural network functionality
+    "TemporalBase",  # Core neural network functionality
     "LightningBase",  # Lightning training framework
     # Storage components
     "StorageBuffer",  # Storage without Lightning hooks
@@ -39,7 +39,7 @@ __all__ = [
 
 
 class BaseModel(
-    DynVision,  # Core neural network functionality
+    TemporalBase,  # Core neural network functionality
     LightningBase,  # PyTorch Lightning training framework
     StorageBufferMixin,  # Response storage with Lightning hooks
     MonitoringMixin,  # Debugging/logging with Lightning hooks
@@ -49,14 +49,14 @@ class BaseModel(
     Complete DynVision model with all functionality.
 
     Inheritance order ensures proper MRO:
-    1. DynVision: Core methods (_forward, forward)
-    2. LightningBase: Training framework (calls DynVision methods)
+    1. TemporalBase: Core methods (_forward, forward)
+    2. LightningBase: Training framework (calls TemporalBase methods)
     3. StorageBufferMixin: Storage with Lightning hooks
     4. MonitoringMixin: Monitoring with Lightning hooks
     5. DtypeDeviceCoordinatorMixin: Coordination with Lightning hooks
 
     Provides:
-    - Core neural network computation (DynVision)
+    - Core neural network computation (TemporalBase)
     - PyTorch Lightning integration (LightningBase)
     - Device/dtype coordination (DtypeDeviceCoordinatorMixin)
     - Response storage and management (StorageBufferMixin)
@@ -176,13 +176,13 @@ class BaseModel(
 
 
 # Flexible building blocks for advanced usage
-class CoreModel(DynVision, DtypeDeviceCoordinatorMixin):
+class CoreModel(TemporalBase, DtypeDeviceCoordinatorMixin):
     """Core neural network functionality with device coordination only."""
 
     pass
 
 
-class MonitoredModel(DynVision, MonitoringMixin, DtypeDeviceCoordinatorMixin):
+class MonitoredModel(TemporalBase, MonitoringMixin, DtypeDeviceCoordinatorMixin):
     """Core neural network with monitoring, but no Lightning integration."""
 
     pass

@@ -3,19 +3,18 @@
 import torch
 import torch.nn as nn
 from typing import Any, Dict, List, Optional, Tuple
-from types import SimpleNamespace
 from copy import copy
 import logging
 
 from dynvision.data.operations import _adjust_data_dimensions, _adjust_label_dimensions
 from dynvision.utils import alias_kwargs
-from .data_buffer import DataBuffer
+from .storage import DataBuffer
 
 logger = logging.getLogger(__name__)
 
 
-class DynVision(nn.Module):
-    """Core neural network functionality for DynVision models."""
+class TemporalBase(nn.Module):
+    """Core neural network functionality for temporal dynamics models."""
 
     @alias_kwargs(
         trc="t_recurrence",
@@ -23,6 +22,7 @@ class DynVision(nn.Module):
         tfb="t_feedback",
         tsk="t_skip",
         rctype="recurrence_type",
+        rctarget="recurrence_target",
         solver="dynamics_solver",
     )
     def __init__(
@@ -38,10 +38,12 @@ class DynVision(nn.Module):
         t_recurrence: float = 3.0,
         t_feedback: Optional[float] = None,
         t_skip: Optional[float] = None,
+        data_presentation_pattern: List[int] = [1],
         # Architecture configuration
         classifier_name: str = "classifier",
         dynamics_solver: str = "euler",
         recurrence_type: str = "none",
+        recurrence_target: str = "output",
         **kwargs: Any,
     ) -> None:
         nn.Module.__init__(self)
@@ -57,7 +59,9 @@ class DynVision(nn.Module):
         self.classifier_name = classifier_name
         self.dynamics_solver = str(dynamics_solver)
         self.recurrence_type = str(recurrence_type)
-
+        self.recurrence_target = str(recurrence_target)
+        self.data_presentation_pattern = list(data_presentation_pattern)
+        
         # Process feedforward delay
         self.delay_feedforward = int(t_feedforward / dt)
 
@@ -154,6 +158,7 @@ class DynVision(nn.Module):
         x: torch.Tensor,
         t: Optional[torch.Tensor] = None,
         feedforward_only: bool = False,
+        store_responses: bool = True,
     ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         """
         Forward pass through the model for a single time step. This is a general formulation of the time step operation that uses the model's attributes layer_names and layer_operations to handle the execution of the operations in each layer when they are named according to the following convention: {operation}_{layer_name}, or {operation} if the operation is not layer-specific.
@@ -212,7 +217,7 @@ class DynVision(nn.Module):
                         module_name = "layer"
                     x = layer(x)
 
-                elif operation == "record":
+                elif operation == "record" and store_responses:
                     responses[layer_name] = x
 
                 elif operation == "delay" and hasattr(layer, "set_hidden_state"):
@@ -249,7 +254,8 @@ class DynVision(nn.Module):
             classifier = getattr(self, self.classifier_name)
             x = classifier(x)
 
-        responses[self.classifier_name] = x
+        if store_responses:
+            responses[self.classifier_name] = x
 
         return x, responses
 
@@ -296,7 +302,7 @@ class DynVision(nn.Module):
         for t in torch.arange(n_timesteps, device=x_0.device):
             x = x_0[:, t, ...]
 
-            x, responses_t = self._forward(x, t, feedforward_only=feedforward_only)
+            x, responses_t = self._forward(x, t, feedforward_only=feedforward_only, store_responses=store_responses)
 
             if x is not None:
                 # Add time dimension and append to list
@@ -311,7 +317,7 @@ class DynVision(nn.Module):
                 )
                 output_list.append(zero_output)
 
-            if store_responses:
+            if store_responses and len(responses_t):
                 t_responses = {
                     k: v.unsqueeze(1) if v is not None else None
                     for k, v in responses_t.items()
@@ -407,6 +413,7 @@ class DynVision(nn.Module):
         while is_empty_output(x):
             t += 1
             x, _ = self._forward(random_input, t=t, feedforward_only=True)
+
             if t > max_timesteps:
                 raise ValueError(
                     f"Unable to determine residual timesteps (> {max_timesteps})!"
@@ -459,11 +466,48 @@ class DynVision(nn.Module):
         label_indices = _adjust_label_dimensions(label_indices)
 
         if inputs.size(1) == 1 and self.n_timesteps > 1:
-            # input data is not yet extended
+
             inputs = inputs.expand(-1, self.n_timesteps, -1, -1, -1)
             label_indices = label_indices.expand(-1, self.n_timesteps)
+            
+            # optionally modify based on data_presentation pattern
+            if hasattr(self, 'data_presentation_pattern') and len(self.data_presentation_pattern) > 1:
+                # Cache the processed presentation pattern
+                if not hasattr(self, '_cached_presentation_pattern'):
+                    self._cache_presentation_pattern()
+                
+                presentation_pattern = self._cached_presentation_pattern
+                zero_mask = ~presentation_pattern
+                
+                # Only modify if there are timesteps to zero out
+                if zero_mask.any():
+                    # Clone only when modification is needed
+                    inputs = inputs.clone()
+                    label_indices = label_indices.clone()
+                    
+                    # Zero out non-presentation timesteps
+                    inputs[:, zero_mask] = 0
+                    label_indices[:, zero_mask] = self.non_label_index
 
         return (inputs, label_indices, *extra)
+
+    def _cache_presentation_pattern(self) -> None:
+        """Cache the processed presentation pattern to avoid recomputation."""
+        pattern = torch.tensor(self.data_presentation_pattern, dtype=torch.bool)
+        
+        # Resize pattern to match n_timesteps if needed
+        if len(self.data_presentation_pattern) != self.n_timesteps:
+            if len(self.data_presentation_pattern) == 1:
+                # Special case: single value repeated
+                pattern = pattern.expand(self.n_timesteps)
+            else:
+                # Efficient nearest neighbor resampling
+                old_len = len(self.data_presentation_pattern)
+                indices = torch.arange(self.n_timesteps) * old_len // self.n_timesteps
+                indices = torch.clamp(indices, 0, old_len - 1)
+                pattern = pattern[indices]
+        
+        self._cached_presentation_pattern = pattern
 
     def _extend_residual_timesteps(
         self, batch: Tuple[torch.Tensor, torch.Tensor]

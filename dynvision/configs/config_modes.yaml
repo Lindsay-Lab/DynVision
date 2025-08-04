@@ -5,7 +5,7 @@ local:
   use_debug_mode: True
   use_distributed_mode: False
   verbose: True
-  # use_ffcv: False 
+  use_ffcv: False 
   num_workers: 0
   persistent_workers: False
 
@@ -17,29 +17,6 @@ debug:
   log_every_n_steps: 1
   accumulate_grad_batches: 1
   enable_progress_bar: True
-
-# Distributed Settings
-use_distributed_mode: False
-distributed:
-  use_distributed: True
-  strategy: "ddp"  # Use standard DDP for SLURM compatibility
-  devices: 4  # Number of GPUs per node
-  num_nodes: 1  # Number of compute nodes
-  sync_batchnorm: True
-  precision: "bf16-mixed"  # Options: 32, 16-mixed, bf16-mixed
-  accelerator: "gpu"  # Explicitly set GPU accelerator
-  accumulate_grad_batches: 2
-  batch_size: 256
-  num_workers: 8
-  persistent_workers: True
-  order: "RANDOM"
-  os_cache: True
-  # Advanced DDP settings
-  strategy_kwargs:
-    find_unused_parameters: True  # Set to True if your model has unused parameters
-    gradient_as_bucket_view: True  # Use bucket views for gradients
-    process_group_backend: "nccl"  # Use NCCL for GPU communication
-    static_graph: True
 
 # Large Dataset Settings
 use_large_dataset_mode: "auto"
@@ -53,4 +30,34 @@ large_dataset:
   pin_memory: False
   os_cache: False
   chunksize: 10000
+
+# Distributed Settings
+use_distributed_mode: False
+distributed:
+  use_distributed: False  # For FFCV dataloaders
+  strategy: "ddp"  # Use standard DDP for SLURM compatibility
+  devices: 4  # Number of GPUs per node
+  num_nodes: 1  # Number of compute nodes
+  sync_batchnorm: True
+  precision: "bf16-mixed"  # Options: 32, 16-mixed, bf16-mixed
+  accelerator: "gpu"  # Explicitly set GPU accelerator
+  accumulate_grad_batches: 2
+  num_sanity_val_steps: 0
+  store_train_responses: 0  # n_batches
+  store_val_responses: 0  # n_batches
+  batch_size: 32
+  num_workers: 4
+  persistent_workers: True
+  pin_memory: False
+  order: "SEQUENTIAL"
+  os_cache: False
+  drop_last: True  # Ensure all batches are of the same size
+  # Advanced DDP settings
+  strategy_kwargs:
+    find_unused_parameters: True  # Set to True if your model has unused parameters
+    gradient_as_bucket_view: True  # Use bucket views for gradients
+    process_group_backend: "nccl"  # Use NCCL for GPU communication
+    static_graph: False
+    broadcast_buffers: True   # Required for BatchNorm in skip connections
+
   

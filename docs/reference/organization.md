@@ -42,7 +42,7 @@ The `base` module provides the fundamental infrastructure for the entire framewo
    - `dynvision.py`: Core forward functionality and temporal dynamics
    - `lightning.py`: PyTorch Lightning integration and training infrastructure
    - `coordination.py`: Device and dtype coordination across model components
-   - `data_buffer.py`: Efficient data buffering and memory management
+   - `storage.py`: Efficient data buffering and memory management
    - `monitoring.py`: Training monitoring and performance tracking utilities
 
 This module establishes the foundational architecture that all other components build upon.

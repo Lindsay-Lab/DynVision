@@ -10,6 +10,7 @@ from pydantic import Field, field_validator, model_validator, ConfigDict
 from typing import Dict, Any, Optional, List, Union, Tuple
 import logging
 from pathlib import Path
+from datetime import timedelta
 import torch
 import os
 from dynvision.params.base_params import BaseParams, DynVisionValidationError
@@ -33,6 +34,9 @@ class TrainerParams(BaseParams):
     )
     log_every_n_steps: int = Field(
         default=50, description="Logging frequency (steps)", ge=1
+    )
+    num_sanity_val_steps: int = Field(
+        default=2, description="Number of sanity steps before training", ge=0
     )
 
     # Training Behavior
@@ -466,7 +470,9 @@ class TrainerParams(BaseParams):
 
         if strategy_name in ["ddp", "ddp_spawn"]:
             if strategy_name == "ddp":
-                return pl.strategies.DDPStrategy(**strategy_kwargs)
+                return pl.strategies.DDPStrategy(
+                    timeout=timedelta(minutes=10), **strategy_kwargs
+                )
             else:
                 return pl.strategies.DDPSpawnStrategy(**strategy_kwargs)
 
@@ -506,6 +512,7 @@ class TrainerParams(BaseParams):
             "check_val_every_n_epoch": self.check_val_every_n_epoch,
             "log_every_n_steps": self.log_every_n_steps,
             "accumulate_grad_batches": self.accumulate_grad_batches,
+            "num_sanity_val_steps": self.num_sanity_val_steps,
             "precision": self.precision,
             "enable_progress_bar": self.enable_progress_bar,
             "profiler": self.profiler,

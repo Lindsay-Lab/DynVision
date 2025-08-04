@@ -5,7 +5,7 @@ Makefile
 config_runtime.yaml
 
 # temporary files 
-temp*
+temp_*
 *old
 
 # data
