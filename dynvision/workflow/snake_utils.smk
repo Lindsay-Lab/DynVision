@@ -161,13 +161,9 @@ def get_category(data_name: str, data_group: str) -> List[str]:
     """
     category_handlers = {
         'imagenet': lambda: get_imagenet_classes(tiny=('tiny' in data_name)),
+        'imagenette': lambda: ['n01440764',  'n02979186',  'n03028079',  'n03417042',  'n03445777', 'n02102040',  'n03000684',  'n03394916',  'n03425413',  'n03888257'],
         'cifar10': lambda: [str(i) for i in range(10)],
         'cifar100': lambda: [str(i) for i in range(100)],
-        'snakenet': lambda: [
-            'n01729322', 'n01740131', 'n01744401',
-            'n01753488', 'n01755581', 'n01756291'
-        ],
-        'imagenette': lambda: ['n01440764',  'n02979186',  'n03028079',  'n03417042',  'n03445777', 'n02102040',  'n03000684',  'n03394916',  'n03425413',  'n03888257'],
         'mnist': lambda: [str(i) for i in range(10)],
     }
 

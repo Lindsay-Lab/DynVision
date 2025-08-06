@@ -2,7 +2,7 @@
 
 import torch
 import torch.nn as nn
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from copy import copy
 import logging
 
@@ -21,6 +21,7 @@ class TemporalBase(nn.Module):
         tff="t_feedforward",
         tfb="t_feedback",
         tsk="t_skip",
+        pattern="data_presentation_pattern",
         rctype="recurrence_type",
         rctarget="recurrence_target",
         solver="dynamics_solver",
@@ -38,7 +39,7 @@ class TemporalBase(nn.Module):
         t_recurrence: float = 3.0,
         t_feedback: Optional[float] = None,
         t_skip: Optional[float] = None,
-        data_presentation_pattern: List[int] = [1],
+        data_presentation_pattern: Union[List[int], str] = [1],
         # Architecture configuration
         classifier_name: str = "classifier",
         dynamics_solver: str = "euler",
@@ -55,13 +56,14 @@ class TemporalBase(nn.Module):
         self.t_feedforward = float(t_feedforward)
         self.t_recurrence = float(t_recurrence)
         self.t_feedback = float(t_feedforward if t_feedback is None else t_feedback)
-        self.t_skip = float(t_skip if t_skip is None else t_feedback)
+        self.t_skip = float(t_feedback if t_skip is None else t_skip)
+        self.history_length = max(self.t_feedforward, t_recurrence, t_feedback, t_skip)
         self.classifier_name = classifier_name
         self.dynamics_solver = str(dynamics_solver)
         self.recurrence_type = str(recurrence_type)
         self.recurrence_target = str(recurrence_target)
-        self.data_presentation_pattern = list(data_presentation_pattern)
-        
+        self.data_presentation_pattern = data_presentation_pattern
+
         # Process feedforward delay
         self.delay_feedforward = int(t_feedforward / dt)
 
@@ -302,7 +304,12 @@ class TemporalBase(nn.Module):
         for t in torch.arange(n_timesteps, device=x_0.device):
             x = x_0[:, t, ...]
 
-            x, responses_t = self._forward(x, t, feedforward_only=feedforward_only, store_responses=store_responses)
+            x, responses_t = self._forward(
+                x,
+                t,
+                feedforward_only=feedforward_only,
+                store_responses=store_responses,
+            )
 
             if x is not None:
                 # Add time dimension and append to list
@@ -469,23 +476,21 @@ class TemporalBase(nn.Module):
 
             inputs = inputs.expand(-1, self.n_timesteps, -1, -1, -1)
             label_indices = label_indices.expand(-1, self.n_timesteps)
-            
+
             # optionally modify based on data_presentation pattern
-            if hasattr(self, 'data_presentation_pattern') and len(self.data_presentation_pattern) > 1:
+            if (
+                hasattr(self, "data_presentation_pattern")
+                and len(self.data_presentation_pattern) > 1
+            ):
                 # Cache the processed presentation pattern
-                if not hasattr(self, '_cached_presentation_pattern'):
+                if not hasattr(self, "_cached_presentation_pattern"):
                     self._cache_presentation_pattern()
-                
+
                 presentation_pattern = self._cached_presentation_pattern
                 zero_mask = ~presentation_pattern
-                
+
                 # Only modify if there are timesteps to zero out
                 if zero_mask.any():
-                    # Clone only when modification is needed
-                    inputs = inputs.clone()
-                    label_indices = label_indices.clone()
-                    
-                    # Zero out non-presentation timesteps
                     inputs[:, zero_mask] = 0
                     label_indices[:, zero_mask] = self.non_label_index
 
@@ -493,20 +498,32 @@ class TemporalBase(nn.Module):
 
     def _cache_presentation_pattern(self) -> None:
         """Cache the processed presentation pattern to avoid recomputation."""
-        pattern = torch.tensor(self.data_presentation_pattern, dtype=torch.bool)
-        
+        if isinstance(self.data_presentation_pattern, (str, list)):
+            pattern = [int(i) for i in self.data_presentation_pattern]
+        elif isinstance(self.data_presentation_pattern, int):
+            logger.warning(
+                "presentation pattern given as int, this obscures leading 0s!"
+            )
+            pattern = [int(i) for i in str(self.data_presentation_pattern)]
+        else:
+            raise ValueError(
+                f"type of pattern is not str or list:", self.data_presentation_pattern
+            )
+
+        pattern = torch.tensor(pattern, dtype=torch.bool)
+
         # Resize pattern to match n_timesteps if needed
-        if len(self.data_presentation_pattern) != self.n_timesteps:
-            if len(self.data_presentation_pattern) == 1:
+        if len(pattern) != self.n_timesteps:
+            if len(pattern) == 1:
                 # Special case: single value repeated
                 pattern = pattern.expand(self.n_timesteps)
             else:
                 # Efficient nearest neighbor resampling
-                old_len = len(self.data_presentation_pattern)
+                old_len = len(pattern)
                 indices = torch.arange(self.n_timesteps) * old_len // self.n_timesteps
                 indices = torch.clamp(indices, 0, old_len - 1)
                 pattern = pattern[indices]
-        
+
         self._cached_presentation_pattern = pattern
 
     def _extend_residual_timesteps(

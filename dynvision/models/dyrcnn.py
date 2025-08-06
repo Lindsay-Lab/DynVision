@@ -80,13 +80,13 @@ class DyRCNN(BaseModel):
     def __init__(
         self,
         # Core neural network parameters (passed to TemporalBase)
-        n_classes: int = 200,
-        input_dims: tuple = (14, 3, 64, 64),  # (t, c, y, x)
         dt: float = 2,  # ms
         tau: float = 8,  # ms
         t_feedforward: float = 10,  # ms
         t_recurrence: float = 6,  # ms
-        recurrence_type: str = "none",
+        t_feedback: float = 14,
+        t_skip: float = 14,
+        recurrence_type: str = "full",
         recurrence_target: str = "output",  # Target for recurrent connections
         # DyRCNN-specific biological parameters
         train_tau: bool = False,
@@ -116,12 +116,12 @@ class DyRCNN(BaseModel):
         # BaseModel will distribute these properly to TemporalBase and LightningBase
         super().__init__(
             # Core parameters for TemporalBase
-            n_classes=n_classes,
-            input_dims=input_dims,
             dt=float(dt),
             tau=float(tau),
             t_feedforward=float(t_feedforward),
             t_recurrence=float(t_recurrence),
+            t_feedback=float(t_feedback),
+            t_skip=float(t_skip),
             recurrence_type=recurrence_type,
             recurrence_target=recurrence_target,
             # All other Lightning/training parameters pass through kwargs
@@ -194,7 +194,7 @@ class DyRCNNx4(DyRCNN):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=max(self.t_feedforward, self.t_recurrence),
+            history_length=self.history_length,
             t_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
@@ -385,7 +385,7 @@ class DyRCNNx8(DyRCNNx4):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=max(self.t_feedforward, self.t_recurrence),
+            history_length=self.history_length,
             t_recurrence=self.t_recurrence,
             max_weight_init=self.max_weight_init,
             feedforward_only=self.feedforward_only,
@@ -555,7 +555,7 @@ class DyRCNNx2(DyRCNN):
             recurrence_type=self.recurrence_type,
             dt=self.dt,
             tau=self.tau,
-            history_length=max(self.t_feedforward, self.t_recurrence),
+            history_length=self.history_length,
             t_recurrence=self.t_recurrence,
             recurrence_target=self.recurrence_target,
         )

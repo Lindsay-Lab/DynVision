@@ -46,6 +46,7 @@ distributed:
   store_train_responses: 0  # n_batches
   store_val_responses: 0  # n_batches
   batch_size: 32
+  use_ffcv: True
   num_workers: 4
   persistent_workers: True
   pin_memory: False
@@ -58,6 +59,5 @@ distributed:
     gradient_as_bucket_view: True  # Use bucket views for gradients
     process_group_backend: "nccl"  # Use NCCL for GPU communication
     static_graph: False
-    broadcast_buffers: True   # Required for BatchNorm in skip connections
 
   

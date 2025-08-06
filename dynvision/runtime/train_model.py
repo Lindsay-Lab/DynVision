@@ -16,6 +16,7 @@ Example:
 """
 
 import logging
+import wandb
 import os
 import sys
 
@@ -566,6 +567,9 @@ class TrainingOrchestrator:
 
                 # Check for existing checkpoint
                 existing_checkpoint = self._find_existing_checkpoint(checkpoint_path)
+
+                # Hack to log histograms
+                wandb.init()
 
                 # Train model using DataModule (handles distributed setup properly)
                 logger.info("Starting training...")

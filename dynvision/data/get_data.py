@@ -21,9 +21,12 @@ def download_data(output_folder, data_name, train):
 
     Path(output_folder).mkdir(parents=True, exist_ok=True)
 
-    dataset = getattr(datasets, data_name)(
-        root=output_folder, train=train, download=download
-    )
+    if hasattr(datasets, data_name):
+        dataset = getattr(datasets, data_name)(
+            root=output_folder, train=train, download=download
+        )
+    else:
+        raise ValueError(f"Dataset not available in torchvision!")
 
     return dataset
 

@@ -60,7 +60,7 @@ set-resources:
 
   train_model_distributed:
     mem: 80G # use 120GB of memory
-    runtime: 720        # 12 hours
+    runtime: 360        # 12 hours
     # mem_mb_per_cpu: 16000  # 80GB total process memory
     cpus_per_gpu: 16    # 64 CPU cores
     gpus_per_node: 4    # Use 4 GPUs per node

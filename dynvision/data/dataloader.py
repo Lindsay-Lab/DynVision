@@ -40,6 +40,7 @@ class StandardDataLoader(DataLoader):
     - Enable mixed precision with dtype=torch.float16
     """
 
+    @alias_kwargs(data_timesteps="n_timesteps")
     def __init__(
         self,
         *args,
@@ -90,6 +91,7 @@ class StimulusDurationDataLoader(StandardDataLoader):
 
     @alias_kwargs(
         tsteps="n_timesteps",
+        data_timesteps="n_timesteps",
         stim="stimulus_duration",
         intro="intro_duration",
         voidid="non_label_index",
@@ -188,6 +190,7 @@ class StimulusIntervalDataLoader(StandardDataLoader):
 
     @alias_kwargs(
         tsteps="n_timesteps",
+        data_timesteps="n_timesteps",
         stim="stimulus_duration",
         intro="intro_duration",
         interval="interval_duration",
@@ -286,6 +289,7 @@ class StimulusIntervalDataLoader(StandardDataLoader):
 class StimulusContrastDataLoader(StandardDataLoader):
     @alias_kwargs(
         tsteps="n_timesteps",
+        data_timesteps="n_timesteps",
         stim="stimulus_duration",
         intro="intro_duration",
         contrast="stimulus_contrast",
@@ -365,7 +369,6 @@ DATALOADER_CLASSES = {
 def get_data_loader(
     dataset: torch.utils.data.Dataset,
     dataloader: Optional[str] = None,
-    data_timesteps: int = 1,
     **kwargs,
 ) -> torch.utils.data.DataLoader:
     """
@@ -403,9 +406,6 @@ def get_data_loader(
             f"Invalid dataloader type: {type(dataloader)}. "
             "Expected a string or a DataLoader subclass."
         )
-
-    # Add data_timesteps to kwargs for temporal dataloaders
-    kwargs["n_timesteps"] = data_timesteps
 
     filtered_kwargs, _ = filter_kwargs(dataloader_class, kwargs)
 

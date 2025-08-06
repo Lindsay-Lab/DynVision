@@ -16,8 +16,6 @@ rule all:
 
 rule temp_param_scan:
     input:
-        # check unrolling switch validity
-        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=9+tff=*+trc=6+skip=true_0017_cifar100_trained_alphabet/adaption.flag",
         # duration scan tau
         project_paths.figures / "duration/duration_DyRCNNx4:tsteps=50+rctype=full+dt=2+tau=*+tff=0+trc=6+skip=true_0017_cifar100_trained_alphabet/adaption.flag",
         # duration scan trc
@@ -28,8 +26,22 @@ rule temp_param_scan:
 
 rule rctype_scan:
     input:
-        # scan rctype
         expand(project_paths.figures / "{experiment}/{experiment}_DyRCNNx8:tsteps=20+rctype=*+dt=2+tau=9+tff=0+trc=6+skip=true_0019_imagenette_trained_all/adaption.flag",
             experiment = ["responseffonly", "duration", "contrast", "interval"]),
         expand(project_paths.figures / "{experiment}/{experiment}_DyRCNNx8:tsteps=20+rctype=full+rctarget=*+dt=2+tau=9+tff=0+trc=6+skip=true_0019_imagenette_trained_all/adaption.flag",
-            experiment = ["duration", "interval"])
+            experiment = ["duration", "interval"]),
+        expand(project_paths.figures / "{experiment}/{experiment}_DyRCNNx4:tsteps=20+rctype=*+dt=2+tau=9+tff=0+trc=6+pattern={pattern}_0020_cifar100_trained_alphabet/adaption.flag",
+            experiment = ["responseffonly", "stability", "duration", "contrast", "interval"],
+            pattern = ['1', '01110']),
+
+
+rule stability:
+    input:
+        # project_paths.figures / "stability/stability_DyRCNNx8:tsteps=30+rctype=full+dt=2+tau=9+tff=0+tsk=2+tfb=10+trc=6+skip=true+feedback=true+pattern=*_0020_imagenette_trained_all/adaption.flag",
+        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=20+rctype=full+dt=2+tau=9+tff=0+tsk=2+tfb=12+trc=6+skip=true+feedback=true+pattern=*_0020_cifar100_trained_alphabet/adaption.flag"
+        
+
+rule unrolling:
+    input:
+        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=30+rctype=full+dt=*+tau=9+tff=0+tsk=2+tfb=30+trc=6+skip=true+feedback=true_0020_cifar100_trained_alphabet/adaption.flag",
+        project_paths.figures / "stability/stability_DyRCNNx4:tsteps=30+rctype=full+dt=*+tau=9+tff=10+tsk=22+tfb=10+trc=6+skip=true+feedback=true_0020_cifar100_trained_alphabet/adaption.flag",

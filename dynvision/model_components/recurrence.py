@@ -157,7 +157,7 @@ class ForwardRecurrenceBase(RecurrenceBase):
                     synced_states.append(hidden)  # Keep original reference
 
             self.hidden_states = synced_states
-            
+
 
 class DepthwiseSeparableConnection(RecurrenceBase):
     """
@@ -491,7 +491,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             self.stride = (stride, stride)
         else:
             self.stride = stride
-            
+
         # Store spatial dimensions
         self.dim_y = dim_y
         self.dim_x = dim_x
@@ -514,7 +514,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self._define_architecture()
         self.reset()
 
-    def _calculate_conv_out_dim(self, in_dim=None, kernel_size=None, padding=None, stride=None) -> int:
+    def _calculate_conv_out_dim(
+        self, in_dim=None, kernel_size=None, padding=None, stride=None
+    ) -> int:
         in_dim = in_dim or self.dim_y
         kernel_size = kernel_size or self.kernel_size
         padding = padding or self.padding
@@ -550,7 +552,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         else:
             raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
         return dim_y, dim_x
-    
+
     def _setup_hidden_state_memory(
         self, history_length: Optional[float] = None
     ) -> None:
@@ -565,7 +567,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         self._setup_feedforward_conv()
 
         # Define recurrent connection if needed
-        if not self.feedforward_only:
+        if self.feedforward_only:
+            self.recurrence = None
+        else:
             self._setup_recurrence()
 
     def _setup_feedforward_conv(self) -> None:
@@ -599,7 +603,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             self.conv = apply_parametrization(self.conv, self.parametrization)
 
     def _setup_recurrence(self) -> None:
-        """Set up the recurrent connection based on specified type."""        
+        """Set up the recurrent connection based on specified type."""
         if self.recurrence_target == "input":
             out_channels = self.in_channels
         elif self.recurrence_target == "middle":
@@ -608,7 +612,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             out_channels = self.out_channels
         else:
             raise ValueError(f"Invalid recurrence target: {self.recurrence_target}")
-        
+
         # Setup up upsampling if needed
         in_dim_y, in_dim_x = self._calculate_feedforward_output_dims()
         out_dim_y, out_dim_x = self._calculate_recurrence_output_dims()
@@ -671,8 +675,10 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         if self.mid_channels is not None:
             init_conv_layer(self.conv2)
 
-        if hasattr(self.recurrence, "_init_parameters"):
+        try:
             self.recurrence._init_parameters()
+        except:
+            pass
 
     def forward_recurrence(
         self,

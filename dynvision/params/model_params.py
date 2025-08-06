@@ -175,6 +175,7 @@ class ModelParams(BaseParams):
                 "tff": "t_feedforward",
                 "tfb": "t_feedback",
                 "tsk": "t_skip",
+                "pattern": "data_presentation_pattern",
                 "solver": "dynamics_solver",
                 "lossrt": "loss_reaction_time",
                 "supralin": "supralinearity",

@@ -213,7 +213,7 @@ class DataParams(BaseParams):
         aliases.update(
             {
                 "use_distributed_mode": "use_distributed",
-                "dtsteps": "data_timesteps",
+                "dsteps": "data_timesteps",
             }
         )
         return aliases

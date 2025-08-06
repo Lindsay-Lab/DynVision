@@ -33,6 +33,7 @@ from dynvision.data.dataloader import (
     _adjust_data_dimensions,
     _adjust_label_dimensions,
 )
+from dynvision.data.dataloader import get_data_loader
 from dynvision.data.datasets import get_dataset
 from dynvision.project_paths import project_paths
 from dynvision.utils import (
@@ -83,15 +84,20 @@ class TestingDataModule:
             self.setup_dataset()
 
         # Get dataloader configuration (already optimized by TestingParams)
+        dataloader_name = self.config.data.data_loader
         dataloader_config = self.config.get_dataloader_kwargs()
 
         logger.info(
-            f"Creating DataLoader with batch_size={dataloader_config['batch_size']}, "
+            f"Creating DataLoader {dataloader_name} "
+            f"with batch_size={dataloader_config['batch_size']}, "
             f"num_workers={dataloader_config['num_workers']}, "
             f"shuffle={dataloader_config['shuffle']}"
         )
 
-        self.dataloader = StandardDataLoader(self.dataset, **dataloader_config)
+        self.dataloader = get_data_loader(
+            dataset=self.dataset, dataloader=dataloader_name, **dataloader_config
+        )
+
         return self.dataloader
 
     def get_sample_batch(self) -> Tuple[torch.Tensor, torch.Tensor]:

@@ -89,18 +89,18 @@ rule train_model:
         model_state = project_paths.models \
             / '{model_name}' \
             / '{model_name}{model_args}_{seed}_{data_name}_init.pt',
-        dataset_link = lambda w: project_paths.data.interim \
+        dataset_link = project_paths.data.interim \
             / '{data_name}' \
             / 'train_all' \
-            / 'folder.link' if not get_param('use_ffcv', False)(w) else [],
-        dataset_train = lambda w: project_paths.data.processed \
+            / 'folder.link',
+        dataset_train = project_paths.data.processed \
             / '{data_name}' \
             / 'train_all' \
-            / 'train.beton' if get_param('use_ffcv', False)(w) else [],
-        dataset_val = lambda w: project_paths.data.processed \
+            / 'train.beton',
+        dataset_val = project_paths.data.processed \
             / '{data_name}' \
             / 'train_all' \
-            / 'val.beton' if get_param('use_ffcv', False)(w) else [],
+            / 'val.beton',
         script = SCRIPTS / 'runtime' / 'train_model.py'
     params:
         config_path = CONFIGS,

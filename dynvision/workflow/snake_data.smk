@@ -50,8 +50,8 @@ rule get_data:
         flag = directory(project_paths.data.raw \
             / '{data_name}' \
             / '{data_subset}' )
-    wildcard_constraints:
-        data_name = r"cifar10|cifar100|mnist"
+    # wildcard_constraints:
+    #     data_name = r"cifar10|cifar100|mnist"
     benchmark:
         project_paths.benchmarks / 'get_data_{data_name}_{data_subset}.txt'
     shell:

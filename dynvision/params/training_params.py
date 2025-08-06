@@ -236,17 +236,21 @@ class TrainingParams(BaseParams):
                 f"Input model state not found: {self.input_model_state}"
             )
 
-        if self.data.use_ffcv and not self.dataset_train.exists():
+        print(
+            f"use ffcv {self.data.use_ffcv}, {self.dataset_train}, {self.dataset_val}, {self.dataset_link}"
+        )  # debugging
+
+        if not self.dataset_train.exists():
             raise DynVisionValidationError(
                 f"Training dataset not found: {self.dataset_train}"
             )
 
-        if self.data.use_ffcv and not self.dataset_val.exists():
+        if not self.dataset_val.exists():
             raise DynVisionValidationError(
                 f"Validation dataset not found: {self.dataset_val}"
             )
 
-        if not self.data.use_ffcv and not self.dataset_link.exists():
+        if not self.dataset_link.exists():
             raise DynVisionValidationError(
                 f"dataset folder link not found: {self.dataset_link}"
             )

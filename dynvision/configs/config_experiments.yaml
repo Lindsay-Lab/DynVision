@@ -3,7 +3,9 @@ experiment_config:
   categories:
     rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full'] #, 'local', 'localdepthwise']
     rctarget: ['output', 'input', 'middle']  # Target for recurrent connections
-    tsteps: [20]
+    pattern: ['01110', '11100', '1']
+    dsteps: [20]
+    dt: [2]
     tau: [7, 9, 11, 13]
     tff: [0, 10]
     trc: [4, 6, 8, 10]
@@ -14,7 +16,7 @@ experiment_config:
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      tsteps: 20
+      dsteps: 20
       intro: 0
       stim: [16]
 
@@ -23,7 +25,7 @@ experiment_config:
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      tsteps: 20
+      dsteps: 20
       intro: 0
       stim: [16]
       ffonly: 'true'
@@ -33,7 +35,7 @@ experiment_config:
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      tsteps: 200
+      dsteps: 200
       stim: [100]
 
   duration:
@@ -41,9 +43,9 @@ experiment_config:
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      # tsteps: 20
+      # dsteps: 20
       # stim: [1,2,3,4,6,8,10,12,14,16]
-      tsteps: 60
+      dsteps: 60
       intro: 2
       stim: [2,4,6,8,10,20,30,40,50]
 
@@ -52,7 +54,7 @@ experiment_config:
     parameter: contrast
     data_loader: StimulusContrast
     data_args:
-      tsteps: 100
+      dsteps: 100
       stim: 15
       contrast: [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  
 
@@ -61,7 +63,7 @@ experiment_config:
     parameter: interval
     data_loader: StimulusInterval
     data_args:
-      tsteps: 50
+      dsteps: 50
       stim: 5
       interval: [2, 5, 10]
 
@@ -70,7 +72,7 @@ experiment_config:
     parameter: noise
     data_loader: NoiseAdaption
     data_args:
-      tsteps: 30
+      dsteps: 30
       tadapt: [5, 10, 20]
       tdelay: [1, 2, 5]
       ttest: 5

@@ -169,7 +169,7 @@ rule plot_experiment_outputs:
         ),
     output:
         plot = project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{category}=*_{seed}_{data_name}_{status}_{data_group}' / 'experiment_outputs_label{label_target}.{format}'
-    # group: "visualization"
+    group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -251,7 +251,7 @@ rule plot_experiments:
             status = config.status,
             data_group = config.data_group,
         )
-    # group: "visualization"
+    group: "visualization"
 
 rule plot_experiments_on_models:
     """Generate comparative visualizations across models.
