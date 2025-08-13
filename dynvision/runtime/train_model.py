@@ -211,10 +211,12 @@ class DataModule(pl.LightningDataModule):
     def _setup_ffcv_loaders(self, config: Dict[str, Any]) -> None:
         """Set up FFCV data loaders."""
         self.train_loader = self._create_ffcv_loader(
-            self.config.dataset_train, config | {"train": True}
+            self.config.dataset_train,
+            config | {"train": True},
         )
         self.val_loader = self._create_ffcv_loader(
-            self.config.dataset_val, config | {"train": False}
+            self.config.dataset_val,
+            config | {"train": False},
         )
 
     def _create_ffcv_loader(
@@ -422,6 +424,7 @@ class TrainingOrchestrator:
         logger.info("=" * 60)
         logger.info(f"Model: {self.config.model.model_name}")
         logger.info(f"Dataset: {self.config.data.data_name}")
+        logger.info(f"Data batch size: {self.config.data.batch_size}")
         logger.info(f"Global batch size: {self.config.global_batch_size}")
         logger.info(f"Effective batch size: {self.config.effective_batch_size}")
         logger.info(

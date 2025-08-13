@@ -6,16 +6,18 @@ retain_graph: False  # retain the computational graph for repeated backprop path
 status: trained
 n_timesteps: 20
 dt: 2  # ms
-tau: 8  # ms
+tau: 9  # ms
 t_recurrence: 6  # ms
 t_feedforward: 10  # ms
+t_skip: 10  # ms
+t_feedback: 10  # ms
 recurrence_type: 'none'
 integration_strategy: 'additive'  # 'additive' or 'multiplicative'
 dynamics_solver: "euler" 
 init_with_pretrained: False
 store_train_responses: 0 # n_batches
 store_val_responses: 1  # n_batches
-store_test_responses: 10  # n_samples
+store_test_responses: 2  # n_batches
 store_responses_on_cpu: True
 
 # Data
@@ -28,7 +30,7 @@ prefetch_factor: 1
 seed: "0000"
 train_ratio: 0.8
 epochs: 200
-batch_size: 256
+batch_size: 64
 check_val_every_n_epoch: 15
 log_every_n_steps: 20
 accumulate_grad_batches: 4
@@ -37,7 +39,6 @@ precision: "bf16-mixed"
 profiler: None
 benchmark: True
 enable_progress_bar: False
-# tbptt_length: None
 limit_val_batches: 0.25
 reload_dataloaders_every_n_epochs: 0
 automatic_optimization: True
@@ -62,6 +63,7 @@ loss_configs:
     p: 1
 loss_reaction_time: 0  # ms (+ residual time)
 non_label_index: -1
+non_input_value: -1
 
 # Optimizer
 optimizer: Adam
@@ -95,10 +97,7 @@ lr_scaling:
   ref_batch_size: 64  # reference batch size for scaling
   threshold_factor: 8  # maximum scaling threshold
 
-# Trainer configuration
-# Gradient clipping settings
-
 # System
 log_level: info
-use_executor: False
+use_executor: False  # automatic setting (don't change)
 verbose: True

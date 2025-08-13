@@ -162,43 +162,15 @@ Neural responses to longer stimuli do not increase linearly with stimulus durati
 
 ## Research Applications
 
-The biological plausibility of DynVision enables various research applications:
-
-### 1. Testing Theories of Visual Processing
-
 Researchers can use DynVision to test hypotheses about the role of recurrence in visual processing:
 
 - How does recurrence contribute to object recognition?
 - What is the functional significance of different recurrence types?
 - How do feedback connections modulate feedforward processing?
 
-### 2. Modeling Neural Disorders
-
-By modifying parameters, researchers can model disorders affecting visual processing:
-
-- Altered excitation/inhibition balance in autism
-- Disrupted feedback in schizophrenia
-- Temporal processing deficits in developmental disorders
-
-### 3. Brain-Machine Interfaces
-
-More biologically plausible models may lead to better brain-machine interfaces by:
-
-- Better predicting neural responses to visual stimuli
-- Providing more interpretable neural representations
-- Enabling more natural control signals for prosthetics
-
 ## Limitations and Future Directions
 
 While DynVision implements several biologically plausible features, many aspects of biological neural processing remain to be incorporated:
-
-### Current Limitations
-
-1. **Spike-based processing**: Current models use rate-based rather than spike-based representations
-2. **Homeostatic plasticity**: Limited implementation of adaptation and homeostatic mechanisms
-3. **Neuromodulation**: No implementation of neuromodulatory systems (dopamine, acetylcholine, etc.)
-4. **Dendritic computation**: No modeling of dendritic computations
-5. **Distinct excitatory and inhibitory populations**: No separate modeling of excitatory and inhibitory neurons
 
 ### Future Directions
 
@@ -207,12 +179,8 @@ Potential extensions to enhance biological plausibility:
 1. **Separation of excitation and inhibition**: Implementing Dale's Law with distinct E and I populations
 2. **Local field potentials**: Modeling population activity similar to EEG/MEG signals
 3. **Prediction error coding**: Implementing predictive coding principles
-4. **Spike-timing-dependent plasticity**: More biologically realistic learning rules
+4. **Diverse learning rules**: More biologically realistic learning rules
 5. **Attention mechanisms**: Incorporating spatial and feature-based attention
-
-## Conclusion
-
-DynVision provides a framework for implementing and studying biologically plausible visual processing, with a focus on recurrent connectivity and temporal dynamics. By incorporating these features, DynVision enables researchers to explore how biological constraints shape visual processing and to develop models that better capture the properties of the primate visual system.
 
 ## References
 

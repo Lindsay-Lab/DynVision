@@ -62,7 +62,7 @@ class LightningBase(pl.LightningModule):
         self.optimizer_configs = optimizer_configs
         self.learning_rate = float(learning_rate)
         self.lr_parameter_groups = lr_parameter_groups
-        self.loss_reaction_time = float(loss_reaction_time)  # todo
+        self.loss_reaction_time = float(loss_reaction_time)
 
         # Scheduler attributes
         self.scheduler = scheduler
@@ -126,7 +126,13 @@ class LightningBase(pl.LightningModule):
         loss, accuracy = self.model_step(batch, batch_idx)
 
         metrics = {"train_loss": loss, "train_accuracy": accuracy}
-        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True)
+        self.log_dict(
+            metrics,
+            prog_bar=True,
+            batch_size=batch_size,
+            sync_dist=True,
+            rank_zero_only=True,
+        )
         return loss
 
     def validation_step(
@@ -149,7 +155,13 @@ class LightningBase(pl.LightningModule):
         loss, accuracy = self.model_step(batch, batch_idx)
 
         metrics = {"val_loss": loss, "val_accuracy": accuracy}
-        self.log_dict(metrics, prog_bar=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True)
+        self.log_dict(
+            metrics,
+            prog_bar=True,
+            batch_size=batch_size,
+            sync_dist=True,
+            rank_zero_only=True,
+        )
 
         return loss, accuracy
 
@@ -171,7 +183,12 @@ class LightningBase(pl.LightningModule):
 
         metrics = {"test_loss": loss, "test_accuracy": accuracy}
         self.log_dict(
-            metrics, prog_bar=True, on_step=True, batch_size=batch_size, sync_dist=True, rank_zero_only=True
+            metrics,
+            prog_bar=True,
+            on_step=True,
+            batch_size=batch_size,
+            sync_dist=True,
+            rank_zero_only=True,
         )
         return loss, accuracy
 
@@ -179,14 +196,13 @@ class LightningBase(pl.LightningModule):
     ###################
     def _init_loss(self) -> None:
         self.criterion = []
-        
+
         if hasattr(self, "loss_reaction_time") and self.loss_reaction_time:
             self.ignore_initial_n_labels = self.n_residual_timesteps + int(
                 self.loss_reaction_time / self.dt
             )
         else:
             self.ignore_initial_n_labels = 0
-
 
         for criterion_name, criterion_config in self.criterion_params:
             # Set criterion weight
@@ -236,7 +252,7 @@ class LightningBase(pl.LightningModule):
 
         # Apply loss reaction time
         if hasattr(self, "ignore_initial_n_labels") and self.ignore_initial_n_labels:
-            label_indices[:, :self.ignore_initial_n_labels] = self.non_label_index
+            label_indices[:, : self.ignore_initial_n_labels] = self.non_label_index
 
         # Flatten time dimension
         outputs = outputs.view(-1, n_classes)
@@ -244,15 +260,9 @@ class LightningBase(pl.LightningModule):
 
         # Quick validation
         invalid_mask = (label_indices < 0) | (label_indices >= n_classes)
-        if invalid_mask.any():
-            valid_mask = ~invalid_mask
-            if valid_mask.any():
-                pass
-                # outputs = outputs[valid_mask]
-                # label_indices = label_indices[valid_mask]
-            else:
-                logger.warning("All labels invalid, returning zero loss")
-                return torch.tensor(0.0, device=outputs.device, requires_grad=True)
+        if invalid_mask.all():
+            logger.warning(f"All labels invalid! \n {label_indices}")
+            # return torch.tensor(0.0, device=outputs.device, requires_grad=True)
 
         # Calculate loss for each criterion
         loss_values = torch.zeros(len(self.criterion), device=outputs.device)

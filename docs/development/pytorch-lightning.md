@@ -1,4 +1,4 @@
-# PyTorch Lightning Knowledge Prompt
+# PyTorch Lightning Background
 
 ## Core Concepts and Architecture
 

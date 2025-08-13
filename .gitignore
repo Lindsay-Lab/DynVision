@@ -13,6 +13,7 @@ temp_*
 /data/*
 /reports/
 
+
 # images
 *.png
 *.jpg

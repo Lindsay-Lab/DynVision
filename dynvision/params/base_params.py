@@ -664,12 +664,6 @@ class BaseParams(BaseModel):
         """Convert to dictionary, optionally excluding None values."""
         return self.dict(exclude_none=exclude_none)
 
-    def to_flat_dict(self) -> Dict[str, Any]:
-        """Convert to flat dictionary suitable for config files."""
-        # For now, same as to_dict since BaseParams is already flat
-        # TODO: Can be extended for hierarchical configs if needed
-        return self.to_dict()
-
 
 # Example usage and testing
 if __name__ == "__main__":

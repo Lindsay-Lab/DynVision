@@ -45,9 +45,9 @@ def layer_power(response: torch.Tensor) -> torch.Tensor:
         response: Layer response tensor
 
     Returns:
-        Mean power tensor of shape [n_features, n_timesteps]
+        Mean absolute power tensor of shape [n_features, n_timesteps]
     """
-    return response.mean(dim=list(range(2, response.dim())))
+    return response.abs().mean(dim=list(range(2, response.dim())))
 
 
 def peak_time(response: torch.Tensor) -> torch.Tensor:
@@ -173,6 +173,20 @@ def load_responses(
         n_classes = len(df.class_index.unique())
 
         responses = torch.load(pt_file, map_location=torch.device("cpu"))
+
+        max_timesteps = max(tensor.shape[1] for tensor in responses.values())
+
+        for layer_name, tensor in responses.items():
+            pad_len = max_timesteps - tensor.shape[1]
+            if pad_len > 0:
+                # Pad at the start along axis 1 (time steps) with zeros
+                # For shape [batch, timesteps, n_channels, dim_y, dim_x], pad for axis 1
+                # torch.nn.functional.pad expects (dim_x, dim_y, n_channels, timesteps)
+                # So pad = (0,0, 0,0, 0,0, pad_len,0)
+                pad = (0, 0, 0, 0, 0, 0, pad_len, 0)
+                tensor = torch.nn.functional.pad(tensor, pad, mode="constant", value=0)
+                responses[layer_name] = tensor
+
         layer_names = list(responses.keys())
         n_samples, n_timesteps, *_ = responses[layer_names[0]].shape
 
@@ -214,6 +228,110 @@ def load_responses(
     df = pd.concat(dfs, axis=0)
 
     return df, layer_names
+
+
+def chunk_lists(lst1, lst2, chunk_size):
+    """Split two lists into chunks of specified size."""
+    for i in range(0, len(lst1), chunk_size):
+        yield lst1[i : i + chunk_size], lst2[i : i + chunk_size]
+
+
+def load_responses_in_batches(
+    responses_files,
+    test_outputs_files,
+    data_arg_key,
+    measures,
+    category,
+    batch_size=1,
+    filter_first_label_set=False,
+):
+    """Load responses in batches to manage memory efficiently."""
+
+    if len(responses_files) != len(test_outputs_files):
+        raise ValueError(
+            "Number of response files must match number of test output files"
+        )
+
+    print(f"Processing {len(responses_files)} files in batches of {batch_size}")
+
+    all_dataframes = []
+    layer_names = None
+    first_label_set = None
+
+    # Process files in batches
+    batch_count = 0
+    for response_batch, output_batch in chunk_lists(
+        responses_files, test_outputs_files, batch_size
+    ):
+        batch_count += 1
+        print(
+            f"Processing batch {batch_count}/{(len(responses_files) + batch_size - 1) // batch_size}"
+        )
+        print(
+            f"  Files: {len(response_batch)} response files, {len(output_batch)} output files"
+        )
+
+        try:
+            # Load this batch
+            batch_df, batch_layer_names = load_responses(
+                response_batch,
+                output_batch,
+                data_arg_key=data_arg_key,
+                measures=measures,
+                category=category,
+            )
+
+            # Store layer names from first batch
+            if layer_names is None:
+                layer_names = batch_layer_names
+            else:
+                # Verify layer names are consistent across batches
+                if set(layer_names) != set(batch_layer_names):
+                    print(
+                        f"Warning: Layer names differ between batches. "
+                        f"First batch: {layer_names}, Current batch: {batch_layer_names}"
+                    )
+
+            if filter_first_label_set:
+                # Get first label_set from first batch and filter immediately for efficiency
+                first_label_set = batch_df.label_set.unique()[0]
+                print(f"  Using first label_set: {first_label_set}")
+
+                # Filter for first label_set only to reduce memory usage
+                if first_label_set is not None:
+                    batch_df = batch_df[
+                        batch_df.label_set.str.contains(str(first_label_set))
+                    ]
+                    print(f"  After filtering for label_set: {len(batch_df)} rows")
+
+                # Remove label_set column to save memory since we no longer need it
+                if "label_set" in batch_df.columns:
+                    batch_df = batch_df.drop("label_set", axis=1)
+
+            all_dataframes.append(batch_df)
+            print(f"  Batch {batch_count} processed: {len(batch_df)} rows")
+
+            # Clear memory
+            del batch_df
+
+        except Exception as e:
+            print(f"Error processing batch {batch_count}: {e}")
+            print(f"  Response files: {response_batch}")
+            print(f"  Output files: {output_batch}")
+            continue
+
+    if not all_dataframes:
+        raise ValueError("No data was successfully loaded from any batch")
+
+    # Combine all dataframes
+    print(f"Combining {len(all_dataframes)} batches...")
+    combined_df = pd.concat(all_dataframes, ignore_index=True)
+
+    # Clear memory
+    del all_dataframes
+
+    print(f"Total combined data: {len(combined_df)} rows")
+    return combined_df, layer_names
 
 
 def save_plot(file_path: Path, dpi: int = 300, **kwargs) -> None:

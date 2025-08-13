@@ -18,7 +18,7 @@ import torch
 import torch.nn as nn
 from torchvision import models as torch_models
 from torchvision.models import resnet
-from dynvision.model_components import LightningBase
+from dynvision.base import BaseModel
 from dynvision.utils import check_stability
 
 
@@ -62,7 +62,7 @@ def validate_resnet_parameters(
     """
 
 
-class ResNetx4(torch_models.ResNet, LightningBase):
+class ResNetx4(torch_models.ResNet, BaseModel):
     def __init__(
         self,
         block: Type[Union[resnet.BasicBlock, resnet.Bottleneck]],
@@ -78,7 +78,7 @@ class ResNetx4(torch_models.ResNet, LightningBase):
         stability_check: bool = False,
         **kwargs: Any,
     ) -> None:
-        LightningBase.__init__(
+        BaseModel.__init__(
             self,
             block=block,
             layers=layers,
@@ -204,7 +204,7 @@ class ResNetx4(torch_models.ResNet, LightningBase):
         **kwargs,
     ) -> torch.Tensor:
         """Forward pass with base class handling."""
-        return LightningBase.forward(self, x, **kwargs)
+        return BaseModel.forward(self, x, **kwargs)
 
     def reset(self) -> None:
         """Reset model state."""

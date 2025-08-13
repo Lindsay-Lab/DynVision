@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.nn.init as init
 
-from dynvision.model_components import LightningBase
+from dynvision.base import BaseModel
 
 __all__ = ["ResNet20", "ResNet32", "ResNet44", "ResNet56", "ResNet110", "ResNet1202"]
 
@@ -48,7 +48,7 @@ class BasicBlock(nn.Module):
         return out
 
 
-class ResNetx3(LightningBase):
+class ResNetx3(BaseModel):
     def __init__(
         self,
         block,

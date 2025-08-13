@@ -2,20 +2,15 @@ import argparse
 import re
 from pathlib import Path
 from tqdm import tqdm
-
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
 from dynvision.utils import replace_param_in_string
-from dynvision.utils.visualization_utils import save_plot, load_responses
+from dynvision.utils.visualization_utils import save_plot
 
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    "--responses", nargs="+", type=Path, required=True, help="Path to pt files"
-)
-parser.add_argument(
-    "--test_outputs", nargs="+", type=Path, required=True, help="Path to csv files"
-)
+parser.add_argument("--data", type=Path, required=True, help="Path to pt files")
 parser.add_argument("--output", type=Path, required=True, help="Path to directory")
 parser.add_argument("--parameter", type=str, required=True, help="Parameter to plot")
 parser.add_argument(
@@ -106,43 +101,20 @@ def plot_adaption(
 if __name__ == "__main__":
     args, unknown = parser.parse_known_args()
 
-    if "interval" in args.parameter:
-        args.measures = [
-            measure.replace("peak_time", "peak_ratio") for measure in args.measures
-        ]
-
-    df, layer_names = load_responses(
-        args.responses,
-        args.test_outputs,
-        data_arg_key=args.parameter,
-        measures=args.measures,
-        category=args.category,
-    )
-
-    # data_identifier = re.sub("_test_outputs", "", args.test_outputs[0].stem)
-    # data_identifier = replace_param_in_string(
-    #     data_identifier, key=args.parameter, value_type=float, new_value="*"
-    # )
-    # data_identifier = replace_param_in_string(
-    #     data_identifier, key=args.category, value_type=str, new_value="*"
-    # )
-    label_targets = df.label_index.unique()
-    label_targets = label_targets[label_targets != -1]
+    print(f"Loading processed data from: {args.data}")
+    df = pd.read_csv(args.data)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     sns.set_context("talk")
 
     for layer_name in tqdm(layer_names):
-        for label_target in [None]:  #  + label_targets:
-            plot_adaption(
-                df,
-                data_arg_key=args.parameter,
-                measures=args.measures,
-                layer_name=layer_name,
-                label_target=label_target,
-                category=args.category,
-            )
-            label_str = "" if label_target is None else f"_label{label_target}"
-            save_plot(args.output.parent / f"{layer_name}{label_str}.png")
+        plot_adaption(
+            df,
+            data_arg_key=args.parameter,
+            measures=args.measures,
+            layer_name=layer_name,
+            category=args.category,
+        )
+        save_plot(args.output.parent / f"{layer_name}.png")
 
-    args.output.touch()
+    args.output.touch(exist_ok=True)

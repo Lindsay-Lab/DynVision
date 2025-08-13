@@ -14,7 +14,7 @@ from typing import Optional, Dict, Any, Tuple, Union
 import torch
 import torch.nn as nn
 
-from dynvision.model_components import LightningBase
+from dynvision.base import BaseModel
 from dynvision.utils import check_stability
 
 __all__ = ["CorNetZ", "CorNetRT"]
@@ -123,7 +123,7 @@ class CorBlockRT(nn.Module):
         return x_2
 
 
-class CorNetRT(LightningBase):
+class CorNetRT(BaseModel):
     def __init__(
         self,
         input_dims: tuple = (20, 3, 224, 224),
@@ -319,7 +319,7 @@ class CorBlockZ(nn.Module):
         return out
 
 
-class CorNetZ(LightningBase):
+class CorNetZ(BaseModel):
     def __init__(
         self,
         input_dims: tuple = (10, 3, 224, 224),

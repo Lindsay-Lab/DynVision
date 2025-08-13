@@ -10,35 +10,25 @@ model_name:
   # - ResNet18
   # - ResNet1202
   # - ResNet44
-seed: "0017"
+seed: "0000"
 model_args:
   tsteps: 50
   rctype: 'full'
   dt: 2
   tau: 9
-  # tau: [7, 9, 11, 13]
-  tff: [0, 10]
+  tff: 10
   trc: 6
-  # trc: [4, 6, 8, 10]
-  # trc: [5, 10, 15, 20]
-  # tff: 25
-  # rctype: ['self', 'full', 'pointdepthwise', 'depthpointwise', 'local', 'localdepthwise']
-  # rctype: ['local'] # ['localdepthwise'] 
-  # skip: 'true'
-  # feedback: 'true'
-  # supralin: [1.000000001, 1.0000001, 1.00001, 1.001, 1.1]
-  # taugrad: 'true'
-  # lossrt: [0, 20, 40, 60, 80, 90, 98]
-  # inadapt: 0.9
-  # inadapt: [0.3, 0.6, 0.9]
+  rctype: ['self', 'full', 'pointdepthwise', 'depthpointwise', 'local', 'localdepthwise']
+  skip: 'true'
+  feedback: 'true'
 
 init_with_pretrained: False
 
 # data_name: imagenet
 # data_name: tinyimagenet
-# data_name: imagenette
+data_name: imagenette
 # data_name: cifar100
-data_name: cifar10
+# data_name: cifar10
 # data_name: mnist
 # data_name: snakenet
 
@@ -50,18 +40,15 @@ data_name: cifar10
 data_group: "all"
 
 experiment: 
-  # - response
+  - response
   - responseffonly
   - duration
-  # - stability
+  - stability
   - contrast
   - interval
-  
-  # - noiseadaption
-  # - spatialsplit
 
 # Training parameters
 loss: 
-  - CrossEntropyLoss  # CrossEntropySpatialCorrelationLoss 
+  - CrossEntropyLoss
   - EnergyLoss
 

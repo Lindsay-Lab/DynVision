@@ -1,8 +1,3 @@
-rule plot_experiments_on_rctypes:
-    input:
-        expand(project_paths.figures / 'plot_experiments_on_models{model_args}.done',
-            model_args = replace_param_in_string(args_product(config.model_args)[0], key="rctype", value_type=str, new_value="*"))
-
 rule experiment:
     input:
         lambda w: expand(project_paths.reports \
@@ -18,25 +13,6 @@ rule experiment:
             data_args = args_product(config.experiment_config[w.experiment]["data_args"]))
     output:
         temp(project_paths.reports / 'experiment_{experiment}.done')
-    shell:
-        """
-        touch {output:q}
-        """
-
-rule test_standard_models:
-    input:
-        lambda w: expand(project_paths.reports \
-        / '{model_name}' \
-        / '{model_name}_{seed}_{data_name}_{status}_{data_loader}{data_args}_{data_group}_test_outputs.csv',
-        model_name = ["AlexNet", "CorNetRT", "CordsNet", "Resnet18"],
-        seed = "0000",
-        data_name ="imagenet",
-        data_group = "snakes",
-        status = "trained",
-        data_loader = config.experiment_config[w.experiment]["data_loader"],
-        data_args = args_product(config.experiment_config[w.experiment]["data_args"]))
-    output:
-        temp(project_paths.reports / 'experiment_standard_models_{experiment}.done')
     shell:
         """
         touch {output:q}

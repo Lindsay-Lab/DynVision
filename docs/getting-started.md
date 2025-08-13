@@ -57,10 +57,10 @@ Here's a minimal example using DynVision model in a custom script:
 
 ```python
 import torch
-from dynvision.models import AlexNet
+from dynvision.models import DyRCNNx4
 
 # Create a variation of AlexNet with recurrency and activity evolution over time
-model = AlexNet(
+model = DyRCNNx4(
     n_classes=10,                 # Number of output classes
     input_dims=(20, 3, 64, 64),   # (timesteps, channels, height, width)
     recurrence_type="full",       # Full recurrent connectivity
@@ -76,7 +76,9 @@ print(f"Output shape: {outputs.shape}")  # [2, 20, 10]
 
 ### 2. Running an Experiment with Snakemake
 
-DynVision uses [Snakemake](https://snakemake.readthedocs.io/) for workflow management. Here's how to run a basic experiment:
+DynVision uses [Snakemake](https://snakemake.readthedocs.io/) for workflow management.
+Note that Snakemake commands must be called from within the workflow folder.
+Here's how to run a basic experiment:
 
 ```bash
 cd dynvision/workflow

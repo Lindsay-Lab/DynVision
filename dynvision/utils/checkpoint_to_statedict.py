@@ -54,18 +54,25 @@ def get_best_checkpoint(
     """
     if not checkpoint_dir.exists():
         raise ValueError(f"Checkpoint directory does not exist: {checkpoint_dir}")
-    pattern = re.compile(rf"{re.escape(model_identifier)}.*val_loss=(\d+\.\d+)")
+
+    # Updated pattern: model_identifier-<epch>-<val_loss>.ckpt
+    # Example: mymodel-12-0.34.ckpt
+    regex = pattern or rf"{re.escape(model_identifier)}-(\d+)-(\d+\.\d{{2}})\.ckpt"
+    compiled_pattern = re.compile(regex)
     best_loss = float("inf")
     best_checkpoint = None
 
     for checkpoint_path in checkpoint_dir.glob("*.ckpt"):
-        match = pattern.search(checkpoint_path.name)
+        match = compiled_pattern.fullmatch(checkpoint_path.name)
         if match:
-            val_loss = float(match.group(1))
+            epch = int(match.group(1))
+            val_loss = float(match.group(2))
             if val_loss < best_loss:
                 best_loss = val_loss
                 best_checkpoint = checkpoint_path
-                logger.info(f"Found better checkpoint with loss {val_loss:.4f}")
+                logger.info(
+                    f"Found better checkpoint (epoch {epch}) with loss {val_loss:.4f}"
+                )
 
     if best_checkpoint is None:
         raise FileNotFoundError(

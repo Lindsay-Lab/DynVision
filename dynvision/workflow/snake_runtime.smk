@@ -142,7 +142,7 @@ rule train_model:
 
 use rule train_model as train_model_distributed with:
     output:
-        # todo: automatically select for registered "large datasets" or incorporate the use_distributed_mode config value
+        # todo: find more general fix to automatically switch slurm resource requests for distributed mode
         model_state = project_paths.models \
             / '{model_name}' \
             / '{model_name}{model_args}_{seed}_{data_name,imagenet}_trained.pt'

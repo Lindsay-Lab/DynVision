@@ -11,15 +11,15 @@ Welcome to the DynVision User Guide! This section provides task-oriented guides 
 - [**Data Processing**](data-processing.md): Working with datasets and data loaders
 - [**Workflow Management**](workflows.md): Using Snakemake for experiment orchestration
 - [**Visualization**](visualization.md): Visualizing and analyzing results
-- [**Model Evaluation**](evaluation.md): Evaluating model performance and biological plausibility
-
-### Advanced Topics
-
 - [**Cluster Integration**](cluster-integration.md): Running DynVision on high-performance computing clusters
+
+<!-- ### Advanced Topics
+
+- [**Model Evaluation**](evaluation.md): Evaluating model performance and biological plausibility
 - [**Hyperparameter Optimization**](hyperparameter-optimization.md): Systematic parameter tuning
 - [**Custom Experiments**](custom-experiments.md): Designing and implementing new experiments
 - [**Performance Optimization**](performance-optimization.md): Making DynVision run faster
-- [**Transfer Learning**](transfer-learning.md): Using pre-trained models
+- [**Transfer Learning**](transfer-learning.md): Using pre-trained models -->
 
 ### Common Tasks
 

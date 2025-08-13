@@ -1,66 +1,8 @@
 """Visualization workflow for model analysis and results.
-
-This workflow handles all visualization-related tasks including:
-- Confusion matrix generation
-- Classifier response analysis
-- Weight distribution visualization
-- Experiment result plotting
-- Adaptation analysis
-- Interactive notebook generation
-- Enhanced model visualization
-- Model architecture visualization
-- Enhanced weight analysis
-- Temporal dynamics visualization
-- Interactive notebook generation
-
-Usage:
-    # Generate confusion matrix
-    snakemake plot_confusion_matrix model_name=DyRCNNx4
-
-    # Analyze classifier responses
-    snakemake plot_classifier_responses model_name=DyRCNNx4
 """
 
 logger = logging.getLogger('workflow.visualizations')
 
-
-rule plot_confusion_matrix:
-    """Generate and save confusion matrix visualization.
-
-    Input:
-        test_results: Model evaluation results
-        dataset: Test dataset for class information
-        script: Plotting script
-    
-    Output:
-        Confusion matrix plot
-
-    Parameters:
-        palette: Color palette for visualization
-    """
-    input:
-        test_results = project_paths.reports / '{path}_{data_name}_testing_results.csv',
-        dataset = project_paths.data.interim / '{data_name}_test' / 'folder.link',
-        script = SCRIPTS / 'visualization' / 'plot_confusion_matrix.py'
-    params:
-        palette = 'cividis',
-        execution_cmd = lambda w, input: build_execution_command(
-            script_path=input.script,
-            use_distributed=False,
-            use_executor=get_param('use_executor', False)(w)
-        ),
-    output:
-        plot = project_paths.figures / '{path}_{data_name}_confusion.{format}'
-    # group: "visualization"
-    shell:
-        """
-        {params.execution_cmd} \
-            --input {input.test_results:q} \
-            --output {output.plot:q} \
-            --dataset {input.dataset} \
-            --palette {params.palette} \
-            --format {wildcards.format} \
-        """
 
 rule plot_classifier_responses:
     """Analyze and visualize classifier responses.
@@ -91,7 +33,7 @@ rule plot_classifier_responses:
         directory(project_paths.figures \
             / 'classifier_response' \
             / '{model_name}{data_identifier}')
-    # group: "visualization"
+    group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -128,7 +70,7 @@ rule plot_weight_distributions:
         plot = project_paths.figures \
             / 'weight_distributions' \
             / '{model_name}{data_identifier}_{status}_weights.{format}'
-    # group: "visualization"
+    group: "visualization"
     shell:
         """
         {params.execution_cmd} \
@@ -181,20 +123,7 @@ rule plot_experiment_outputs:
             --style {params.style} 
         """
 
-checkpoint plot_adaption:
-    """Analyze and visualize model adaptation.
-
-    This rule generates visualizations of how models
-    adapt to different conditions over time.
-
-    Input:
-        responses: Model responses
-        test_outputs: Test results
-        script: Analysis script
-    
-    Output:
-        Adaptation analysis plots
-    """
+rule process_plotting_data:
     input:
         responses = expand(project_paths.models \
             / '{{model_name}}' \
@@ -210,6 +139,45 @@ checkpoint plot_adaption:
             data_loader = lambda w: config.experiment_config[w.experiment]['data_loader'],
             data_args = lambda w: args_product(config.experiment_config[w.experiment]['data_args']),
         ),
+        script = SCRIPTS / 'visualization' / 'process_plotting_data.py'
+    params:
+        measures = ['power', 'peak_height', 'peak_time'],
+        parameter = lambda w: config.experiment_config[w.experiment]['parameter'],
+        execution_cmd = lambda w, input: build_execution_command(
+            script_path=input.script,
+            use_distributed=False,
+            use_executor=get_param('use_executor', False)(w)
+        ),
+    output:
+        project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / 'layer_power.csv',
+    shell:
+        """
+        {params.execution_cmd} \
+            --responses {input.responses:q} \
+            --test_outputs {input.test_outputs:q} \
+            --output {output:q} \
+            --parameter {params.parameter} \
+            --category {wildcards.category} \
+            --measures {params.measures} 
+        """
+
+
+checkpoint plot_adaption:
+    """Analyze and visualize model adaptation.
+
+    This rule generates visualizations of how models
+    adapt to different conditions over time.
+
+    Input:
+        responses: Model responses
+        test_outputs: Test results
+        script: Analysis script
+    
+    Output:
+        Adaptation analysis plots
+    """
+    input:
+        data = project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / 'layer_power.csv',
         script = SCRIPTS / 'visualization' / 'plot_{plot}.py'
     params:
         measures = ['power', 'peak_height', 'peak_time'],
@@ -220,14 +188,12 @@ checkpoint plot_adaption:
             use_executor=get_param('use_executor', False)(w)
         ),
     output:
-        flag = project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / '{plot}.flag'
-    # group: "visualization"
+        project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / '{plot}.flag',
     shell:
         """
         {params.execution_cmd} \
-            --responses {input.responses:q} \
-            --test_outputs {input.test_outputs:q} \
-            --output {output.flag:q} \
+            --data {input.data:q} \
+            --output {output:q} \
             --parameter {params.parameter} \
             --category {wildcards.category} \
             --measures {params.measures} 
@@ -240,7 +206,7 @@ rule plot_experiments:
     experiments for comparison and analysis.
     """
     input:
-        expand(project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / 'adaption.flag',
+        expand(project_paths.figures / '{experiment}' / '{experiment}_{model_name}:{args1}{category}=*{args2}_{seed}_{data_name}_{status}_{data_group}' / 'adaption.csv',
             experiment = config.experiment,
             model_name = config.model_name,
             category = list(config.model_args.keys())[0],
@@ -253,6 +219,7 @@ rule plot_experiments:
         )
     group: "visualization"
 
+
 rule plot_experiments_on_models:
     """Generate comparative visualizations across models.
 
@@ -260,7 +227,7 @@ rule plot_experiments_on_models:
     experiment results across different model architectures.
     """
     input:
-        expand(project_paths.figures / '{experiment}' / '{experiment}_{model_name}{{model_args}}_{seed}_{data_name}_{status}_{data_group}' / 'adaption.flag',
+        expand(project_paths.figures / '{experiment}' / '{experiment}_{model_name}{{model_args}}_{seed}_{data_name}_{status}_{data_group}' / 'adaption.csv',
             experiment = config.experiment,
             model_name = config.model_name,
             seed = config.seed,
@@ -275,6 +242,3 @@ rule plot_experiments_on_models:
         touch {output:q} 
         """
 
-# Log workflow initialization
-logger.info("Visualization workflow initialized")
-logger.info(f"Figure directory: {project_paths.figures}")

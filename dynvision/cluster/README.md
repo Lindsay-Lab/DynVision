@@ -1,5 +1,7 @@
 # Cluster Scripts
 
+NOTE: The presented cluster files are personalized to a specific cluster environment setup. They are thought to provide a template to facilitate scaling up workflows on HPC resources by letting snakemake itself submit rules as individual jobs. They do need to be adapted to your environment (e.g. conda and singularity commands)!
+
 This folder contains example scripts for executing the workflow on a compute cluster with a SLURM queuing system.
 
 ## Scripts

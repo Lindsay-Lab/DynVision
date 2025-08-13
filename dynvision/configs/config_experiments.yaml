@@ -1,7 +1,7 @@
 experiment_config:
 
   categories:
-    rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full'] #, 'local', 'localdepthwise']
+    rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full', 'local', 'localdepthwise']
     rctarget: ['output', 'input', 'middle']  # Target for recurrent connections
     pattern: ['01110', '11100', '1']
     dsteps: [20]
@@ -9,26 +9,26 @@ experiment_config:
     tau: [7, 9, 11, 13]
     tff: [0, 10]
     trc: [4, 6, 8, 10]
-    lossrt: [0, 20, 40, 60, 80, 90, 98]
-
+    tsk: [0, 2, 4, 6]
+    lossrt: [0, 20, 60, 90, 98]
+    
   response:
     status: trained
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 20
-      intro: 0
-      stim: [16]
+      dsteps: 50
+      intro: 1
+      stim: [30]
 
   responseffonly:
     status: trained
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 20
-      intro: 0
-      stim: [16]
-      ffonly: 'true'
+      dsteps: 50
+      intro: 1
+      stim: [30]
 
   stability:
     status: trained
@@ -43,20 +43,19 @@ experiment_config:
     parameter: stim
     data_loader: StimulusDuration
     data_args:
-      # dsteps: 20
-      # stim: [1,2,3,4,6,8,10,12,14,16]
-      dsteps: 60
-      intro: 2
-      stim: [2,4,6,8,10,20,30,40,50]
+      dsteps: 50
+      intro: 0
+      stim: [2,4,6,8,10,20]
 
   contrast:
     status: trained
     parameter: contrast
     data_loader: StimulusContrast
     data_args:
-      dsteps: 100
-      stim: 15
-      contrast: [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  
+      dsteps: 50
+      intro: 0
+      stim: 30
+      contrast: [0.2, 0.4, 0.6, 0.8, 1.0]  
 
   interval:
     status: trained
@@ -64,23 +63,6 @@ experiment_config:
     data_loader: StimulusInterval
     data_args:
       dsteps: 50
-      stim: 5
-      interval: [2, 5, 10]
-
-  noise_adaption:
-    status: trained
-    parameter: noise
-    data_loader: NoiseAdaption
-    data_args:
-      dsteps: 30
-      tadapt: [5, 10, 20]
-      tdelay: [1, 2, 5]
-      ttest: 5
-      noise: ["none", "same", "different"]
-
-  spatialsplit:
-    status: trained
-    parameter: topdown
-    data_loader: DoubleStimulus
-    data_args:
-      topdown: [False]
+      intro: 10
+      stim: 10
+      interval: [1, 2, 4, 10, 16]

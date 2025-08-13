@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torchvision import models as torch_models
 
+from dynvision.base import BaseModel
 from dynvision.model_components import (
-    LightningBase,
     InputAdaption,
     RecurrentConnectedConv2d,
 )
@@ -11,7 +11,7 @@ from dynvision.model_components import (
 __all__ = ["AlexNet"]
 
 
-class AlexNet(LightningBase):
+class AlexNet(BaseModel):
     def __init__(
         self,
         input_dims: tuple = (20, 3, 224, 224),

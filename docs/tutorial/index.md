@@ -5,11 +5,13 @@ This section provides step-by-step tutorials to help beginners learn how to use 
 ## Getting Started
 
 - [**Basic Model Training**](basic-model-training.md): Train your first model on CIFAR-10
-- [**Visualization Tutorial**](visualization-tutorial.md): Visualize model responses and dynamics
+<!-- - [**Visualization Tutorial**](visualization-tutorial.md): Visualize model responses and dynamics -->
 - [**Custom Model Creation**](custom-model-creation.md): Create your own neural network architecture
-- [**Experiment Design**](experiment-design.md): Design and run experiments with Snakemake
+<!-- - [**Experiment Design**](experiment-design.md): Design and run experiments with Snakemake -->
 
-## Working with Data
+**...more to come***
+
+<!-- ## Working with Data
 
 - [**Dataset Preparation**](dataset-preparation.md): Prepare datasets for use with DynVision
 - [**FFCV Integration**](ffcv-integration.md): Optimize data loading with FFCV
@@ -39,4 +41,4 @@ This section provides step-by-step tutorials to help beginners learn how to use 
 
 - [**Contrast Response Example**](contrast-response-example.md): Complete example of a contrast response experiment
 - [**Adaptation Study**](adaptation-study.md): Studying adaptation effects with repetition
-- [**Object Recognition**](object-recognition.md): Object recognition with recurrent processing
+- [**Object Recognition**](object-recognition.md): Object recognition with recurrent processing -->

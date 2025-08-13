@@ -521,7 +521,13 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         kernel_size = kernel_size or self.kernel_size
         padding = padding or self.padding
         stride = stride or self.stride
-        return calculate_conv_out_dim(in_dim, kernel_size, padding, stride)
+        try:
+            return calculate_conv_out_dim(in_dim, kernel_size, padding, stride)
+        except Exception as e:
+            logger.warning(
+                f"Error calculating convolution output dimensions: {str(e)}"
+            )
+            return None
 
     def _calculate_feedforward_output_dims(self) -> tuple[int, int]:
         """
@@ -617,7 +623,9 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         in_dim_y, in_dim_x = self._calculate_feedforward_output_dims()
         out_dim_y, out_dim_x = self._calculate_recurrence_output_dims()
 
-        if in_dim_y == out_dim_y and in_dim_x == out_dim_x:
+        if None in (in_dim_y, in_dim_x, out_dim_y, out_dim_x):
+            self.upsample = False
+        elif in_dim_y == out_dim_y and in_dim_x == out_dim_x:
             self.upsample = False
         else:
             self.upsample = nn.Upsample(size=(out_dim_y, out_dim_x))
@@ -697,13 +705,13 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
 
         # Mixing-in recurrent influence
         if h is None:
-            pass
-        elif x is None:
+            return x
+        elif bool(self.upsample):
+            h = self.upsample(h)
+
+        if x is None:
             x = h
         else:
-            if bool(self.upsample):
-                h = self.upsample(h)
-
             x = self.integrate_signal(x, h)
 
         return x

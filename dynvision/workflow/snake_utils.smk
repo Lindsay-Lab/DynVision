@@ -360,20 +360,20 @@ pylogger.info(f"Conda environment: {env_name or 'None'}")
 rule checkpoint_to_statedict:
     """Convert Lightning checkpoints to state dictionaries."""
     input:
-        checkpoint_dir = project_paths.large_logs / 'checkpoints',
         script = project_paths.scripts.utils / 'checkpoint_to_statedict.py'
     params:
+        checkpoint_dir = lambda w: project_paths.models / f"{w.model_name}" / 'checkpoints',
         execution_cmd = lambda w, input: build_execution_command(
             script_path=input.script,
             use_distributed=False,
             use_executor=get_param('use_executor', False)(w)
         ),
     output:
-        temp(project_paths.models / '{model_identifier}.ckpt2pt'),
+        temp(project_paths.models / '{model_name}' / '{model_identifier}.ckpt2pt'),
     shell:
         """
-        {config.execution_cmd} \
-            --checkpoint_dir {input.checkpoint_dir:q} \
+        {params.execution_cmd} \
+            --checkpoint_dir {params.checkpoint_dir:q} \
             --output {output:q}
         """
 
@@ -392,17 +392,16 @@ def build_execution_command(script_path, use_distributed=False, use_executor=Fal
     """
     cmd_parts = []
     
-    # Add distributed setup if enabled
-    # if use_distributed:
-    setup_script = SCRIPTS / 'cluster' / 'setup_distributed_execution.sh'
-    cmd_parts.append(f"source {setup_script} &&")
+    if use_distributed:
+        setup_script = SCRIPTS / 'cluster' / 'setup_distributed_execution.sh'
+        cmd_parts.append(f"source {setup_script} &&")
 
     # Add executor wrapper if enabled
     if use_executor:
         executor_script = SCRIPTS / 'cluster' / 'executor_wrapper.sh'
         cmd_parts.append(str(executor_script))
     
-    if use_distributed:  # TODO: add check if distributed resources are available
+    if use_distributed:
         cmd_parts.append(
             "torchrun "
             "--nproc_per_node=${GPU_PER_NODE:-2} "
@@ -413,7 +412,6 @@ def build_execution_command(script_path, use_distributed=False, use_executor=Fal
             f"{script_path}"
         )
     else:
-        # comprehensive environment cleaning for single-device mode
         cmd_parts.append(f"python {script_path}")
     
     return "\\\n        ".join(cmd_parts)

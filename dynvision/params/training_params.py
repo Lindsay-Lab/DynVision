@@ -102,8 +102,8 @@ class TrainingParams(BaseParams):
             self.model.update_field("n_classes", n_classes, verbose=verbose)
 
         # Update batch size if provided
-        if batch_size is not None and self.data.batch_size != batch_size:
-            self.data.update_field("batch_size", batch_size, verbose=verbose)
+        # if batch_size is not None and self.data.batch_size != batch_size:
+        #     self.data.update_field("batch_size", batch_size, verbose=verbose)
 
     # === COMPUTED PROPERTIES ===
 
@@ -391,6 +391,8 @@ class TrainingParams(BaseParams):
 
         # Separate into component configurations
         separated_params = cls._separate_component_configs(params)
+
+        print("Training Params:\n", separated_params)
 
         # Create the TrainingParams instance
         try:

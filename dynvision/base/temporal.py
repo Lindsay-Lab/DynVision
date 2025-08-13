@@ -57,7 +57,9 @@ class TemporalBase(nn.Module):
         self.t_recurrence = float(t_recurrence)
         self.t_feedback = float(t_feedforward if t_feedback is None else t_feedback)
         self.t_skip = float(t_feedback if t_skip is None else t_skip)
-        self.history_length = max(self.t_feedforward, t_recurrence, t_feedback, t_skip)
+        self.history_length = max(
+            self.t_feedforward, self.t_recurrence, self.t_feedback, self.t_skip
+        )
         self.classifier_name = classifier_name
         self.dynamics_solver = str(dynamics_solver)
         self.recurrence_type = str(recurrence_type)
@@ -157,7 +159,7 @@ class TemporalBase(nn.Module):
     ###################
     def _forward(
         self,
-        x: torch.Tensor,
+        x: Optional[torch.Tensor] = None,
         t: Optional[torch.Tensor] = None,
         feedforward_only: bool = False,
         store_responses: bool = True,
@@ -175,12 +177,6 @@ class TemporalBase(nn.Module):
         Returns:
             Tuple[torch.Tensor, Dict[str, torch.Tensor]]: Model output and dictionary of responses.
         """
-        batch_size, n_channels, y_dim, x_dim = x.shape
-
-        if hasattr(self, "input_adaption"):
-            x = self.input_adaption(x)
-
-        responses = {}
         if not hasattr(self, "layer_operations"):
             # define default operations order within layer
             self.layer_operations = [
@@ -196,6 +192,16 @@ class TemporalBase(nn.Module):
                 "pool",  # apply pooling
                 "norm",  # apply normalization
             ]
+
+        responses = {}
+
+        batch_size, n_channels, y_dim, x_dim = x.shape
+
+        # if x.max() < 0 and x.min() == x.max():  # ToDO: revaluate null input
+        #     x = None
+
+        if hasattr(self, "input_adaption"):
+            x = self.input_adaption(x)
 
         for layer_name in self.layer_names:
 

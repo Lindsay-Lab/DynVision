@@ -39,7 +39,7 @@ DynVision adopts the Contributor Covenant Code of Conduct. By participating in t
    ```
 4. Create a virtual environment:
    ```bash
-   conda create -n dynvision-dev python=3.9
+   conda create -n dynvision-dev python=3.12
    conda activate dynvision-dev
    ```
 5. Install the package in development mode:
@@ -119,7 +119,7 @@ flake8 dynvision tests
 mypy dynvision
 ```
 
-## Testing
+<!-- ## Testing
 
 DynVision uses pytest for testing. Tests are located in the `tests/` directory, mirroring the structure of the `dynvision/` package.
 
@@ -139,7 +139,7 @@ pytest tests/path/to/test_file.py
 
 # Run with coverage report
 pytest --cov=dynvision tests/
-```
+``` -->
 
 ## Documentation
 

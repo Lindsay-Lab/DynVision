@@ -73,6 +73,7 @@ from .visualization_utils import (
     peak_ratio,
     calculate_accuracy,
     load_responses,
+    load_responses_in_batches,
     save_plot,
 )
 
@@ -124,5 +125,6 @@ __all__ = [
     "peak_ratio",
     "calculate_accuracy",
     "load_responses",
+    "load_responses_in_batches",
     "save_plot",
 ]

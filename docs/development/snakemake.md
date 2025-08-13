@@ -1,4 +1,4 @@
-# What is Snakemake?
+# Snakemake Background
 Snakemake is a workflow management system designed to create reproducible and scalable data analyses. It's based on a Python-like language that defines how to create output files from input files through rules. According to the provided materials, the DynVision toolbox leverages Snakemake "to facilitate the parameter handling, scalability, and portability of workflows" alongside yaml config scripts for high-level, human-readable interfaces to crucial parameters.
 
 ## Key Features of Snakemake Relevant to DynVision

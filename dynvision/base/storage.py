@@ -290,9 +290,7 @@ class DataBuffer:
 
     def should_store(self) -> bool:
         """Determine if the current data should be stored based on the strategy."""
-        return self._strategy.should_store(
-            self._size, self._total_seen, self.max_size
-        )
+        return self._strategy.should_store(self._size, self._total_seen, self.max_size)
 
     def append(self, data: Any) -> bool:
         """
@@ -445,7 +443,7 @@ class DataBuffer:
         self._size = 0
         self._total_seen = 0
         self._strategy.reset()
-        
+
         # clear GPU memory if offloading
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
@@ -660,7 +658,7 @@ class StorageBuffer:
         self,
         guess_indices: torch.Tensor,
         label_indices: torch.Tensor,
-        image_indices: torch.Tensor,
+        image_indices: Optional[torch.Tensor] = None,
     ) -> bool:
         """
         Store model records.
@@ -673,7 +671,13 @@ class StorageBuffer:
         if not self.records.should_store():
             self.records._total_seen += 1
             return False
-        
+
+        if image_indices is None:
+            batch_size, n_timesteps = label_indices.shape
+            image_indices = (
+                torch.arange(batch_size).unsqueeze(1).expand(-1, n_timesteps)
+            )
+
         record = Record(
             guess_indices=guess_indices,
             label_indices=label_indices,
@@ -740,8 +744,23 @@ class StorageBuffer:
                 )
                 return pd.DataFrame()
 
-            # Extract and concatenate responses
-            response_tensors = [item[layer_name] for item in response_data]
+            # Extract response tensors and pad them to the same time step length
+            max_timesteps = max(item[layer_name].shape[1] for item in response_data)
+            response_tensors = []
+            for item in response_data:
+                tensor = item[layer_name]
+                pad_len = max_timesteps - tensor.shape[1]
+                if pad_len > 0:
+                    # Pad at the start along axis 1 (time steps) with zeros
+                    # For shape [batch, timesteps, n_channels, dim_y, dim_x], pad for axis 1
+                    # torch.nn.functional.pad expects (dim_x, dim_y, n_channels, timesteps)
+                    # So pad = (0,0, 0,0, 0,0, pad_len,0)
+                    pad = (0, 0, 0, 0, 0, 0, pad_len, 0)
+                    tensor = torch.nn.functional.pad(
+                        tensor, pad, mode="constant", value=0
+                    )
+                response_tensors.append(tensor)
+
             layer_responses = torch.cat(response_tensors, dim=0)
 
             # Extract and concatenate records
@@ -940,7 +959,7 @@ class StorageBufferMixin(LightningModule):
             pass
 
         self.storage.clear_all()
-    
+
     def on_validation_epoch_start(self) -> None:
         """Initialize storage buffer at start of validation epoch."""
         try:

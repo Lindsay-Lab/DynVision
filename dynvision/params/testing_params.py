@@ -125,7 +125,7 @@ class TestingParams(BaseParams):
         """Apply testing-specific optimizations to the data configuration."""
         updates = {
             "train": False,
-            "shuffle": True,
+            "shuffle": False,
             "use_distributed": False,
             "use_ffcv": False,
             "pin_memory": True,

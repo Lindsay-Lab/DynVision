@@ -91,7 +91,9 @@ class TestingDataModule:
             f"Creating DataLoader {dataloader_name} "
             f"with batch_size={dataloader_config['batch_size']}, "
             f"num_workers={dataloader_config['num_workers']}, "
-            f"shuffle={dataloader_config['shuffle']}"
+            f"shuffle={dataloader_config['shuffle']}, "
+            f"non_label_index{dataloader_config['non_label_index']}, "
+            f"non_input_value{dataloader_config['non_input_value']}, "
         )
 
         self.dataloader = get_data_loader(
@@ -287,6 +289,7 @@ class TestingOrchestrator:
         if hasattr(self.config, "logger") and getattr(self.config, "logger", None):
             trainer_kwargs["logger"] = pl.loggers.WandbLogger(
                 project=project_paths.project_name,
+                save_dir=project_paths.large_logs,
                 config=(
                     self.config.get_full_config(flat=True)
                     if hasattr(self.config, "get_full_config")

@@ -24,7 +24,6 @@ from dynvision.model_components import (
     EulerStep,
     SupraLinearity,
     Retina,
-    LightningBase,
     InputAdaption,
     RecurrentConnectedConv2d,
     Skip,
@@ -152,6 +151,7 @@ class DyRCNNx4(DyRCNN):
         if hasattr(self, "retina") and hasattr(self.retina, "reset"):
             self.retina.reset()
 
+    # DyRCNNx4 specific architecture definition
     def _define_architecture(self) -> None:
         """Define the four-layer visual hierarchy."""
         self.layer_names = ["V1", "V2", "V4", "IT"]

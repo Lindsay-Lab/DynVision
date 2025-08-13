@@ -4,7 +4,7 @@
 executor: slurm
 
 # CHANGE WITH CARE
-restart-times: "0"
+restart-times: "1"
 max-jobs-per-second: "30"
 max-status-checks-per-second: "2"
 local-cores: 2
@@ -42,8 +42,8 @@ set-resources:
     cpu: 16
 
   test_model:
-    mem: 64G # use 80GB of memory
-    runtime: 180 # run for 2 hours
+    mem: 80G # use 80GB of memory
+    runtime: 60 # run for 2 hours
     gpu: 1 # use one GPU
     cpus_per_task: 16 # use 16 cores
     slurm_extra: "'--gres=gpu:1'"
@@ -60,7 +60,7 @@ set-resources:
 
   train_model_distributed:
     mem: 80G # use 120GB of memory
-    runtime: 360        # 12 hours
+    runtime: 720        # 12 hours
     # mem_mb_per_cpu: 16000  # 80GB total process memory
     cpus_per_gpu: 16    # 64 CPU cores
     gpus_per_node: 4    # Use 4 GPUs per node
@@ -88,7 +88,22 @@ set-resources:
     # constraint: "a100|h100" # limit to fast GPUs
     # slurm_extra: "'--gres=gpu:1'"
 
-  plot_adaption:
-    mem: 64G # use 64GB of memory
-    runtime: 60 # run for 1 hour
+  process_plotting_data:
+    mem: 120G # use 64GB of memory
+    runtime: 150 # run for 1 hour
     cpus_per_task: 16
+    
+  plot_adaption:
+    mem: 32G # use 64GB of memory
+    runtime: 10 # run for 1 hour
+    cpus_per_task: 8
+
+  temp:
+    mem: 32G # use 64GB of memory
+    runtime: 5 # run for 1 hour
+    cpus_per_task: 8
+
+  checkpoint_to_statedict:
+    mem: 16G # use 16GB of memory
+    runtime: 5 # run for 30 minutes
+    cpus_per_task: 4

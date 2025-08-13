@@ -2,7 +2,7 @@
 use_local_mode: "auto"
 local:
   enable_progress_bar: True
-  use_debug_mode: True
+  use_debug_mode: False
   use_distributed_mode: False
   verbose: True
   use_ffcv: False 
@@ -45,8 +45,8 @@ distributed:
   num_sanity_val_steps: 0
   store_train_responses: 0  # n_batches
   store_val_responses: 0  # n_batches
-  batch_size: 32
-  use_ffcv: True
+  batch_size: 64
+  use_ffcv: False
   num_workers: 4
   persistent_workers: True
   pin_memory: False
