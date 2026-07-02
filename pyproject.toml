@@ -67,7 +67,6 @@ dev = [
     "pydocstyle",
     "pylint",
     "pytest",
-    "pytest-black",
     "pytest-cov",
     "pytest-flake8",
     "pytest-mypy",
