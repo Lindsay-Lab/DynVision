@@ -43,5 +43,7 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "style: auto-format by black + autoflake"
-            git push
+            # GITHUB_TOKEN has push access to same-repo PR branches but not fork PRs.
+            # Fork PRs skip gracefully — the lint CI job still verifies formatting.
+            git push origin HEAD:${{ github.event.pull_request.head.ref }} 2>&1 || echo "Push skipped (fork PR — lint CI will verify)"
           fi
