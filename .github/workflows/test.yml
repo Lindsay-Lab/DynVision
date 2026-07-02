@@ -23,7 +23,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
 
       - name: Install system dependencies
         run: |
@@ -37,8 +36,13 @@ jobs:
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev]"
           # flake8<7.1 ships pycodestyle<=2.11.1, which crashes with IndexError on
-          # Python 3.12. Force-upgrade both (pip cache may retain the old versions).
+          # Python 3.12. Force-upgrade both to the fixed versions.
           pip install --upgrade "flake8>=7.1.0" "pycodestyle>=2.12.0"
+
+      - name: Verify linter versions
+        run: |
+          flake8 --version
+          python -c "import pycodestyle, sys; v=tuple(map(int, pycodestyle.__version__.split('.')[:2])); sys.exit('pycodestyle %s < 2.12 — Python 3.12 crash bug' % pycodestyle.__version__) if v < (2, 12) else print('pycodestyle', pycodestyle.__version__, 'OK')"
 
       - name: Lint with flake8
         run: flake8 dynvision
@@ -59,7 +63,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
       - name: Install system dependencies
         run: |
