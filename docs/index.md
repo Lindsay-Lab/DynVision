@@ -6,7 +6,7 @@ hide:
 ---
 
 <p align="center">
-  <img src="assets/logo_black.svg" alt="DynVision" class="only-light" style="max-width: 600px; width: 100%;">
+  <img src="assets/logo.svg" alt="DynVision" class="only-light" style="max-width: 600px; width: 100%;">
 </p>
 
 DynVision is a modular toolbox for building and evaluating recurrent convolutional neural networks (RCNNs) with biologically plausible temporal dynamics.

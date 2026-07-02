@@ -93,8 +93,8 @@ theme:
     - toc.follow
   icon:
     repo: fontawesome/brands/github
-  logo: assets/logo_black.svg
-  favicon: assets/favicon_black.svg
+  logo: assets/logo.svg
+  favicon: assets/favicon_D.svg
 
 extra_css:
   - stylesheets/diataxis.css
