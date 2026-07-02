@@ -17,16 +17,22 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for git-revision-date-localized plugin
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -42,33 +48,22 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          # Install CPU-only PyTorch first to avoid ~2.5 GB CUDA download
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[doc]"
 
       - name: Build documentation
-        # Note: not using --strict. The repo intentionally contains work-in-
-        # progress planning docs; link/nav resilience is handled by the
-        # `validation:` block in docs/mkdocs.yml. A real config/template error
-        # still fails the build.
         run: |
           python -m mkdocs build --config-file docs/mkdocs.yml
 
-      - name: Deploy to GitHub Pages
-        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
-          user_name: 'github-actions[bot]'
-          user_email: 'github-actions[bot]@users.noreply.github.com'
-          commit_message: 'docs: deploy documentation from ${{ github.sha }}'
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
-      - name: Upload build artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: documentation
-          path: site/
-          retention-days: 7
+          path: ./site
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        id: deployment
+        uses: actions/deploy-pages@v4
