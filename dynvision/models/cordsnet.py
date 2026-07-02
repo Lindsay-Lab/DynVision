@@ -282,7 +282,6 @@ class CordsNet(BaseModel):
 
         # Configuration arrays
         channels = [64, 64, 64, 128, 128, 256, 256, 512, 512]
-        sizes = [56, 56, 28, 28, 14, 14, 7, 7]
         strides = [1, 1, 2, 1, 2, 1, 2, 1]
 
         # Layer 0: Input processing (no recurrence, no bias)

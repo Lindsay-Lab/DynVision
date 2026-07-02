@@ -22,7 +22,7 @@ import warnings
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Callable, List, Optional, Tuple
 import torchvision as tv
 import torch
 from torch.utils.data import Dataset

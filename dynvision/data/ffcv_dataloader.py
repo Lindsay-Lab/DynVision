@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, List, Optional, Tuple, Union
 from .ffcv_operations import ExtendDataTimeFFCV, ExtendLabelTimeFFCV
 import torch
 import torch.distributed
@@ -10,7 +10,6 @@ from ffcv.fields.decoders import (
     IntDecoder,
     NDArrayDecoder,
     RandomResizedCropRGBImageDecoder,
-    SimpleRGBImageDecoder,
 )
 from ffcv.loader import Loader, OrderOption
 from ffcv.pipeline.operation import Operation
@@ -20,7 +19,6 @@ from ffcv.transforms import (
     ToTensor,
     ToTorchImage,
     NormalizeImage,
-    RandomResizedCrop,
 )
 
 from dynvision.data.transforms import get_data_transform, get_target_transform

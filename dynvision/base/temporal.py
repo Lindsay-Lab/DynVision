@@ -218,7 +218,6 @@ class TemporalBase(nn.Module):
 
     def reset(self, input_shape: Optional[Tuple[int, ...]] = None) -> None:
         """Reset the model state, in particular hidden states."""
-        pass
 
     def compute_idle_initial_states(
         self, batch_size: int, device: torch.device, dtype: torch.dtype
@@ -400,7 +399,6 @@ class TemporalBase(nn.Module):
 
                 else:
                     logger.debug(f"No {operation} defined for {layer_name}. Skipping.")
-                    pass
 
                 # if isinstance(x, torch.Tensor) and (~torch.isfinite(x)).any():
                 #     logger.warning(

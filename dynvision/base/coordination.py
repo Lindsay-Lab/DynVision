@@ -144,7 +144,6 @@ class DtypeDeviceCoordinator:
                 logger.warning(
                     f"Error determining dtype from parameters: {e}. Defaulting to torch.float16."
                 )
-                pass
         return torch.float16
 
     def create_aligned_tensor(self, *args, **kwargs) -> torch.Tensor:

@@ -37,7 +37,6 @@ class SamplingStrategy:
 
     def reset(self, input_shape: Optional[Tuple[int, ...]] = None) -> None:
         """Reset strategy state."""
-        pass
 
 
 class CyclicStrategy(SamplingStrategy):

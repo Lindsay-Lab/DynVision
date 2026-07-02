@@ -405,8 +405,6 @@ class DepthPointwiseConnection(DepthwiseSeparableConnection):
     Implements a depth-pointwise convolution connection.
     """
 
-    pass
-
 
 class PointDepthwiseConnection(DepthwiseSeparableConnection):
     """

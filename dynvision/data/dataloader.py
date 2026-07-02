@@ -13,7 +13,7 @@ Usage:
 """
 
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple
 from collections import OrderedDict
 import torch
 import torch.jit

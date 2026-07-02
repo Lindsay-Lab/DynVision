@@ -15,7 +15,7 @@ References:
 """
 
 import logging
-from typing import Optional, Union, Dict, Any, List, Tuple
+from typing import Optional, Union, Any, List, Tuple
 
 import torch
 import torch.nn as nn

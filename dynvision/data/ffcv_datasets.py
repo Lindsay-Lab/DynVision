@@ -78,7 +78,7 @@ def main() -> None:
     )
 
     # Get writer configuration
-    data_sample = dataset[0][0]
+    dataset[0][0]
 
     image_writer = RGBImageField(
         write_mode=config.writer_mode,

@@ -251,15 +251,11 @@ class Skip(ConnectionBase):
     The skip connection module adds the input tensor (x) of an earlier layer to the output tensor (h) of a deeper layer.
     """
 
-    pass
-
 
 class Feedback(ConnectionBase):
     """
     The feedback connection module adds a hidden state (h) of a deeper layer to the input tensor (x) of an earlier layer.
     """
-
-    pass
 
 
 if __name__ == "__main__":

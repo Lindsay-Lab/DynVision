@@ -26,9 +26,8 @@ import torch
 import torch.nn.functional as F
 import numpy as np
 from typing import Optional, Union, Tuple, Callable
-import warnings
 import logging
-from dynvision.utils import str_to_bool, alias_kwargs, filter_kwargs
+from dynvision.utils import str_to_bool, alias_kwargs
 
 logger = logging.getLogger(__name__)
 

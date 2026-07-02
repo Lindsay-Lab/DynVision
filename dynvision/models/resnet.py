@@ -207,7 +207,6 @@ class ResNetx4(torch_models.ResNet, BaseModel):
 
     def reset(self, input_shape: Optional[Tuple[int, ...]] = None) -> None:
         """Reset model state."""
-        pass
 
     def _determine_residual_timesteps(self, **kwargs) -> int:
         """Determine residual timesteps (none for ResNet)."""

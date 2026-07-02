@@ -6,7 +6,6 @@ from torchvision import models as torch_models
 from dynvision.base import BaseModel
 from typing import Optional, Tuple
 from dynvision.model_components import (
-    InputAdaption,
     RecurrentConnectedConv2d,
 )
 

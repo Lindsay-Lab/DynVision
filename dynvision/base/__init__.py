@@ -183,10 +183,6 @@ class BaseModel(
 class CoreModel(TemporalBase, DtypeDeviceCoordinatorMixin):
     """Core neural network functionality with device coordination only."""
 
-    pass
-
 
 class MonitoredModel(TemporalBase, MonitoringMixin, DtypeDeviceCoordinatorMixin):
     """Core neural network with monitoring, but no Lightning integration."""
-
-    pass

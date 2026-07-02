@@ -9,18 +9,15 @@ References:
 """
 
 import logging
-from typing import Optional, Dict, Any, Tuple, Union, List
+from typing import Optional, Any, Tuple
 
 import torch
 import torch.nn as nn
-from torch.utils import model_zoo
 
 from dynvision.models.dyrcnn import DyRCNN
 from dynvision.utils import alias_kwargs, str_to_bool
 from dynvision.model_components import (
-    InputAdaption,
     RConv2d,
-    Skip,
 )
 
 
@@ -30,8 +27,6 @@ class ZeroStateSentinel:
     This allows returning 'zero' without knowing the batch size.
     Operations check isinstance and treat it as additive identity.
     """
-
-    pass
 
 
 __all__ = ["CorNetRT"]
