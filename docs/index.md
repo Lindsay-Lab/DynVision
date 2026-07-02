@@ -1,5 +1,5 @@
 ---
-title: DynVision
+title:
 hide:
 
   - toc
