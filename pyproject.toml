@@ -68,10 +68,6 @@ dev = [
     "pylint",
     "pytest",
     "pytest-cov",
-    "pytest-flake8",
-    "pytest-mypy",
-    "pytest-pydocstyle",
-    "pytest-pylint",
     "pytest-xdist",
 ]
 doc = [
