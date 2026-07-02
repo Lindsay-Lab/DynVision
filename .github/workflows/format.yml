@@ -23,7 +23,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install formatters
-        run: pip install black autoflake
+        run: pip install "black>=26.5.1" autoflake
 
       - name: Run black
         run: black --config pyproject.toml dynvision

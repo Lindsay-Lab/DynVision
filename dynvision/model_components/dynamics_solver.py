@@ -12,7 +12,6 @@ import logging
 import torch
 from pytorch_lightning import LightningModule
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["EulerStep", "RungeKuttaStep"]

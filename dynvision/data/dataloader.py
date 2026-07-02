@@ -2,7 +2,7 @@
 
 Usage:
     from dynvision.data.dataloader import get_data_loader
-    
+
     loader = get_data_loader(
         dataset,
         batch_size=32,

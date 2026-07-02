@@ -23,7 +23,6 @@ import torch.nn as nn
 import math
 from pytorch_lightning import LightningModule
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["LocalLateralConnection", "LocalSeparableConnection"]

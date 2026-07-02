@@ -16,7 +16,6 @@ from dynvision.base.storage import DataBuffer
 from pytorch_lightning import LightningModule
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = [

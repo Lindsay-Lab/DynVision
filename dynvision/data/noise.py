@@ -13,7 +13,7 @@ Functions:
 
 Usage in DataLoader:
     from noise_module import salt_pepper_noise
-    
+
     class NoisyDataset(Dataset):
         def __getitem__(self, idx):
             image = self.images[idx]  # shape: (C, H, W)

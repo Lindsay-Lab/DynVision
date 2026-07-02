@@ -20,7 +20,6 @@ import torch
 from torch.amp import autocast
 from torch import nn
 
-
 logger = logging.getLogger(__name__)
 
 

@@ -16,7 +16,6 @@ from typing import Any, Callable, Dict, List, Union
 
 import yaml
 
-
 logger = logging.getLogger(__name__)
 
 

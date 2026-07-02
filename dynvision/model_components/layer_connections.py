@@ -13,7 +13,6 @@ import torch.nn as nn
 import torch.nn.init as init
 from pytorch_lightning import LightningModule
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["Skip", "Feedback"]

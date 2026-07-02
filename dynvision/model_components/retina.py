@@ -11,7 +11,6 @@ import torch.nn.functional as F
 from torchsummary import summary
 from pytorch_lightning import LightningModule
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = ["Retina"]
