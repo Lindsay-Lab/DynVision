@@ -3,6 +3,6 @@
   white-on-dark logo in dark mode. Works via CSS media-query <picture> element.
 -#}
 <picture>
-  <source srcset="{{ config.theme.logo | replace('logo.svg', 'logo_white.svg') | url }}" media="(prefers-color-scheme: dark)">
+  <source srcset="{{ config.theme.logo | replace('logo.svg', 'logo.svg') | url }}" media="(prefers-color-scheme: dark)">
   <img src="{{ config.theme.logo | replace('logo.svg', 'logo.svg') | url }}" alt="logo">
 </picture>

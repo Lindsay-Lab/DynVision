@@ -41,7 +41,7 @@ DynVision is a modular toolbox for constructing and evaluating recurrent convolu
 
 ## Installation
 
-**Python requirement**: Python 3.11+ (3.12 support pending FFCV compatibility testing — see [Python 3.12 Compatibility](docs/development/planning/python-3.12-compatibility.md)).
+**Python requirement**: Python 3.11+
 
 ```bash
 # Install from PyPI (recommended for most users)
