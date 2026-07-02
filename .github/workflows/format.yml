@@ -1,0 +1,42 @@
+name: Format
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install formatters
+        run: pip install black autoflake
+
+      - name: Run black
+        run: black --config pyproject.toml dynvision
+
+      - name: Run autoflake (remove unused imports and variables)
+        run: autoflake --in-place --remove-all-unused-imports --remove-unused-variables --recursive dynvision
+
+      - name: Re-run black after autoflake
+        run: black --config pyproject.toml dynvision
+
+      - name: Commit and push changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-format by black + autoflake"
+          commit_user_name: "github-actions[bot]"
+          commit_user_email: "github-actions[bot]@users.noreply.github.com"
