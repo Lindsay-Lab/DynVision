@@ -60,7 +60,7 @@ python_requires = "~= 3.11"
 dev = [
     "black",
     "bump2version",
-    "flake8",
+    "flake8>=7.1.0",  # 7.1.0+ fixes pycodestyle IndexError crash on Python 3.12
     "mypy",
     "pre-commit",
     "pydocstyle",
