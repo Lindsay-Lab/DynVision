@@ -212,7 +212,7 @@ class TestWrongModeIgnored:
     def test_init_params_ignored_by_test(self):
         """Test that init.* parameters are ignored by TestingParams."""
         config_data = {
-            "num_workers": 8,  # Level 5: base (should win for test)
+            "num_workers": 1,  # Level 5: base (should win for test; 1 is always <= CPU count)
             "init.num_workers": 0,  # Wrong mode (ignored by test)
         }
 
@@ -229,7 +229,7 @@ class TestWrongModeIgnored:
 
             # init.num_workers should be ignored since mode is "test"
             assert (
-                params.data.num_workers == 8
+                params.data.num_workers == 1
             ), "Wrong mode override should be ignored"
         finally:
             config_file.unlink()
