@@ -118,7 +118,7 @@ def check_weights(model, message="", min=-2, max=2):
                 print(f"\t{n_large}/{n_weights} large weights (>{max:2f})")
             if is_small.any():
                 n_small = np.sum(is_small.astype(int))
-                print(f"\{n_small}/{n_weights} small weights (<{min:3f})")
+                print(f"\t{n_small}/{n_weights} small weights (<{min:3f})")
             if is_nan.any():
                 n_nans = np.sum(is_nan.astype(int))
                 print(f"\t{n_nans}/{n_weights} NaN weights")
