@@ -1,56 +1,138 @@
-site_name: DynVision Documentation
-site_description: Documentation for DynVision - A modular toolbox for biologically plausible recurrent convolutional vision networks
+site_name: ""
+site_description: Documentation for DynVision - Modeling dynamical vision with biologically plausible recurrent convolutional networks
 site_author: Robin Gutzen
-site_url: https://Lindsay-Lab.github.io/dynvision
+site_url: https://lindsay-lab.github.io/DynVision/
 
-repo_name: Lindsay-Lab/dynvision
-repo_url: https://github.com/Lindsay-Lab/dynvision
+repo_name: Lindsay-Lab/DynVision
+repo_url: https://github.com/Lindsay-Lab/DynVision
 edit_uri: edit/main/docs/
 
 # Specify docs directory (relative to mkdocs.yml location)
 docs_dir: .
 site_dir: ../site
 
+# Exclude scratch / superseded / internal-only working files from the build so
+# they neither appear in the site nor generate broken-link / orphan warnings.
+exclude_docs: |
+  README.md
+  development/temp_presentation/
+  development/guides/ai-style-guide_long.md
+  development/guides/ai-style-guide_old.md
+  development/guides/ai-style-guide_old_old.md
+  development/guides/ai-style-guide_old_old_old.md
+
+# Link/nav validation. Genuine nav + config errors still fail under --strict;
+# legacy cross-links to source files and not-yet-created pages are surfaced as
+# warnings rather than hard build failures. Absolute links (e.g. to source
+# files in the repo) are ignored since they resolve on GitHub, not in the site.
+validation:
+  omitted_files: warn
+  absolute_links: ignore
+  unrecognized_links: warn
+  nav:
+    omitted_files: warn
+    not_found: warn
+    absolute_links: ignore
+  links:
+    not_found: warn
+    absolute_links: ignore
+    unrecognized_links: warn
+
+# Planning docs are intentionally not all surfaced in the top nav; don't warn.
+# Home page (index.md) is linked via the logo, not the nav bar.
+not_in_nav: |
+  index.md
+  code-of-conduct.md
+  development/planning/
+  development/python-3.12-compatibility.md
+  development/guides/model-integration.md
+  development/guides/research-software.md
+  development/guides/software-patterns.md
+  development/guides/workflow.md
+  reference/model-architecture.md
+  reference/test-data-processing.md
+  reference/transform-configuration.md
+  user-guide/torch-cluster-setup.md
+
 theme:
   name: material
+  custom_dir: overrides
   palette:
-    primary: indigo
-    accent: blue
+    # Light/dark toggle
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: Inter
+    code: Fira Code
   features:
     - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.sections
     - navigation.indexes
     - navigation.top
-    - toc.integrate
+    - navigation.footer
     - search.suggest
     - search.highlight
+    - search.share
     - content.tabs.link
-    - content.code.annotation
+    - content.code.annotate
     - content.code.copy
+    - content.action.edit
+    - toc.follow
   icon:
     repo: fontawesome/brands/github
-  logo: assets/logo.png
-  favicon: assets/favicon.ico
+  logo: assets/logo.svg
+  favicon: assets/favicon_D.svg
+
+extra_css:
+  - stylesheets/diataxis.css
 
 markdown_extensions:
   - admonition
   - pymdownx.details
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
   - tables
   - footnotes
   - pymdownx.arithmatex:
       generic: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
   - pymdownx.emoji:
       emoji_index: !!python/name:material.extensions.emoji.twemoji
       emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - attr_list
   - md_in_html
+  - toc:
+      permalink: true
 
 plugins:
   - search
@@ -62,6 +144,9 @@ plugins:
           options:
             docstring_style: numpy
             show_source: true
+            show_root_heading: true
+            members_order: source
+            separate_signature: true
   - git-revision-date-localized:
       fallback_to_build_date: true
   # - social  # Disabled: requires cairosvg (pip install "mkdocs-material[imaging]")
@@ -70,41 +155,67 @@ extra_javascript:
   - https://polyfill.io/v3/polyfill.min.js?features=es6
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
+# -----------------------------------------------------------------------------
+# Navigation — organised by the four Diátaxis quadrants.
+# Directory names on disk are kept as-is (tutorial/, user-guide/, reference/,
+# explanation/); only the nav labels/grouping express the Diátaxis structure.
+#   Tutorials      -> learning-oriented   (green  #2ecc71)
+#   How-to Guides  -> task-oriented       (brown #795548, brand accent #CF8A2A)
+#   Reference      -> information-oriented (slate  #34495e)
+#   Explanation    -> understanding        (teal   #16a085)
+# -----------------------------------------------------------------------------
 nav:
-  - Home: index.md
-  - Getting Started: getting-started.md
-  - User Guide:
+  - Tutorials:
+    - tutorial/index.md
+    - Getting Started: getting-started.md
+    - Basic Model Training: tutorial/basic-model-training.md
+    - Custom Model Creation: tutorial/custom-model.md
+
+  - How-to Guides:
     - user-guide/index.md
     - Installation: user-guide/installation.md
     - Custom Models: user-guide/custom-models.md
     - Data Processing: user-guide/data-processing.md
-    - Workflow Management: user-guide/workflows.md
-    - Visualization: user-guide/visualization.md
-    - Model Testing: user-guide/model-testing.md
     - Temporal Data Presentation: user-guide/temporal-data-presentation.md
+    - Workflow Management: user-guide/workflows.md
+    - Training: user-guide/training.md
+    - Model Testing: user-guide/model-testing.md
+    - Visualization: user-guide/visualization.md
     - Parameter Handling: user-guide/parameter-handling.md
     - Cluster Integration: user-guide/cluster-integration.md
     - Troubleshooting: user-guide/troubleshooting.md
-  - Tutorials:
-    - tutorial/index.md
-    - Basic Model Training: tutorial/basic-model-training.md
-    - Custom Model Creation: tutorial/custom-model.md
+
   - Reference:
     - reference/index.md
-    - Architecture: reference/organization.md
-    - Model Components: reference/model-components.md
+    - Organization: reference/organization.md
+    - Model Components API: reference/model-components.md
     - Recurrence Types: reference/recurrence-types.md
     - Dynamics Solvers: reference/dynamics-solvers.md
+    - Layer Operations: reference/layer-operations.md
+    - Skip & Feedback Connections: reference/skip-feedback-connections.md
+    - Integration Strategies: reference/integration-strategies.md
     - Configuration: reference/configuration.md
     - Losses: reference/losses.md
     - Optimizers & Schedulers: reference/optimizers-schedulers.md
+    - Models & Architectures: reference/models.md
+    - Base Classes: reference/model-base.md
+    - Evaluation Metrics: reference/evaluation-metrics.md
+    - Benchmarking: reference/benchmarking.md
+    - Workflow Organization: reference/workflow.md
+
   - Explanation:
     - explanation/index.md
     - Biological Plausibility: explanation/biological-plausibility.md
     - Temporal Dynamics: explanation/temporal_dynamics.md
+    - Engineering vs. Biological Time: explanation/engineering-vs-biological-time.md
     - Design Philosophy: explanation/design-philosophy.md
-  - Developer Guide:
-    - development/index.md
+    - Why Snakemake?: explanation/why-snakemake.md
+    - Role of Recurrence: explanation/role-of-recurrence.md
+    - Comparison to Neural Data: explanation/comparison-to-neural-data.md
+
+  - About:
+    - Developer Guide: development/index.md
+    - Documentation Map: development/documentation-map.md
     - Planning:
       - Documentation TODOs: development/planning/todo-docs.md
       - Development Roadmap: development/planning/todo-roadmap.md
@@ -118,12 +229,18 @@ nav:
       - Snakemake: development/dependencies/snakemake.md
       - PyTorch Lightning: development/dependencies/pytorch-lightning.md
       - FFCV: development/dependencies/ffcv.md
-  - Contributing: contributing.md
+    - Contributing: contributing.md
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Lindsay-Lab/dynvision
+      link: https://github.com/Lindsay-Lab/DynVision
   version:
     provider: mike
     default: latest
+
+copyright: >
+  Released under the
+  <a href="https://github.com/Lindsay-Lab/DynVision/blob/main/LICENSE">MIT License</a> &nbsp;·&nbsp;
+  <a href="https://github.com/Lindsay-Lab/DynVision/blob/main/docs/contributing.md">Contributing</a> &nbsp;·&nbsp;
+  <a href="https://doi.org/10.1101/2025.08.11.669756">Preprint</a>

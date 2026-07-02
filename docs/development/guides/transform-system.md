@@ -28,6 +28,7 @@ transform_presets:
 ```
 
 **Structure**:
+
 - **Backend**: Selects the transform library (`torch` → torchvision.transforms.v2, `ffcv` → ffcv.transforms)
 - **Context**: Training contexts use augmentation; test contexts typically use minimal preprocessing
 - **Preset**: Dataset-specific presets replace base presets when available (no implicit layering)
@@ -78,6 +79,7 @@ parse_transform_string("RandomAffine(0, translate=(0.1, 0.1))", backend="torch")
 ```
 
 **Implementation Details**:
+
 1. Splits transform string into module name and arguments
 2. Uses `ast.parse()` to create a Call node from the full expression
 3. Extracts positional args via `call_node.args` and keyword args via `call_node.keywords`
@@ -272,6 +274,7 @@ Raw image → preprocessing → normalization → model
 **Decision**: Dataset-specific presets fully replace base presets; no implicit layering.
 
 **Rationale**:
+
 - Explicit configuration is easier to understand and debug
 - Avoids hidden dependencies between base and dataset transforms
 - Users can copy-paste base transforms into dataset presets if needed
@@ -290,6 +293,7 @@ torch:
 **Decision**: YAML presets only manage augmentation; normalization/dtype remain in loader code.
 
 **Rationale**:
+
 - Normalization depends on dataset statistics (mean/std) computed at runtime
 - Dtype conversion depends on precision settings
 - Device placement is a deployment concern, not a transform concern
@@ -300,12 +304,14 @@ torch:
 **Decision**: Use `ast.parse()` and `ast.literal_eval()` instead of `eval()` or manual parsing.
 
 **Rationale**:
+
 - **Security**: No arbitrary code execution; only literal values allowed
 - **Robustness**: Handles complex argument structures (nested tuples, mixed args)
 - **Error Handling**: Clear error messages when parsing fails
 - **Maintainability**: Leverages Python's built-in AST tools
 
 **Rejected Alternatives**:
+
 - `eval()`: Security risk, allows arbitrary code execution
 - Manual regex parsing: Fragile, complex, error-prone for nested structures
 - JSON-like syntax: Requires users to learn non-Python syntax
@@ -315,6 +321,7 @@ torch:
 **Decision**: Prefer torchvision.transforms.v2 over legacy v1 API.
 
 **Rationale**:
+
 - v2 is the recommended API per PyTorch documentation
 - Better support for mixed input types (PIL, tensors, videos)
 - Consistent interface with better composition semantics
@@ -327,6 +334,7 @@ torch:
 **Decision**: `DataParams` automatically derives transform parameters from `use_ffcv`, `train`, and `data_name`.
 
 **Rationale**:
+
 - Reduces boilerplate configuration
 - Ensures consistency (FFCV flag automatically sets FFCV backend)
 - Supports CLI overrides for experimentation
@@ -539,6 +547,7 @@ target_transforms = get_target_transform(
 ```
 
 **Breaking Changes**:
+
 1. `DataParams.data_transform` → removed (use `transform_backend`, `transform_context`, `transform_preset`)
 2. `DataParams.target_transform` → removed (use `target_data_name`, `target_data_group`)
 3. `get_data_transform(transform, data_name)` → `get_data_transform(backend, context, dataset_or_preset)`

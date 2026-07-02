@@ -3,6 +3,7 @@
 This module provides access to workflow functions for unit testing.
 """
 
+
 def compute_hash(*args, length: int = 8) -> str:
     """Compute deterministic hash from model_args and seed.
 
@@ -34,15 +35,14 @@ def compute_hash(*args, length: int = 8) -> str:
 
     # Idempotent: if any arg already contains 'hash=', return first such arg
     for arg in args:
-        if 'hash=' in str(arg):
+        if "hash=" in str(arg):
             return str(arg)
 
     # Combine all arguments
-    combined = '_'.join(str(arg).lstrip(':') for arg in args)
+    combined = "_".join(str(arg).lstrip(":") for arg in args)
 
     # Compute MD5 hash
     hash_obj = hashlib.md5(combined.encode())
     hash_val = hash_obj.hexdigest()[:length]
 
-    return f':hash={hash_val}'
-
+    return f":hash={hash_val}"

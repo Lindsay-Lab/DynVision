@@ -2,6 +2,14 @@
 
 This reference documentation provides an overview of the model architectures available in DynVision and how they utilize different components to implement biologically-inspired vision models.
 
+<p align="center">
+  <img src="../../assets/reference_models.png" alt="Reference models (CORnet-RT, CordsNet, DyRCNNx8)" width="700"/>
+</p>
+
+*Figure: Equivalent reimplementation of CORnet‑RT and CordsNet in DynVision,
+alongside the native DyRCNNx8. The reimplementations are numerically equivalent
+to the originals while achieving up to 52% speedup.*
+
 ## Available Model Architectures
 
 DynVision provides several model architectures, each serving different research purposes:
@@ -18,21 +26,23 @@ A four-layer architecture inspired by the ventral visual stream:
 from dynvision.models import DyRCNNx4
 
 model = DyRCNNx4(
-    n_classes=1000,              # Number of output classes
-    input_dims=(20, 3, 224, 224),  # (timesteps, channels, height, width)
+    n_classes=10,                  # Number of output classes
+    input_dims=(20, 3, 64, 64),   # (timesteps, channels, height, width)
     recurrence_type="full",      # Type of recurrent connectivity
     dt=2.0,                      # Integration time step (ms)
-    tau=10.0                     # Neural time constant (ms)
+    tau=5.0                      # Neural time constant (ms) — default
 )
 ```
 
 **Layer Organization**:
+
 - V1: Early visual processing with local feature extraction
 - V2: Intermediate feature processing
 - V4: Higher-order feature integration
 - IT: Object recognition
 
 Each layer implements:
+
 - Feedforward convolution
 - Recurrent connections
 - Nonlinear activation
@@ -55,7 +65,7 @@ model = ResNet(
     version="50",                # ResNet version (18, 34, 50, 101)
     dynamics_solver="euler",     # Type of dynamics solver
     dt=2.0,
-    tau=10.0
+    tau=5.0
 )
 ```
 
@@ -69,7 +79,7 @@ model = AlexNet(
     input_dims=(20, 3, 224, 224),
     dynamics_solver="euler",
     dt=2.0,
-    tau=10.0
+    tau=5.0
 )
 ```
 
@@ -85,7 +95,7 @@ model = CordsNet(
     input_dims=(20, 3, 224, 224),
     topographic=True,           # Enable topographic organization
     dt=2.0,
-    tau=10.0
+    tau=5.0
 )
 ```
 
@@ -94,7 +104,7 @@ model = CordsNet(
 DynVision enables systematic comparison of different recurrent architectures. The figure below compares training performance across reference models and DynVision variants trained on ImageNet:
 
 <p align="center">
-  <img src="../assets/reference_models.png" alt="Reference Model Comparison" width="700"/>
+  <img src="../../assets/reference_models.png" alt="Reference Model Comparison" width="700"/>
 </p>
 
 *Figure: Training comparison of reference RCNN implementations (CorNet-RT, CordsNet) and DynVision's DyRCNNx8 across ImageNet training. DynVision achieves faster training while supporting more biologically detailed architectures.*
@@ -212,19 +222,19 @@ See the [Custom Models Guide](../user-guide/custom-models.md) for detailed instr
 ## Best Practices
 
 1. **Model Selection**:
-   - Use DyRCNN models for biological vision research
-   - Use enhanced standard architectures for comparison with literature
-   - Use research models for specific hypotheses
+      - Use DyRCNN models for biological vision research
+      - Use enhanced standard architectures for comparison with literature
+      - Use research models for specific hypotheses
 
 2. **Component Configuration**:
-   - Match time constants to biological values (typically 5-20ms)
-   - Choose recurrence types based on computational budget
-   - Use appropriate nonlinearities for biological plausibility
+      - Match time constants to biological values (typically 5-20ms)
+      - Choose recurrence types based on computational budget
+      - Use appropriate nonlinearities for biological plausibility
 
 3. **Performance Optimization**:
-   - Use simpler recurrence types for large-scale training
-   - Consider mixed precision training
-   - Adjust batch sizes based on available memory
+      - Use simpler recurrence types for large-scale training
+      - Consider mixed precision training
+      - Adjust batch sizes based on available memory
 
 ## References
 

@@ -15,6 +15,7 @@ snakemake models/DyRCNNx4_0000_cifar100_trained.pt
 ```
 
 Snakemake builds a dependency graph by:
+
 1. Finding the rule that creates this file (`train_model`)
 2. Checking what input files it needs (`DyRCNNx4_0000_cifar100_init.pt`)
 3. Finding rules that create those inputs (`init_model`)
@@ -35,6 +36,7 @@ rule all:
 ```
 
 This rule:
+
 - Serves as the default target when running `snakemake`
 - Uses `expand()` to generate multiple targets
 - Typically requests experiment completion flags
@@ -50,6 +52,7 @@ rule train_model:
 ```
 
 The rule only runs when:
+
 - Output files are missing
 - Input files are newer than outputs
 - Explicitly requested with `--forcerun`
@@ -63,6 +66,7 @@ models/{model_name}{model_args}_{seed}_{data_name}_{status}.pt
 ```
 
 This enables:
+
 - Parameter sweeps (`model_args`)
 - Multiple seeds for validation
 - Consistent file organization
@@ -80,6 +84,7 @@ dynvision/workflow/
 ```
 
 Each component handles specific tasks:
+
 1. **Snakefile**: The main entry point that includes the other files and defines the top-level targets.
 2. **snake_utils.smk**: Utility functions, path management, and configuration loading.
 3. **snake_data.smk**: Rules for dataset acquisition, organization, and preprocessing.
@@ -122,6 +127,7 @@ snakemake --config \
 ```
 
 Snakemake will:
+
 - Create separate output files for each combination
 - Run jobs in parallel (limited by -j parameter)
 - Skip combinations that are already complete
@@ -143,11 +149,13 @@ snakemake plot_experiments_on_models
 ```
 
 For more complex patterns and best practices, see:
+
 - [Configuration Reference](../reference/configuration.md)
 
 ## Rule Implementation
 
 DynVision implements Snakemake rules with consistent patterns. Each rule:
+
 - Takes input files and parameters
 - Produces output files
 - Uses wildcards for flexibility
@@ -212,14 +220,14 @@ These wildcards are used to specify which files to generate and how to connect t
 DynVision workflows are configured through YAML files and command-line overrides:
 
 1. **YAML Configuration**:
-   - `config_defaults.yaml`: Default parameters for all components
-   - `config_data.yaml`: Dataset-specific configurations
-   - `config_experiments.yaml`: Experiment-specific settings
-   - `config_workflow.yaml`: Workflow execution parameters
+      - `config_defaults.yaml`: Default parameters for all components
+      - `config_data.yaml`: Dataset-specific configurations
+      - `config_experiments.yaml`: Experiment-specific settings
+      - `config_workflow.yaml`: Workflow execution parameters
 
 2. **Command-Line Overrides**:
-   - Directly override parameters with `--config key=value`
-   - Specify complex parameters using Python-like syntax: `--config model_args="{rctype:full}"`
+      - Directly override parameters with `--config key=value`
+      - Specify complex parameters using Python-like syntax: `--config model_args="{rctype:full}"`
 
 See the [Configuration Reference](../reference/configuration.md) for detailed information about configuration parameters.
 
@@ -366,6 +374,7 @@ rule my_custom_analysis:
 ### Missing Input Files
 
 If Snakemake reports missing input files, check:
+
 1. If the dataset has been downloaded (`get_data` rule)
 2. If the data paths are correct in `project_paths.py`
 3. If all required symbolic links have been created
@@ -373,6 +382,7 @@ If Snakemake reports missing input files, check:
 ### Rule Execution Errors
 
 If a rule fails to execute:
+
 1. Check the error message in the log file
 2. Ensure all dependencies are installed
 3. Try running the individual script with the same parameters
@@ -380,6 +390,7 @@ If a rule fails to execute:
 ### Performance Issues
 
 If workflows are running slowly:
+
 1. Enable FFCV data loading with `use_ffcv: True`
 2. Adjust the number of threads (`-j` parameter)
 3. Use mixed precision training with `precision: "16-mixed"`

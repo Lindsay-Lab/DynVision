@@ -9,6 +9,7 @@ This guide walks through the complete process of integrating a model from the li
 ## Overview
 
 DynVision provides a framework for temporal neural networks with:
+
 - **Recurrent connections** within and between layers
 - **Temporal dynamics** with configurable delays and time constants
 - **Biological features** like skip connections, feedback, and supralinearity
@@ -55,6 +56,7 @@ def forward(self, inp=None, state=None, batch_size=None):
 ```
 
 **Document for each operation**:
+
 - Input/output shapes at each step
 - Parameter values (kernel size, stride, padding, bias, channels)
 - Operation order (critical for exact replication)
@@ -77,6 +79,7 @@ class CORnet_RT:
 ```
 
 **Questions to answer**:
+
 - How many layers/stages?
 - Are they similar or heterogeneous?
 - What are the channel progressions?
@@ -99,6 +102,7 @@ for t in range(1, self.times):
 ```
 
 **Document**:
+
 - How many timesteps?
 - What initializes at t=0?
 - What is passed between timesteps?
@@ -122,6 +126,7 @@ transform = transforms.Compose([
 ```
 
 **Document**:
+
 - Input resolution expected
 - Normalization parameters (mean, std) or absence thereof
 - Other preprocessing (resizing, cropping, augmentation)
@@ -142,6 +147,7 @@ for key, value in state_dict.items():
 ```
 
 **Document**:
+
 - Layer naming convention
 - Which layers have pretrained weights
 - Which layers need to be randomly initialized (e.g., classifier for different n_classes)
@@ -171,6 +177,7 @@ class MyModel(BaseModel):  # or DyRCNN
 ```
 
 **Decision factors**:
+
 - Does the model have recurrent connections? → Consider BaseModel with RConv2d
 - Need skip connections between non-adjacent layers? → DyRCNN
 - Need feedback connections? → DyRCNN
@@ -266,6 +273,7 @@ layer = RConv2d(
 ```
 
 **To determine correct setting**:
+
 1. Trace where `state` or recurrent input is added in original
 2. Count operations before/after that point
 3. Match to DynVision's structure
@@ -323,6 +331,7 @@ self.nonlin = nn.ReLU(inplace=True)     # Shared activation
 - **Outside** (`norm_LayerName`): Applied after RConv2d via `layer_operations`
 
 For CorNet, we use both:
+
 - `mid_modules=nn.GroupNorm(...)` for first-stage normalization
 - `self.norm_V1 = nn.GroupNorm(...)` for second-stage normalization
 
@@ -349,6 +358,7 @@ def forward(self, inp, state=None):
 ```
 
 **Key methods** (you typically don't call these directly):
+
 - `get_hidden_state(delay)`: Retrieve state from `delay` timesteps ago
 - `set_hidden_state(x)`: Store current state for future retrieval
 - `reset()`: Clear all hidden states (call this at start of forward pass)
@@ -519,6 +529,7 @@ This module implements [model name] from [paper citation], adapted to
 DynVision's temporal dynamics framework.
 
 References:
+
 - Author et al. (Year) "Paper Title"
 """
 
@@ -618,6 +629,7 @@ def _define_architecture(self):
 ```
 
 **Key points**:
+
 - `layer_names` must exactly match the attribute names you define
 - `layer_operations` defines the execution order
 - Operations look for attributes named `{operation}_{layer_name}` (e.g., `norm_V1`)
@@ -678,6 +690,7 @@ def translate_pretrained_layer_names(self):
 ```
 
 **Translation process**:
+
 1. `download_pretrained_state_dict()`: Download and load original weights
 2. `translate_pretrained_layer_names()`: Define name mappings
 3. `load_pretrained_state_dict()`: Automatically applies translation (inherited from BaseModel)
@@ -1054,6 +1067,7 @@ def test_equivalence():
 ```
 
 **Common reasons for mismatch**:
+
 1. **Wrong operation order**: Check `layer_operations` sequence
 2. **Wrong recurrence_target**: Check where `state` is added in original
 3. **Missing normalization/activation**: Check all operations are present
@@ -1191,6 +1205,7 @@ def compare_weights(original, reimpl):
 ```
 
 **Key checks**:
+
 - All expected parameters present?
 - Shapes match?
 - Values identical (within floating point precision)?
@@ -1288,16 +1303,19 @@ def verify_weights_actually_loaded(model_class):
 **Why this matters**:
 
 In CordsNet integration, we found that despite:
+
 - Translation mapping being correct ✓
 - Weight structure matching ✓
 - No errors during loading ✓
 
 ALL 53 parameters had wrong values! The weights weren't actually being loaded. This was because:
+
 1. Reimpl had extra parameters (tau_layer*, addskip_*.source.*)
 2. These extra keys were handled by `_add_missing_parameters_to_state_dict()`
 3. But we needed to verify the CORE weights actually transferred
 
 **When to use this check**:
+
 - After implementing pretrained weight loading
 - When outputs don't match despite weights "loading successfully"
 - When activations are much smaller than expected
@@ -1412,6 +1430,7 @@ def debug_timestep_by_timestep(original, reimpl, img):
 ```
 
 **What to look for**:
+
 - Which timestep does divergence start?
 - Which layer does divergence start?
 - Is hidden state being set/retrieved correctly?
@@ -1529,6 +1548,7 @@ snakemake <output_file_path> --config normalize=null
 ```
 
 See the normalization override system implemented in:
+
 - `dynvision/params/data_params.py` (validator handles JSON null)
 - `dynvision/workflow/snake_runtime.smk` (passes normalize parameter)
 
@@ -1585,6 +1605,7 @@ y = model(x)  # Shape: (batch, timesteps, n_classes)
 ```
 
 Your model just needs:
+
 - `reset()`: Clear states at start
 - RConv2d layers: Automatically manage hidden states
 - Proper `history_length` parameter: Based on max(t_feedforward, t_recurrence, ...)
@@ -1629,6 +1650,7 @@ The `auto_adapt=True` automatically learns the transformation to match shapes vi
 **Symptom**: Model loads weights but outputs don't match original.
 
 **Solution**: Carefully trace where recurrence is applied in original:
+
 - Before first operation? → `recurrence_target="input"`
 - Between two-stage convolutions? → `recurrence_target="middle"`
 - After all operations? → `recurrence_target="output"`
@@ -1657,6 +1679,7 @@ self.norm_LayerName = nn.GroupNorm(32, 64)  # Second norm
 **Symptom**: Runtime error about tensor shape mismatch.
 
 **Solution**:
+
 1. Print shapes at each step during initialization
 2. Ensure `dim_y`, `dim_x` are passed correctly
 3. Account for all striding and pooling when calculating next layer dims
@@ -1672,6 +1695,7 @@ print(f"After V1 (stride={self.V1.stride}): {self.V1.dim_y} x {self.V1.dim_x}")
 **Symptom**: Recurrent connections don't seem to work, behavior same as feedforward.
 
 **Solution**:
+
 1. Ensure `reset()` is called (happens automatically in `TemporalBase.forward()`)
 2. Check `history_length` is sufficient: `max(t_recurrence, t_feedforward) / dt + 1`
 3. Verify `delay_recurrence` matches original model's delay
@@ -1727,6 +1751,7 @@ print(f"After V1 (stride={self.V1.stride}): {self.V1.dim_y} x {self.V1.dim_x}")
 ### Mistake 2: Building New Infrastructure Instead of Using Existing Systems
 
 **What Happened**: When implementing normalization override for CorNet (which was trained without normalization), proposed solution involved:
+
 - New utility module in transforms.py
 - Helper functions for model requirements
 - Updates to 5+ files
@@ -1736,6 +1761,7 @@ print(f"After V1 (stride={self.V1.stride}): {self.V1.dim_y} x {self.V1.dim_x}")
 **The User's Guidance**: "I just guided you to a much simpler and straightforward solution, that had minimal implementation effort and used the existing structures and functionalities."
 
 **What the Simple Solution Was**:
+
 - Update Pydantic validator to handle JSON null: 3 lines
 - Update Snakemake rule to check for normalize config override: 4 lines
 - Total: ~10 lines of actual changes
@@ -1745,6 +1771,7 @@ print(f"After V1 (stride={self.V1.stride}): {self.V1.dim_y} x {self.V1.dim_x}")
 > **Always check if existing systems can handle the requirement before building new infrastructure.** Follow the solution hierarchy: Configuration → Parameter → Extension → New Code. Most requirements can be solved at earlier levels.
 
 **The Solution Hierarchy (Always Apply in Order)**:
+
 1. **Configuration only**: Can changing config values solve this?
    ```bash
    # Example: Override normalization
@@ -1784,6 +1811,7 @@ print(f"After V1 (stride={self.V1.stride}): {self.V1.dim_y} x {self.V1.dim_x}")
 **The User's Correction**: Pointed out to review how activity flows through layers and that each layer only needs ONE `addskip` operation.
 
 **What Was Actually True**:
+
 - Previous layer's output is already in `x` from the `delay` operation
 - Each layer adds ONE skip from a non-adjacent layer
 - The skip is added TO the current `x`, not combined with multiple sources
@@ -1818,6 +1846,7 @@ x = relu(x)                              # Nonlin
 **The User's Question**: "Why do you need the _make_stateful_sequential function? What required functionality is not covered by the hidden state management in recurrence.py?"
 
 **What Was Actually True**:
+
 - RConv2d already has `get_hidden_state()`, `set_hidden_state()`, `reset()`
 - Can use `RConv2d` with `recurrence_type="none"` for layer0
 - No custom wrapper needed
@@ -1890,6 +1919,7 @@ RConv2d(
 > **Understand the exact mapping between original parameters and DynVision parameters.** Read both the original code AND the framework component source to see how parameters translate.
 
 **Verification Checklist**:
+
 - [ ] Traced original: What are the input/output channels for feedforward?
 - [ ] Traced original: What are the input/output channels for recurrence?
 - [ ] Traced original: What are the kernel sizes?
@@ -1906,6 +1936,7 @@ RConv2d(
 **What Was Actually True**:
 
 DynVision separates temporal concerns:
+
 - **RConv2d responsibility**: Within-layer recurrence delay
 - **Delay operation responsibility**: Between-layer feedforward delay
 
@@ -2025,8 +2056,8 @@ def forward(self, inp=None):
 ```
 
 2. **Combined layer timing**: When multiple layers are processed in the same forward pass and their outputs combined:
-   - Layer processed LATER (layer8): Needs `t_feedforward=0` (immediate)
-   - Layer processed EARLIER (layer7): Needs `delay_index=1` (from hidden state)
+      - Layer processed LATER (layer8): Needs `t_feedforward=0` (immediate)
+      - Layer processed EARLIER (layer7): Needs `delay_index=1` (from hidden state)
 
 **Why This Matters**:
 
@@ -2079,6 +2110,7 @@ def combine_for_classifier(self):
 ```
 
 **Symptoms of this bug**:
+
 - Activations much smaller than expected (None → 0 in some operations)
 - Top-5 predictions close but not identical (4/5 match)
 - Small numerical differences in final output logits
@@ -2089,18 +2121,21 @@ def combine_for_classifier(self):
 All these mistakes share a common root cause: **Acting before fully investigating**.
 
 **The Wrong Approach**:
+
 1. See a requirement → immediately design a solution
 2. Encounter unfamiliar code → guess at its behavior
 3. Find complexity → build custom infrastructure
 4. See a problem → assume existing code is wrong
 
 **The Right Approach** (From AI Style Guide):
+
 1. **Investigate thoroughly**: Trace existing code, search for patterns, read docs
 2. **Understand constraints**: What exists? What can be reused? What must not change?
 3. **Apply solution hierarchy**: Config → Parameter → Extension → New code
 4. **Validate assumptions**: Never claim something is wrong without proof
 
 **Before implementing anything, ask**:
+
 - What does the existing code actually do? (trace it completely)
 - Does similar functionality already exist? (search the codebase)
 - Can existing systems handle this? (check configuration, parameters, extensions)
@@ -2243,9 +2278,11 @@ model = MyModel(
 \`\`\`
 
 **Parameters:**
+
 - ...
 
 **References:**
+
 - ...
 ```
 
@@ -2319,6 +2356,7 @@ class BiologicalModel(DyRCNN):
 Before considering integration complete:
 
 **Investigation Phase**:
+
 - [ ] Traced original forward pass line by line
 - [ ] Documented all layer parameters (channels, kernels, strides, bias)
 - [ ] Identified where recurrence is applied
@@ -2326,6 +2364,7 @@ Before considering integration complete:
 - [ ] Inspected pretrained weights structure (if applicable)
 
 **Mapping Phase**:
+
 - [ ] Chose appropriate base class (BaseModel vs DyRCNN)
 - [ ] Mapped convolutional blocks to RConv2d parameters
 - [ ] Determined correct `recurrence_target` value
@@ -2333,6 +2372,7 @@ Before considering integration complete:
 - [ ] Planned `layer_operations` sequence
 
 **Implementation Phase**:
+
 - [ ] Defined `layer_names` matching attribute names
 - [ ] Implemented `_define_architecture()` with all layers
 - [ ] Implemented `reset()` for hidden state management
@@ -2340,6 +2380,7 @@ Before considering integration complete:
 - [ ] Created layer name translation mapping (if applicable)
 
 **Validation Phase**:
+
 - [ ] Tested model creation and initialization
 - [ ] Tested forward pass with various inputs
 - [ ] Compared outputs with original implementation
@@ -2347,6 +2388,7 @@ Before considering integration complete:
 - [ ] Verified pretrained weights load correctly
 
 **Lessons Learned Check** (See Phase 5.5):
+
 - [ ] Did I trace the original code completely before claiming anything was wrong?
 - [ ] Did I check existing systems before building new infrastructure?
 - [ ] Did I understand the data flow through `layer_operations`?
@@ -2354,6 +2396,7 @@ Before considering integration complete:
 - [ ] Did I verify parameter mappings between original and DynVision?
 
 **Documentation Phase**:
+
 - [ ] Written comprehensive docstrings
 - [ ] Created test function
 - [ ] Added to model zoo (`__init__.py`)
@@ -2366,11 +2409,11 @@ Before considering integration complete:
 
 - **DynVision Architecture**: [`docs/development/guides/claude-guide.md`](claude-guide.md)
 - **AI Development Guide**: [`docs/development/guides/ai-style-guide.md`](ai-style-guide.md)
-- **Base Classes**: [`dynvision/base/temporal.py`](../../dynvision/base/temporal.py)
-- **Recurrence Components**: [`dynvision/model_components/recurrence.py`](../../dynvision/model_components/recurrence.py)
-- **Example Models**:
-  - Simple: [`dynvision/models/cornet_rt.py`](../../dynvision/models/cornet_rt.py)
-  - Complex: [`dynvision/models/dyrcnn.py`](../../dynvision/models/dyrcnn.py)
+- **Base Classes**: `dynvision/base/temporal.py` ([view on GitHub](https://github.com/Lindsay-Lab/DynVision/blob/main/dynvision/base/temporal.py))
+- **Recurrence Components**: `dynvision/model_components/recurrence.py` ([view on GitHub](https://github.com/Lindsay-Lab/DynVision/blob/main/dynvision/model_components/recurrence.py))
+- **Reference Implementations**:
+  - Simple: `dynvision/models/cornet_rt.py` ([view on GitHub](https://github.com/Lindsay-Lab/DynVision/blob/main/dynvision/models/cornet_rt.py))
+  - Complex: `dynvision/models/dyrcnn.py` ([view on GitHub](https://github.com/Lindsay-Lab/DynVision/blob/main/dynvision/models/dyrcnn.py))
 
 ---
 

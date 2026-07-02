@@ -46,6 +46,7 @@ Each type serves a different purpose and requires a different writing approach.
 ### 1. Tutorials
 
 Tutorials should:
+
 - Begin with clear learning objectives
 - Present a complete, working example
 - Progress step-by-step in a logical sequence
@@ -73,6 +74,7 @@ Structure:
 ### 2. How-to Guides
 
 How-to guides should:
+
 - Focus on solving a specific problem
 - Provide a clear sequence of steps
 - Address practical real-world use cases
@@ -92,6 +94,7 @@ Structure:
   1. [Clear instruction]
      - Code example
      - Explanation
+
   2. [Clear instruction]
      ...
 ## Common Issues and Solutions
@@ -101,6 +104,7 @@ Structure:
 ### 3. Reference Documentation
 
 Reference documentation should:
+
 - Describe components accurately and completely
 - Use consistent formatting for parameters, return values, and examples
 - Include type information for all parameters and return values
@@ -131,6 +135,7 @@ Structure for module/class references:
 ### 4. Explanation
 
 Explanation documents should:
+
 - Provide context and background information
 - Explain concepts, design decisions, and trade-offs
 - Connect ideas to broader principles or research
@@ -308,6 +313,7 @@ print(f"Output shape: {outputs.shape}")  # Expected output shape: [1, 20, 10]
 ## Review Process
 
 Before submitting documentation for review, ensure:
+
 - All code examples have been tested and work
 - All links are valid and point to correct destinations
 - Spelling and grammar have been checked
@@ -398,7 +404,7 @@ When creating custom models, follow these best practices:
 
 ## Related Resources
 
-- [Base Classes Reference](../reference/model-components.md#base-classes)
-- [Recurrence Types](../reference/recurrence-types.md)
-- [Example Models](../tutorials/custom-model-creation.md)
+- [Base Classes Reference](../../reference/model-components.md#base-classes)
+- [Recurrence Types](../../reference/recurrence-types.md)
+- [Example Models](../../tutorial/custom-model.md)
 ```

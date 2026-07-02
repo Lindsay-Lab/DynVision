@@ -1,5 +1,9 @@
 # Installation Guide
 
+!!! goal "Goal"
+    Get a working DynVision environment with all dependencies installed, so you
+    can train and evaluate models.
+
 This guide provides detailed instructions for installing DynVision and its dependencies on different operating systems.
 
 ## Prerequisites
@@ -60,14 +64,20 @@ mamba install -c conda-forge graphviz
 
 ### 3. Install DynVision
 
-Clone and install the repository:
+**From PyPI (recommended for most users):**
+
+```bash
+pip install dynvision
+```
+
+**From source (for development):**
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/dynvision.git
+git clone https://github.com/Lindsay-Lab/dynvision.git
 cd DynVision
 
-# Install package
+# Install package in development mode
 pip install -e .
 ```
 

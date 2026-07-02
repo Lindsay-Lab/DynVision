@@ -12,13 +12,12 @@ References:
 """
 
 import logging
-from typing import Optional, Union
+from typing import Optional
 
 import torch
 import torch.nn as nn
 from torch import Tensor
 from pytorch_lightning import LightningModule
-
 
 logger = logging.getLogger(__name__)
 

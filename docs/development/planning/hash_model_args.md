@@ -11,22 +11,26 @@
 **IMPORTANT NOTE:** This document describes a PROPOSED system that was never fully implemented.
 
 **What WAS implemented:**
+
 - ✅ Hierarchical file organization
 - ✅ Models organized as `{model_name}/{model_identifier}/{data_name}/`
 - ✅ Experiment-based grouping for test outputs
 - ✅ Checkpoint coordination for model dependencies
 
 **What was NOT implemented:**
+
 - ❌ Model identifier hashing and symlinks
 - ❌ Polymorphic `{model_identifier}` wildcard matching full/hash forms
 - ❌ `.hash` documentation files for models
 
 **What WAS implemented instead:**
+
 - ✅ Optional test identifier compression (not model identifiers)
 - ✅ Config files (`.config.yaml`) for parameter preservation
 - ✅ Config-based parameter extraction in `process_test_data.py`
 
 **See instead:**
+
 - [Current Workflow Reference](../../reference/workflow.md)
 - [Current Developer Workflow Guide](../guides/workflow.md)
 
@@ -39,6 +43,7 @@ This section documents the original proposal. The actual implementation differs 
 ## Overview
 
 Reorganize DynVision file structure to:
+
 1. **Solve filesystem limitations** through model identifier hashing
 2. **Improve conceptual clarity** by hierarchical separation of concerns
 3. **Enable scalability** for large parameter sweeps
@@ -51,6 +56,7 @@ OSError: [Errno 36] File name too long: '/home/.../logs/slurm/rule_test_model/..
 ```
 
 **Root causes:**
+
 - Flat structure mixes model and test attributes in single filename
 - Long parameter combinations exceed filesystem limits
 - Difficult to navigate and query
@@ -253,6 +259,7 @@ output:
 ```
 
 **Note:** `{model_identifier}` matches either:
+
 - Full: `tsteps=20+dt=2+...._42`
 - Hash: `hash=a7f3c9d4`
 
@@ -349,6 +356,7 @@ NEW: figures/{experiment}/{model}{args}_{seed}/{data}:{group}_{status}/{plot}.pn
 ```
 
 **Key changes:**
+
 1. Data name in subfolder (not part of model identifier)
 2. Hash excludes data_name
 3. Symlink at model level
@@ -359,6 +367,7 @@ NEW: figures/{experiment}/{model}{args}_{seed}/{data}:{group}_{status}/{plot}.pn
 ## Testing
 
 **Unit tests:** `tests/workflow/test_hash_compression.py`
+
 - Determinism
 - Idempotence
 - Variadic arguments
@@ -384,12 +393,14 @@ snakemake reports/uniformnoise/DyRCNNx8:hash=*/imagenette:all_trained/StimulusNo
 ## Migration
 
 **Backward compatibility:**
+
 - Old and new structures can coexist
 - No need to migrate existing data
 - New runs automatically use new structure
 - Optional cleanup script if needed
 
 **Rollout:**
+
 1. Implement `compute_hash()` + tests
 2. Update model rules (init, train, test, process)
 3. Update visualization rules

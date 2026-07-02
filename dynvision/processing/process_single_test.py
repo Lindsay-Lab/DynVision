@@ -69,7 +69,9 @@ def load_responses(
     metadata = responses.pop("_metadata", None)
     if metadata is not None:
         response_resolution = metadata.get("response_resolution", "unit")
-        logger.info(f"Response metadata: resolution={response_resolution}, version={metadata.get('version')}")
+        logger.info(
+            f"Response metadata: resolution={response_resolution}, version={metadata.get('version')}"
+        )
     else:
         # Auto-detect: if non-classifier keys end with _response_avg/_response_std, it's layer-wise
         non_classifier_keys = [k for k in responses if k != "classifier"]
@@ -394,7 +396,7 @@ def _append_preaveraged_layer_metrics(
         # Match keys like layer0_response_avg, layer0_response_std
         for suffix in ("response_avg", "response_std"):
             if key.endswith(f"_{suffix}"):
-                metric_short = suffix.split("_", 1)[1] if "_" in suffix else suffix
+                _ = suffix.split("_", 1)[1] if "_" in suffix else suffix
                 # Only include if the metric is in the requested measures
                 if suffix not in layer_measures:
                     continue
@@ -624,7 +626,9 @@ if __name__ == "__main__":
             try:
                 response_size_gb = args.response.stat().st_size / (1024**3)
                 args.response.unlink()
-                logger.info(f"  ✓ Removed: {args.response.name} ({response_size_gb:.2f}GB freed)")
+                logger.info(
+                    f"  ✓ Removed: {args.response.name} ({response_size_gb:.2f}GB freed)"
+                )
             except Exception as e:
                 logger.error(f"  ✗ Failed to remove {args.response.name}: {e}")
 

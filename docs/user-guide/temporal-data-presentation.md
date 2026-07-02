@@ -32,12 +32,14 @@ Each approach has different use cases and performance characteristics.
 ### Key Parameters
 
 **`data_timesteps` (alias: `dsteps`):**
+
 - Controls temporal expansion in **dataloaders**
 - Applied during data loading, before model receives data
 - Used by both standard PyTorch dataloaders and FFCV loaders
 - Default: `1` (no temporal expansion)
 
 **`n_timesteps` (alias: `tsteps`):**
+
 - Controls temporal expansion in **model forward pass**
 - Applied dynamically within TemporalBase._expand_timesteps()
 - Allows presentation patterns and shuffling
@@ -50,6 +52,7 @@ data_timesteps: 1  # DataLoader expansion
 ```
 
 **Important:** Only one temporal expansion method should be active at a time:
+
 - For **training** with FFCV: Set `data_timesteps > 1`, keep model `n_timesteps = 1`
 - For **testing/flexibility**: Set `data_timesteps = 1`, use model `n_timesteps > 1` with patterns
 - Never set both > 1 (results in double expansion)
@@ -101,6 +104,7 @@ loader = StimulusDurationDataLoader(
 ```
 
 **Parameters:**
+
 - `n_timesteps`: Total sequence length
 - `stimulus_duration`: How long stimulus is shown
 - `intro_duration`: Void timesteps before stimulus
@@ -139,17 +143,20 @@ loader = StimulusNoiseDataLoader(
 ```
 
 **Temporal Noise Modes:**
+
 - `static`: Same noise pattern repeated across timesteps
 - `dynamic`: Independent noise per timestep
 - `correlated`: Temporally correlated noise
 
 **Performance Features:**
+
 - JIT-compiled tensor operations for speed
 - Pre-allocated tensor caching with LRU eviction
 - CUDA stream support for async operations
 - Channels-last memory format for GPU efficiency
 
 **When to Use:**
+
 - Quick prototyping and testing
 - Small-scale experiments
 - Situations requiring custom temporal patterns
@@ -164,6 +171,7 @@ loader = StimulusNoiseDataLoader(
 **Location:** `dynvision/data/ffcv_dataloader.py`
 
 **Features:**
+
 - ~10-100x faster than standard PyTorch DataLoader
 - Optimized memory access patterns
 - Built-in GPU transfer
@@ -206,20 +214,27 @@ transform_presets:
   ffcv:
     train:
       base:
+
         - "RandomHorizontalFlip()"
+
         - "RandomBrightness(0.2)"
+
         - "RandomContrast(0.2)"
+
         - "RandomSaturation(0.2)"
+
         - "RandomTranslate(padding=22, fill=(0, 0, 0))"
 ```
 
 **When to Use:**
+
 - Large-scale training (ImageNet, etc.)
 - Maximum throughput required
 - GPU training with mixed precision
 - Production training pipelines
 
 **Limitations:**
+
 - Requires pre-processed .beton files
 - No dynamic presentation patterns
 - Fixed temporal expansion (all timesteps identical)
@@ -233,6 +248,7 @@ transform_presets:
 **Location:** `dynvision/base/temporal.py` - `TemporalBase._expand_timesteps()`
 
 **Features:**
+
 - Presentation patterns (stimulus/null sequences)
 - Per-batch pattern shuffling
 - Reaction time masking
@@ -267,6 +283,15 @@ model = DyRCNNx4(
     # data_presentation_pattern=[1, 0, 1, 1, 1, 1, 1, 1, 0, 1]
 )
 
+<p align="center">
+  <img src="../assets/pattern=1.png" alt="Simple presentation pattern (1)" width="400"/>
+  <img src="../assets/pattern=1011.png" alt="Alternating presentation pattern (1011)" width="400"/>
+</p>
+
+*Figure: Examples of temporal presentation patterns. Left: the simplest `1` pattern
+(repeat the same stimulus every timestep). Right: the alternating `1011` pattern
+(recommended for training — improves null‑response behaviour by including blanks).*
+
 # Timeline interpretation:
 # Timestep:  0  1  2  3  4  5  6  7  8  9
 # Pattern:   1  0  1  1  1  1  1  1  0  1
@@ -275,6 +300,7 @@ model = DyRCNNx4(
 ```
 
 **Pattern Specification:**
+
 - `"1"` or `[1]`: All timesteps receive stimulus (default)
 - `"1011"`: Custom pattern (1=stimulus, 0=null)
 - `[1, 0, 1, 1]`: List format (same as string)
@@ -312,6 +338,7 @@ model = DyRCNNx4(
 ```
 
 **Shuffling Behavior:**
+
 - Shuffles the base pattern entries **before** resampling to `n_timesteps`
 - Each pattern chunk (e.g., "100111") maintains its duration after shuffle
 - Different random order per batch
@@ -320,6 +347,7 @@ model = DyRCNNx4(
 **Null Input Handling:**
 
 Timesteps with pattern value `0` receive:
+
 - **Input:** Zero tensor (`torch.zeros_like(input)`)
 - **Label:** `non_label_index` (default -1, ignored by loss)
 
@@ -443,6 +471,7 @@ for name, layer in self.named_modules():
 ```
 
 **Key design:**
+
 - **Idle period**: Pure state initialization in `torch.no_grad()` context
 - **Cache values**: Extract converged hidden states using `layer.cache_hidden_states()`
 - **Reset buffers**: Clear old buffers and create fresh ones
@@ -450,6 +479,7 @@ for name, layer in self.named_modules():
 - **Training**: Real timesteps start with these values as initial conditions and build new computation graph
 
 **Why this works:**
+
 - Idle timesteps don't contribute to loss (as intended biologically)
 - Hidden state values provide representative initial conditions
 - Real timesteps can backpropagate: `loss → h[T] → ... → h[1] → params`
@@ -510,10 +540,12 @@ model = DyRCNNx4(idle=10)  # Alias for idle_timesteps
 ### Performance Considerations
 
 **Memory usage:** Idle timesteps add minimal memory overhead due to `torch.no_grad()` optimization:
+
 - Without optimization: ~2.8 GB per idle timestep (accumulating computation graphs)
 - With optimization: ~0.1 GB total for all idle timesteps (only hidden state values)
 
 **Computational cost:** Idle timesteps add forward pass computation but no backward pass:
+
 - Training time increases proportionally to `idle_timesteps / (idle_timesteps + n_timesteps)`
 - Example: 10 idle + 20 training = 33% overhead
 
@@ -629,6 +661,7 @@ with torch.no_grad():
 If you updated from an earlier version and gradients aren't flowing:
 
 **Solution:** The old `reenable_grad_on_hidden_states()` method is deprecated. The new implementation uses:
+
 - `compute_idle_initial_states()` - Computes converged states
 - `cache_hidden_states()` - Extracts values from layers
 - `initialize_hidden_states()` - Populates fresh buffers

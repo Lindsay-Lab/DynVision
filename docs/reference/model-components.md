@@ -156,6 +156,7 @@ class RecurrentConnectedConv2d(nn.Module):
 ```
 
 Supported recurrence types:
+
 - "full": Full connectivity
 - "local": Local connectivity
 - "none": No recurrence
@@ -293,23 +294,27 @@ def _check_responses(self, raise_error=False):
 
 ## Implementation Notes
 
-1. **State Management**
-   - Use `set_hidden_state`/`get_hidden_state` for explicit state control
-   - Implement `reset()` for all stateful components
-   - Clear states between sequences
+### State Management
 
-2. **Response Tracking**
-   - Enable with `store_responses=True`
-   - Access via `get_responses()`
-   - Convert to DataFrame with `get_dataframe()`
+- Use `set_hidden_state`/`get_hidden_state` for explicit state control
+- Implement `reset()` for all stateful components
+- Clear states between sequences
 
-3. **Layer Operations**
-   - Define sequence in `layer_operations`
-   - Operations execute in order for each layer
-   - Skip operations with empty implementation
+### Response Tracking
 
-4. **Performance**
-   - Use gradient checkpointing for memory efficiency
-   - Enable response storage only when needed
+- Enable with `store_responses=True`
+- Access via `get_responses()`
+- Convert to DataFrame with `get_dataframe()`
+
+### Layer Operations
+
+- Define sequence in `layer_operations`
+- Operations execute in order for each layer
+- Skip operations with empty implementation
+
+### Performance
+
+- Use gradient checkpointing for memory efficiency
+- Enable response storage only when needed
 
 For usage examples, see the [Custom Models Guide](../user-guide/custom-models.md).

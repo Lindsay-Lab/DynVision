@@ -80,6 +80,7 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
 ## 5. Implementation Roadmap
 ### Phase 0 – Documentation & Guardrails ✅ COMPLETED
 **Investigation findings (2025-11-20):**
+
 - Confirmed naming bug: `DataParams.validate_transforms` generates `ffcv_test_imagenette`, but `get_data_transform` substring matching stops at first empty match
 - Current presets dict in `transforms.py:20-54` uses torchvision v1 APIs (`RandomRotation`, `ColorJitter`)
 - Dependencies verified: `torchvision >= 0.16.0` supports v2 transforms
@@ -90,12 +91,14 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
 - User decisions: Maintain roadmap ✅, Test-Last approach ✅
 
 **Actions completed:**
+
 - Traced complete flow from `DataParams` → `get_data_transform` → loaders
 - Cataloged existing infrastructure (logging, validation, composition)
 - Analyzed dependencies and confirmed torchvision v2 availability
 
 ### Phase 1 – Registry Foundations ✅ COMPLETED (2025-11-20)
 **Implementation details:**
+
 1. ✅ Extended `config_data.yaml` with `transform_presets` section following YAML schema from planning doc
    - Converted existing presets to declarative string format
    - Preserved all current augmentation logic (torch: base/mnist/imagenet/imagenette, ffcv: base/mnist)
@@ -115,6 +118,7 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
 
 ### Phase 2 – Param & Loader Integration ✅ COMPLETED (2025-11-20)
 **Implementation details:**
+
 1. ✅ Updated `DataParams` with new fields:
    - `transform_backend`, `transform_context`, `transform_preset` - derived automatically from `use_ffcv`, `train`, `data_name`
    - `target_data_name`, `target_data_group` - derived from `data_name` and `data_group`/`train`
@@ -132,6 +136,7 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
 
 ### Phase 3 – Bug Fixes & Cleanup ✅ COMPLETED (2025-11-20)
 **Bug fixes:**
+
 1. ✅ **Merged transform_parser.py into transforms.py**
    - Consolidated parser functions directly into transforms.py
    - Removed separate transform_parser.py file
@@ -145,6 +150,7 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
    - Error message now clearly indicates valid precision values
 
 **Tests completed:**
+
 - ✅ Created comprehensive test suite (51 tests total)
   - `tests/data/test_transforms.py` - 35 tests covering parsing, resolution, and integration
   - `tests/data/test_data_params_transforms.py` - 16 tests covering parameter derivation
@@ -159,6 +165,7 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
 
 ### Phase 4 – Documentation Deliverables ✅ COMPLETED (2025-11-20)
 **Documentation completed:**
+
 1. ✅ **Developer Guide** (`docs/development/guides/transform-system.md`):
    - Complete architecture overview with all components
    - Data flow diagrams for PyTorch and FFCV pipelines
@@ -181,10 +188,12 @@ Implementation detail: expose a reusable parser helper so other modules (e.g., m
    - Cross-references to related documentation
 
 **Documentation follows Diátaxis framework:**
+
 - Developer guide: Explanation-oriented (understanding architecture)
 - User reference: Information-oriented (technical descriptions)
 
 **Remaining optional tasks:**
+
 1. Consider adding CLI helper to list available presets (enhancement, not required)
 
 ## 6. Open Questions

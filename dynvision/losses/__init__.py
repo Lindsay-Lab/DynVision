@@ -16,10 +16,10 @@ Example:
 
     # Standard classification loss
     ce_loss = CrossEntropyLoss()
-    
+
     # Activity-based regularization
     activity_loss = ActivityLoss()
-    
+
     # Combined loss
     def compute_loss(outputs, targets):
         classification_loss = ce_loss(outputs, targets)
@@ -28,12 +28,12 @@ Example:
     ```
 """
 
-from torch.nn.modules.loss import _Loss
+from torch.nn.modules.loss import _Loss  # noqa: F401
 import torch
 from .base_loss import BaseLoss
 from .cross_entropy_loss import CrossEntropyLoss
 from .activity_loss import ActivityLoss
-from .lr_scheduler import *
+from .lr_scheduler import *  # noqa: F401,F403
 
 __all__ = [
     "BaseLoss",

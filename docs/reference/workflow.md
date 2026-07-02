@@ -39,6 +39,7 @@ models/DyRCNNx8/
 ```
 
 **Components:**
+
 - `{model_name}`: Model architecture (e.g., `DyRCNNx8`, `CorNetRT`)
 - `{model_args}`: Model parameters (e.g., `:tsteps=20+dt=2`)
 - `{seed}`: Random seed (e.g., `0042`)
@@ -71,6 +72,7 @@ reports/uniformnoise/
 ```
 
 **How it works:**
+
 1. Long test specifications are hashed to short identifiers (8 characters)
 2. Configuration files (`.config.yaml`) preserve the full parameter specification
 3. The `process_test_data.py` script reads parameters from config files, not paths
@@ -103,6 +105,7 @@ reports/uniformnoise/
 ```
 
 **Components:**
+
 - `{experiment}`: Experiment type (e.g., `uniformnoise`, `response`)
 - `{model_name}{model_args}_{seed}`: Full model identifier
 - `{data_name}:{data_group}_{status}`: Training data and test split
@@ -318,6 +321,7 @@ tree -L 4 models/DyRCNNx8/
 ### Model Files (.pt)
 
 PyTorch model state dictionaries containing:
+
 - Model parameters (weights and biases)
 - Configuration information
 - Training metadata
@@ -337,12 +341,14 @@ config = state_dict['config']
 ### Test Outputs (.csv)
 
 CSV files with test results:
+
 - Model predictions
 - Ground truth labels
 - Performance metrics
 - Per-sample information
 
 **Columns typically include:**
+
 - `sample_id`: Test sample identifier
 - `true_label`: Ground truth class
 - `predicted_label`: Model prediction
@@ -359,6 +365,7 @@ df = pd.read_csv('reports/uniformnoise/.../test_outputs.csv')
 ### Test Responses (.pt)
 
 PyTorch tensors with layer-wise neural responses:
+
 - Activations from each network layer
 - Temporal dynamics (for recurrent models)
 - Used for detailed response analysis
@@ -373,6 +380,7 @@ responses = torch.load('reports/uniformnoise/.../test_responses.pt')
 ### Configuration Files (.yaml)
 
 YAML files documenting test configuration (automatically created for each test run):
+
 - Data loader parameters (prefixed with `data.`)
 - Model configuration (prefixed with `model.`)
 - Test protocol details
@@ -393,6 +401,7 @@ model_tsteps = config['model.tsteps']
 ```
 
 **Purpose:**
+
 - Preserves full parameter specification when test identifiers are compressed
 - Enables parameter extraction by `process_test_data.py` script
 - Documents exact configuration used for reproducibility
@@ -421,17 +430,20 @@ For experiments with many parameter combinations:
 ### Troubleshooting
 
 **Can't find a file:**
+
 - Verify the model identifier matches the trained model
 - Check the experiment name
 - Ensure the workflow has completed successfully
 - Check Snakemake logs for errors
 
 **Unclear which parameters were used:**
+
 - Check `test_outputs.csv.config.yaml` files for full parameter specification
 - Model identifiers in paths show model configuration directly
 - Use `grep` or `find` to search for specific parameter values
 
 **Need to clean up:**
+
 - Remove intermediate files carefully
 - Keep model files and final results (`test_data.csv`, figures)
 - Use `snakemake --delete-all-output` to remove workflow outputs

@@ -631,7 +631,7 @@ Notes:
             transformations.append("X-axis: per second→per minute")
         if has_per_gb:
             transformations.append("X-axis: per byte→per GB")
-        print(f"Unit transformations applied:")
+        print("Unit transformations applied:")
         for t in transformations:
             print(f"  • {t}")
         print()

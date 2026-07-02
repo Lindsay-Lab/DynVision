@@ -311,6 +311,7 @@ recurrent_learning_rate_multiplier: 0.1  # Recurrent weights learn at 0.0001
 ### Learning rate too high
 **Symptoms**: Loss is NaN, exploding gradients, unstable training
 **Solutions**:
+
 - Reduce `learning_rate` (try 0.0001 instead of 0.001)
 - Add warmup: use `LinearWarmupCosineAnnealingLR` with `warmup_epochs: 5-10`
 - Increase `weight_decay` for regularization
@@ -318,6 +319,7 @@ recurrent_learning_rate_multiplier: 0.1  # Recurrent weights learn at 0.0001
 ### Learning rate too low
 **Symptoms**: Very slow convergence, training plateaus early
 **Solutions**:
+
 - Increase `learning_rate` (try 0.01 instead of 0.001)
 - Use `OneCycleLR` for faster convergence
 - Reduce `weight_decay`
@@ -325,6 +327,7 @@ recurrent_learning_rate_multiplier: 0.1  # Recurrent weights learn at 0.0001
 ### Training plateaus
 **Symptoms**: Loss/accuracy stops improving
 **Solutions**:
+
 - Switch to `ReduceLROnPlateau` to automatically reduce LR
 - Manually reduce learning rate: `learning_rate: 0.0001`
 - Check if you need more epochs or if model has converged
@@ -332,6 +335,7 @@ recurrent_learning_rate_multiplier: 0.1  # Recurrent weights learn at 0.0001
 ### Scheduler not updating
 **Symptoms**: Learning rate stays constant
 **Solutions**:
+
 - Check `scheduler_configs.interval` matches your use case ("epoch" vs "step")
 - Verify `scheduler_kwargs` are correct for chosen scheduler
 - Check logs for scheduler step messages

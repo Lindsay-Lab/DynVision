@@ -6,6 +6,7 @@
 ## Problem Statement
 
 When running a workflow via `snakecharm.sh` on a compute cluster with the snakemake-executor-plugin:
+
 1. Workflow starts and generates a fixed `workflow_config_<timestamp>.yaml`
 2. User modifies config files (e.g., `config_defaults.yaml`) while workflow is running
 3. **Subsequent jobs submitted by Snakemake see the UPDATED config, not the original**
@@ -35,6 +36,7 @@ config = SimpleNamespace(**_raw_config)
 ### The Problem
 
 **Snakemake's `configfile` directive behavior**:
+
 1. `configfile: path/to/config.yaml` tells Snakemake to **load** that file at workflow parsing time
 2. **BUT** Snakemake re-parses the workflow for EACH submitted job in cluster mode
 3. Each time Snakemake parses the workflow (for each job submission), it re-reads the `configfile:` directives
@@ -70,6 +72,7 @@ T=15min: Job #3 ready to submit
 ### Where Config Is Used
 
 **Protected paths** (use WORKFLOW_CONFIG_PATH):
+
 - Runtime scripts receive `--config_path {WORKFLOW_CONFIG_PATH}` ✓
 - These are SAFE - they read the frozen snapshot
 
@@ -108,6 +111,7 @@ data_mean:
 ```
 
 **Result**:
+
 - Jobs submitted before T=10min: Use mean=[0.485, 0.456, 0.406] ✓
 - Jobs submitted after T=10min: Use mean=[0.500, 0.500, 0.500] ✗
 - **Same workflow run has inconsistent normalization!**
@@ -170,6 +174,7 @@ config = SimpleNamespace(**_raw_config)
 ```
 
 **Benefits**:
+
 - ✅ Config loaded ONCE at workflow start
 - ✅ Subsequent re-parses see same frozen values
 - ✅ Changes to disk files don't affect running workflow
@@ -177,6 +182,7 @@ config = SimpleNamespace(**_raw_config)
 - ✅ Minimal code changes
 
 **Drawbacks**:
+
 - Need to handle Snakemake CLI `--config` overrides carefully
 
 ### Option 2: Load Config from Snapshot in Lambda Functions
@@ -202,10 +208,12 @@ normalize = lambda w: _SNAPSHOT_CONFIG['data_mean'][w.data_name]
 ```
 
 **Benefits**:
+
 - ✅ Explicitly uses frozen snapshot
 - ✅ Clear separation between live and frozen config
 
 **Drawbacks**:
+
 - ❌ Must update every lambda function in all .smk files
 - ❌ More invasive changes
 - ❌ Easy to miss some references
@@ -217,9 +225,11 @@ normalize = lambda w: _SNAPSHOT_CONFIG['data_mean'][w.data_name]
 **Implementation**: Add warning to documentation and workflow start message
 
 **Benefits**:
+
 - ✅ No code changes needed
 
 **Drawbacks**:
+
 - ❌ Doesn't actually solve the problem
 - ❌ Users will still encounter issues
 - ❌ Hard to enforce / easy to forget
@@ -229,6 +239,7 @@ normalize = lambda w: _SNAPSHOT_CONFIG['data_mean'][w.data_name]
 **Implement Option 1: Freeze Config in Memory**
 
 This is the cleanest solution that:
+
 1. Prevents the issue at its source
 2. Requires minimal code changes
 3. Makes workflow behavior more predictable
@@ -377,12 +388,14 @@ at workflow start to prevent inconsistencies from mid-workflow config changes.
 ### Why Freezing Is Necessary
 
 Without freezing, when using cluster execution:
+
 - Snakemake re-parses workflow for each job submission
 - Config files are re-read from disk each time
 - Mid-workflow changes would cause inconsistent parameters across jobs
 - Results would not be reproducible
 
 With freezing:
+
 - Config loaded once at workflow start
 - All jobs in the run see identical configuration
 - Workflow run is self-contained and reproducible

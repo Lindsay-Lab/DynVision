@@ -4,11 +4,10 @@ This module provides a base class for implementing custom loss functions with
 consistent patterns for input handling, validation, and error reporting.
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import torch
 from torch import nn
-import torch.nn.functional as F
 
 
 class BaseLoss(nn.Module):
@@ -69,7 +68,9 @@ class BaseLoss(nn.Module):
                     f"Output shape {outputs.shape} cannot be broadcast to target shape {targets.shape}"
                 )
 
-    def apply_reduction(self, loss: torch.Tensor, num_valid_timesteps: Optional[int] = None) -> torch.Tensor:
+    def apply_reduction(
+        self, loss: torch.Tensor, num_valid_timesteps: Optional[int] = None
+    ) -> torch.Tensor:
         """Apply the specified reduction; if num_valid_timesteps is provided and
         reduction is 'mean', normalize by that instead of taking the tensor mean.
         """
@@ -116,10 +117,12 @@ class BaseLoss(nn.Module):
         # If not provided and targets exist and subclass exposes ignore_index, try to infer
         if num_valid is None and targets is not None and hasattr(self, "ignore_index"):
             try:
-                mask = (targets != getattr(self, "ignore_index"))
+                mask = targets != getattr(self, "ignore_index")
                 num_valid = int(mask.sum().item())
             except Exception:
                 num_valid = None
 
-        loss = self.compute_loss(outputs=flat_outputs, targets=targets, responses=responses)
+        loss = self.compute_loss(
+            outputs=flat_outputs, targets=targets, responses=responses
+        )
         return self.apply_reduction(loss, num_valid_timesteps=num_valid)

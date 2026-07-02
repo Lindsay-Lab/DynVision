@@ -100,6 +100,7 @@ r_n(t) = r_n(t - dt) + (dt/τ) * (-r_n(t - dt) + Φ[f(t - dt, r_n, r_n-1)])
 ```
 
 where:
+
 - `r_n(t)` is the activity of layer n at time t
 - `dt` is the time step size
 - `τ` is the time constant
@@ -107,6 +108,7 @@ where:
 - `f` combines feedforward, recurrent, and external inputs
 
 This formulation allows for separate control of:
+
 - Temporal precision (`dt`)
 - Integration time constants (`τ`)
 - Delays for different connection types

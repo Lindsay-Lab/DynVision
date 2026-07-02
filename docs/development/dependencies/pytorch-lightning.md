@@ -7,39 +7,39 @@ PyTorch Lightning is a lightweight, high-level wrapper for PyTorch that streamli
 Key components include:
 
 1. **LightningModule**: An extension of PyTorch's nn.Module that organizes code into specific sections:
-   - Initialization (`__init__` and `setup()`)
-   - Model architecture (layers, forward method)
-   - Training steps (`training_step`, `training_epoch_end`)
-   - Validation steps (`validation_step`, `validation_epoch_end`)
-   - Test steps (`test_step`, `test_epoch_end`)
-   - Optimization configuration (`configure_optimizers`)
+      - Initialization (`__init__` and `setup()`)
+      - Model architecture (layers, forward method)
+      - Training steps (`training_step`, `training_epoch_end`)
+      - Validation steps (`validation_step`, `validation_epoch_end`)
+      - Test steps (`test_step`, `test_epoch_end`)
+      - Optimization configuration (`configure_optimizers`)
 
 2. **Trainer**: A powerful class that handles the training loop, validation, testing, early stopping, checkpointing, and other engineering aspects:
-   - Manages device selection (CPU/GPU/TPU)
-   - Handles distributed training
-   - Implements precision options (16-bit, 32-bit)
-   - Provides callbacks and logging integration
-   - Enables profiling and debugging
+      - Manages device selection (CPU/GPU/TPU)
+      - Handles distributed training
+      - Implements precision options (16-bit, 32-bit)
+      - Provides callbacks and logging integration
+      - Enables profiling and debugging
 
 3. **LightningDataModule**: Encapsulates all data-related code:
-   - Data downloading
-   - Processing and transforms
-   - Loading (train/val/test/predict splits)
-   - Batch processing
+      - Data downloading
+      - Processing and transforms
+      - Loading (train/val/test/predict splits)
+      - Batch processing
 
 4. **Callbacks**: Custom code execution at specific points in the training loop:
-   - Model checkpointing
-   - Early stopping
-   - Learning rate monitoring
-   - GPU stats monitoring
-   - Custom visualization or logging
+      - Model checkpointing
+      - Early stopping
+      - Learning rate monitoring
+      - GPU stats monitoring
+      - Custom visualization or logging
 
 5. **Loggers**: Integration with experiment tracking tools:
-   - TensorBoard
-   - WandB (Weights & Biases)
-   - MLflow
-   - Comet
-   - Neptune
+      - TensorBoard
+      - WandB (Weights & Biases)
+      - MLflow
+      - Comet
+      - Neptune
 
 ## Benefits in Research Contexts
 
@@ -62,105 +62,105 @@ For research projects like computational neuroscience models (such as DynVision)
 The DynVision toolbox demonstrates how PyTorch Lightning can be extended for advanced computational neuroscience research, particularly for recurrent convolutional neural networks with biologically plausible temporal dynamics:
 
 1. **Temporal Dynamics Framework**: 
-   - Custom implementations of forward methods to handle complex state propagation over time
-   - Specialized handling of residual timesteps to accommodate signal propagation delays in biological systems
-   - Support for various recurrence types (self, full, depth-pointwise, point-depthwise, local)
-   - Integration of continuous-time differential equation solvers for neural dynamics
+      - Custom implementations of forward methods to handle complex state propagation over time
+      - Specialized handling of residual timesteps to accommodate signal propagation delays in biological systems
+      - Support for various recurrence types (self, full, depth-pointwise, point-depthwise, local)
+      - Integration of continuous-time differential equation solvers for neural dynamics
 
 2. **Hierarchical Layer Operations**:
-   - Layer-wise operation sequence management (convolution, recurrency, external inputs, feedback, nonlinearity)
-   - Configurable processing pipeline for each neuroscience-inspired layer
-   - Support for biologically-relevant operations like gain modulation, supralinearity, and adaptation
+      - Layer-wise operation sequence management (convolution, recurrency, external inputs, feedback, nonlinearity)
+      - Configurable processing pipeline for each neuroscience-inspired layer
+      - Support for biologically-relevant operations like gain modulation, supralinearity, and adaptation
 
 3. **Neural Response Tracking**:
-   - Sophisticated mechanisms for storing and analyzing neural activations over time
-   - Memory-efficient handling of responses during long training sequences
-   - Support for CPU offloading of activation patterns to accommodate large-scale models
+      - Sophisticated mechanisms for storing and analyzing neural activations over time
+      - Memory-efficient handling of responses during long training sequences
+      - Support for CPU offloading of activation patterns to accommodate large-scale models
 
 4. **Biological Constraints Integration**:
-   - Support for heterogeneous connection delays (feedforward, recurrent, feedback)
-   - Layer-specific biological parameter management (time constants, delays)
-   - Differentiated learning rate handling for various connection types
+      - Support for heterogeneous connection delays (feedforward, recurrent, feedback)
+      - Layer-specific biological parameter management (time constants, delays)
+      - Differentiated learning rate handling for various connection types
 
 ## Custom Training Infrastructure
 
 DynVision builds on Lightning's training framework with specialized extensions:
 
 1. **Specialized Callbacks**:
-   - Weight distribution monitoring for analyzing emergent patterns
-   - Classifier response visualization for temporal dynamics
-   - Enhanced early stopping with minimum performance thresholds
+      - Weight distribution monitoring for analyzing emergent patterns
+      - Classifier response visualization for temporal dynamics
+      - Enhanced early stopping with minimum performance thresholds
 
 2. **Optimizer Configurations**:
-   - Separate learning rates for recurrent connection weights
-   - Parameter group management for different neural components
-   - Custom scheduler integration for biological learning dynamics
+      - Separate learning rates for recurrent connection weights
+      - Parameter group management for different neural components
+      - Custom scheduler integration for biological learning dynamics
 
 3. **Validation and Analysis Tools**:
-   - Metrics specific to temporal performance assessment
-   - Integration with neural data visualization tools
-   - Support for biologically relevant accuracy measurements
+      - Metrics specific to temporal performance assessment
+      - Integration with neural data visualization tools
+      - Support for biologically relevant accuracy measurements
 
 4. **High-Performance Data Processing**:
-   - Integration with FFCV for optimized data loading
-   - Adaptive dimensionality handling for temporal data
-   - Efficient tensor reshaping for biological neural representations
+      - Integration with FFCV for optimized data loading
+      - Adaptive dimensionality handling for temporal data
+      - Efficient tensor reshaping for biological neural representations
 
 ## Implementation Patterns for Neuroscience Models
 
 DynVision's implementation of PyTorch Lightning reveals several effective patterns:
 
 1. **Extended Base Classes**:
-   - Two-tier inheritance: `UtilityBase` for core functions, extended to `LightningBase` for training
-   - Clear separation between model utilities and training infrastructure
-   - Specialized base class methods for neural response handling and analysis
+      - Two-tier inheritance: `UtilityBase` for core functions, extended to `LightningBase` for training
+      - Clear separation between model utilities and training infrastructure
+      - Specialized base class methods for neural response handling and analysis
 
 2. **Configurable Processing Pipelines**:
-   - Layer operations defined in ordered lists for flexible architecture experimentation
-   - Dynamically constructed processing pathways based on configuration
-   - Support for conditional execution of operations (e.g., feedforward-only mode)
+      - Layer operations defined in ordered lists for flexible architecture experimentation
+      - Dynamically constructed processing pathways based on configuration
+      - Support for conditional execution of operations (e.g., feedforward-only mode)
 
 3. **GPU Memory Management**:
-   - Careful tensor handling to avoid memory leaks during long recurrent processing
-   - Support for response storage on CPU to free GPU memory
-   - Explicit GPU synchronization and cache clearing
+      - Careful tensor handling to avoid memory leaks during long recurrent processing
+      - Support for response storage on CPU to free GPU memory
+      - Explicit GPU synchronization and cache clearing
 
 4. **Parameter Initialization and Management**:
-   - Specialized initialization for various neural components
-   - Support for pretrained weight loading with layer name translation
-   - Fine-grained control over trainable parameters
+      - Specialized initialization for various neural components
+      - Support for pretrained weight loading with layer name translation
+      - Fine-grained control over trainable parameters
 
 ## Future Enhancement Opportunities
 
 Analysis of DynVision's codebase reveals several areas where additional PyTorch Lightning features could enhance computational neuroscience research:
 
 1. **LightningDataModule Integration**:
-   - Formalized data processing pipeline for neural datasets
-   - Enhanced reproducibility through standardized data handling
-   - Potential for on-the-fly neural data augmentation
+      - Formalized data processing pipeline for neural datasets
+      - Enhanced reproducibility through standardized data handling
+      - Potential for on-the-fly neural data augmentation
 
 2. **Advanced Distributed Strategies**:
-   - Scaling to larger brain-like architectures with FSDP or DeepSpeed
-   - Model parallelism for complex neural system simulations
-   - Optimized gradient communication for multi-node training
+      - Scaling to larger brain-like architectures with FSDP or DeepSpeed
+      - Model parallelism for complex neural system simulations
+      - Optimized gradient communication for multi-node training
 
 3. **Custom Strategy Plugins**:
-   - Specialized plugins for recurrent computation patterns
-   - Custom precision handlers for dynamical system stability
-   - Activation checkpointing for memory-efficient backpropagation in recurrent networks
+      - Specialized plugins for recurrent computation patterns
+      - Custom precision handlers for dynamical system stability
+      - Activation checkpointing for memory-efficient backpropagation in recurrent networks
 
 4. **CLI Integration**:
-   - Simplified experiment configuration through Lightning CLIs
-   - Enhanced parameter sweeping capabilities
-   - Standardized experiment launching
+      - Simplified experiment configuration through Lightning CLIs
+      - Enhanced parameter sweeping capabilities
+      - Standardized experiment launching
 
 ## Code Structure and Best Practices
 
 1. **Research vs. Engineering Separation**:
-   - Research code goes in LightningModule
-   - Engineering and infrastructure handled by Trainer
-   - Data processing in LightningDataModule or DataLoaders
-   - Non-essential code in Callbacks
+      - Research code goes in LightningModule
+      - Engineering and infrastructure handled by Trainer
+      - Data processing in LightningDataModule or DataLoaders
+      - Non-essential code in Callbacks
 
 2. **Typical Project Structure**:
    ```
@@ -173,9 +173,9 @@ Analysis of DynVision's codebase reveals several areas where additional PyTorch 
    ```
 
 3. **Configuration Management**:
-   - Use YAML files for hyperparameters
-   - Leverage `save_hyperparameters()` in LightningModule
-   - Implement CLIs for reproducible experiment launching
+      - Use YAML files for hyperparameters
+      - Leverage `save_hyperparameters()` in LightningModule
+      - Implement CLIs for reproducible experiment launching
 
 ## Version and Compatibility Information
 

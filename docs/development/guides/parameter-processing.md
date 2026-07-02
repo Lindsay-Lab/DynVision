@@ -75,6 +75,7 @@ for comp_name in component_classes:
 ```
 
 **Examples:**
+
 - `--seed 42` (CLI) beats `seed: 100` (config)
 - `--model_name X` (CLI unscoped) beats `model.model_name: Y` (config scoped)
 
@@ -83,6 +84,7 @@ for comp_name in component_classes:
 **Rule: Within each source, more specific scope beats less specific**
 
 Scoped parameters use dot notation to target specific components or modes:
+
 - **3-part keys**: `mode.component.param` (e.g., `init.model.store_responses`)
 - **2-part keys**: `component.param` or `mode.param` (e.g., `model.model_name`, `init.batch_size`)
 - **1-part keys**: `param` (unscoped, applies to all matching components)
@@ -127,6 +129,7 @@ for comp_name in component_classes:
 ```
 
 **Examples:**
+
 - Within config: `model.model_name: X` beats `model_name: Y`
 - Within CLI: `--model.batch_size 32` beats `--batch_size 64`
 - Mode-specific: `init.model.store_responses: 0` beats `model.store_responses: 100`
@@ -165,11 +168,13 @@ resolved.update(by_scope[2])  # Two dots (highest)
 ```
 
 **Examples:**
+
 - `tff: 100` beats `t_feedforward: 200` (both unscoped in same source)
 - `model.tff: 100` beats `model.t_feedforward: 200` (both scoped to model)
 - But: `model.t_feedforward: 100` beats `tff: 200` (scope precedence applies first)
 
 **Common Aliases:**
+
 - `tff` → `t_feedforward`
 - `trc` → `t_recurrent`
 - `bs` → `batch_size`
@@ -180,6 +185,7 @@ resolved.update(by_scope[2])  # Two dots (highest)
 ### Problem Statement
 
 Some parameters like `seed` and `log_level` are defined in multiple Pydantic classes:
+
 - `BaseParams` has `seed` and `log_level`
 - `ModelParams` has `seed` and `log_level`
 - `DataParams` has `seed` and `log_level`
@@ -230,6 +236,7 @@ python script.py --seed 1 --model.seed 42 --data.seed 99
 ```
 
 This works because:
+
 1. Unscoped `--seed 1` goes to all components via composite_base
 2. Scoped `--model.seed 42` overrides the model component specifically
 3. Scoped `--data.seed 99` overrides the data component specifically
@@ -239,6 +246,7 @@ This works because:
 ### Mode System Overview
 
 Modes provide context-specific parameter adjustments without modifying base configuration files. They're particularly useful for:
+
 - **Debug mode**: Reduce dataset size, store more responses, increase logging
 - **Large dataset mode**: Enable FFCV, adjust batch sizes, configure memory optimization
 - **Distributed mode**: Set DDP strategy, configure gradient accumulation, enable sync_batchnorm
@@ -334,6 +342,7 @@ config = SimpleNamespace(**_raw_config)
 ```
 
 **Key Behaviors:**
+
 - Config files are loaded **once** via manual YAML parsing, not Snakemake's `configfile:` directive
 - The frozen dict is reused for all subsequent workflow parses during cluster execution
 - Changes to config files on disk are **ignored** for the duration of the workflow run
@@ -341,11 +350,13 @@ config = SimpleNamespace(**_raw_config)
 - The frozen snapshot is written to `logs/configs/workflow_config_<timestamp>.yaml`
 
 **Why This Matters:**
+
 - **Reproducibility:** All jobs in a workflow run see identical configuration
 - **Safety:** Mid-workflow config edits cannot cause inconsistent results
 - **Transparency:** Frozen config is logged with warning header explaining the behavior
 
 **Usage Implications:**
+
 - ✅ Config changes **do not** affect running workflows (this is intentional!)
 - ✅ To use updated configs, start a **new** workflow run
 - ✅ Frozen snapshot is preserved in logs for reproducibility audits
@@ -498,6 +509,7 @@ class BaseParams(BaseModel):
 ```
 
 With `strict=False`:
+
 - String `"42"` → `int` 42
 - String `"3.14"` → `float` 3.14
 - String `"true"` → `bool` True
@@ -518,6 +530,7 @@ if args:
 ```
 
 This allows runtime scripts to work with both:
+
 - Direct parameter: `InitParams.from_cli_and_config(config_path="config.yaml")`
 - CLI argument: `InitParams.from_cli_and_config(args=["--config_path", "config.yaml"])`
 

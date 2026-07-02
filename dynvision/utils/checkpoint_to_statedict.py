@@ -26,7 +26,6 @@ import torch
 import argparse
 
 from dynvision.utils.torch_utils import _torch_load_with_retries
-import time
 
 # Set up logging
 logging.basicConfig(

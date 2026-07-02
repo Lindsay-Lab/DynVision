@@ -1,0 +1,65 @@
+{#-
+  DynVision override of Material's base template.
+
+  Sets a `data-diataxis` attribute on <body> based on the current page URL so
+  that stylesheets/diataxis.css can apply per-quadrant theming and layout.
+
+  Handles dark/light mode favicon switching via media-query based <link>.
+
+  Mapping (keyed on on-disk directory, which we keep unchanged):
+    tutorial/      + getting-started -> tutorial
+    user-guide/                      -> howto
+    reference/                       -> reference
+    explanation/                     -> explanation
+-#}
+{% extends "base.html" %}
+
+{% block site_meta %}
+  {{ super() }}
+  {#- Resolve the quadrant once and stash it on the page object -#}
+  {% set src = page.file.src_uri if page and page.file else "" %}
+  {% if src.startswith("tutorial/") or src == "getting-started.md" %}
+    {% set quadrant = "tutorial" %}
+  {% elif src.startswith("user-guide/") %}
+    {% set quadrant = "howto" %}
+  {% elif src.startswith("reference/") %}
+    {% set quadrant = "reference" %}
+  {% elif src.startswith("explanation/") %}
+    {% set quadrant = "explanation" %}
+  {% else %}
+    {% set quadrant = "" %}
+  {% endif %}
+  <meta name="dv-diataxis" content="{{ quadrant }}">
+  {#- Dual favicons for dark/light mode — media-query based switching -#}
+  <link rel="icon" href="{{ base_url }}/assets/favicon_D.svg" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="{{ base_url }}/assets/favicon_D.svg" media="(prefers-color-scheme: dark)">
+{% endblock %}
+
+{% block content %}
+  {#- Inject the Diátaxis quadrant badge above the page content -#}
+  {% set src = page.file.src_uri if page and page.file else "" %}
+  {% if src.startswith("tutorial/") or src == "getting-started.md" %}
+    <p class="dv-quadrant-badge dv-quadrant-badge--tutorial">📗 Tutorial · learning-oriented</p>
+  {% elif src.startswith("user-guide/") %}
+    <p class="dv-quadrant-badge dv-quadrant-badge--howto">📙 How-to Guide · task-oriented</p>
+  {% elif src.startswith("reference/") %}
+    <p class="dv-quadrant-badge dv-quadrant-badge--reference">📘 Reference · information-oriented</p>
+  {% elif src.startswith("explanation/") %}
+    <p class="dv-quadrant-badge dv-quadrant-badge--explanation">📗 Explanation · understanding-oriented</p>
+  {% endif %}
+  {{ super() }}
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script>
+    /* Apply the Diátaxis quadrant as a body attribute so CSS can theme the
+       whole page (nav, header, accents) per section. Read from the meta tag
+       emitted in site_meta above. */
+    (function () {
+      var meta = document.querySelector('meta[name="dv-diataxis"]');
+      var q = meta ? meta.getAttribute('content') : '';
+      if (q) { document.body.setAttribute('data-diataxis', q); }
+    })();
+  </script>
+{% endblock %}

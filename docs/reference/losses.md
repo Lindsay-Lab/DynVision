@@ -7,6 +7,7 @@ This reference describes the loss functions available in DynVision and their beh
 DynVision provides specialized loss functions designed for temporal neural networks. These losses handle timestep-wise computation, masked labels, and activity regularization. Multiple losses can be combined with configurable weights to balance different training objectives.
 
 **Key Features:**
+
 - Temporal normalization accounting for valid vs. invalid timesteps
 - Presentation pattern-aware masking for reaction time windows
 - Hook-based activity computation for efficient memory usage
@@ -23,10 +24,12 @@ Standard cross-entropy loss adapted for temporal sequences with masked timesteps
 **Purpose:** Classification loss that ignores invalid timesteps (null inputs, reaction windows) when computing loss and gradients.
 
 **Parameters:**
+
 - `reduction` (str, default="mean"): How to reduce the loss. Options: "mean", "sum", "none"
 - `ignore_index` (int, default=-1): Target value to ignore when computing loss
 
 **Normalization Behavior:**
+
 - Computes element-wise cross-entropy with `reduction="none"`
 - Creates validity mask excluding `ignore_index` entries
 - Normalizes by **valid timestep count only** (excludes masked timesteps)
@@ -45,6 +48,7 @@ loss = criterion(outputs, targets)
 ```
 
 **Use Cases:**
+
 - Primary classification objective
 - Training with variable-length sequences
 - Excluding null inputs and reaction windows from supervision
@@ -60,16 +64,19 @@ Regularization loss that penalizes total neural activity across all timesteps.
 **Purpose:** Compute total computational activity (neural activity) to encourage efficient, sparse representations.
 
 **Parameters:**
+
 - `reduction` (str, default="mean"): How to reduce the loss. Options: "mean", "sum", "none"
 - `p` (int, default=1): Norm order for activity calculation (1=L1, 2=L2)
 
 **Normalization Behavior:**
+
 - Accumulates activity across **all timesteps** (including null inputs and reaction windows)
 - Uses forward hooks to capture activations during the model's forward pass
 - Normalizes by spatial dimensions, number of monitored modules, and total timesteps
 - Formula: `sum_t(sum_modules(||activation||_p / n_units)) / (n_modules * n_timesteps)`
 
 **Hook-Based Operation:**
+
 - Registers forward hooks on monitored layers (Conv2d, Linear, ConvTranspose2d)
 - Hooks fire once per layer per timestep during forward pass
 - Activity accumulates across timesteps, then gets normalized when loss is computed
@@ -92,12 +99,14 @@ loss = activity_loss(outputs=None, targets=None)
 ```
 
 **Use Cases:**
+
 - Encouraging sparse activations
 - Biological plausibility (metabolic cost)
 - Regularization to prevent overfitting
 - Typically combined with CrossEntropyLoss
 
 **Important Notes:**
+
 - Must call `register_hooks(model)` before training
 - Activity includes all timesteps (unlike CrossEntropyLoss which respects masking)
 - Hooks automatically handle device transfers (CPU/GPU)
@@ -108,27 +117,32 @@ loss = activity_loss(outputs=None, targets=None)
 **Activity loss measures total network activity, not prediction quality.** During training, you should expect:
 
 **Early Training (epochs 1-10):**
+
 - Activity typically **increases** as the network learns stronger feature representations
 - Weak random weights → small activations → low activity (~0.05-0.08)
 - Learning requires stronger activations → activity rises (~0.10-0.15)
 
 **Mid Training (epochs 10-50):**
+
 - Activity **plateaus** at an operating point
 - Network balances prediction accuracy (minimize CrossEntropy) with activity level (activity regularization)
 - Activity stabilizes (~0.12-0.18) while CrossEntropy continues decreasing
 
 **Late Training (epochs 50+):**
+
 - Activity remains **stable** or slightly decreases
 - Network has found efficient representations
 - Activity may fluctuate slightly but should not grow unbounded
 
 **This is normal and expected.** The activity regularization is working if:
+
 - ✅ Activity stabilizes (doesn't continuously grow)
 - ✅ CrossEntropy decreases (network is learning)
 - ✅ Total loss decreases (activity weight is appropriate)
 - ✅ Activity contribution to total loss is small (typically <5%)
 
 **Warning Signs** (indicating actual problems):
+
 - ❌ Activity continuously growing without plateau (raw activity >1.0)
 - ❌ Activity dominating total loss (weighted_activity > CrossEntropy)
 - ❌ Both activity and CrossEntropy increasing together
@@ -157,11 +171,13 @@ DynVision supports combining multiple losses with configurable weights.
 ```yaml
 # In config file
 criterion:
+
   - name: cross_entropy_loss
     weight: 1.0
     kwargs:
       reduction: mean
       ignore_index: -1
+
   - name: activity_loss
     weight: 0.05
     kwargs:
@@ -170,6 +186,7 @@ criterion:
 ```
 
 **Computation Flow:**
+
 1. Each criterion computes its loss independently
 2. Losses are multiplied by their respective weights
 3. Weighted losses are summed: `total_loss = sum(weight_i * loss_i)`
@@ -194,6 +211,7 @@ Loss computation interacts with temporal data presentation and reaction time mas
 ### Presentation Patterns
 
 Data presentation patterns control which timesteps receive actual input vs. null (zero) input:
+
 - Pattern `"1111"`: All timesteps receive input
 - Pattern `"1011"`: Null input at timestep index 1
 - Pattern `"10001000"`: Alternating stimulus and null blocks
@@ -206,6 +224,7 @@ Labels for null input timesteps are set to `ignore_index` (default -1) so they d
 The `loss_reaction_time` parameter (in milliseconds) masks the initial portion of each stimulus presentation to account for neural processing delays.
 
 **Behavior:**
+
 - Converts reaction time to timesteps: `reaction_steps = ceil(loss_reaction_time / dt)`
 - Detects stimulus onsets (rising edges in presentation pattern)
 - Masks first `reaction_steps` of each stimulus chunk by setting labels to `ignore_index`
@@ -233,6 +252,7 @@ pattern = "1000111000"  # Two stimulus chunks
 | ActivityLoss | All timesteps | Ignores (counts all) | Ignores (counts all) |
 
 **Rationale:**
+
 - **CrossEntropyLoss**: Evaluates prediction accuracy only when supervision is meaningful
 - **ActivityLoss**: Measures total computational cost regardless of supervision availability
 
@@ -257,6 +277,7 @@ def apply_reduction(self, loss: torch.Tensor, num_valid_timesteps: Optional[int]
 ```
 
 **Valid Timestep Inference:**
+
 - Automatically counts valid timesteps from targets when `ignore_index` is set
 - Passes count to `apply_reduction()` for correct normalization
 - Handles edge case of zero valid timesteps (returns zero loss)
@@ -292,6 +313,7 @@ def _accumulate_activity(self, module_name: str, activation: torch.Tensor) -> No
 ```
 
 **Timestep Inference:**
+
 - Infers `n_timesteps` from hook call counts
 - All monitored modules should be called the same number of times
 - Uses `max(call_counts)` as the timestep count
@@ -352,12 +374,14 @@ activity_loss.remove_hooks()
 ### Issue: Loss is NaN
 
 **Possible Causes:**
+
 1. Learning rate too high
 2. Gradient explosion
 3. Invalid inputs (inf or NaN)
 4. Division by zero in normalization
 
 **Solutions:**
+
 - Reduce learning rate
 - Enable gradient clipping
 - Check data for invalid values
@@ -366,6 +390,7 @@ activity_loss.remove_hooks()
 ### Issue: Activity loss not changing
 
 **Possible Causes:**
+
 1. Hooks not registered
 2. Model not in training mode
 3. Weight too small to affect optimization
@@ -385,10 +410,12 @@ total_loss = ce_loss + 0.1 * activity_loss  # Try larger weight
 ### Issue: Warning about monitored key not found
 
 **Possible Causes:**
+
 - Validation runs less frequently than checkpointing
 - Monitoring `val_loss` but validation hasn't run yet
 
 **Solutions:**
+
 - Use `train_loss` for checkpoint monitoring when `check_val_every_n_epoch > 1`
 - System automatically handles this (see checkpoint callback configuration)
 
@@ -399,22 +426,26 @@ total_loss = ce_loss + 0.1 * activity_loss  # Try larger weight
 ### Memory Efficiency
 
 **ActivityLoss:**
+
 - Uses hooks to avoid storing full activation tensors
 - Only accumulates scalar activity values per module
 - Minimal memory overhead compared to standard forward pass
 
 **CrossEntropyLoss:**
+
 - Element-wise computation allows batch processing
 - Masking done via multiplication (no tensor copying)
 
 ### Computation Efficiency
 
 **Temporal Masking:**
+
 - Fully vectorized using PyTorch broadcasting
 - Zero GPU-CPU synchronization
 - Pattern detection uses tensor operations only
 
 **Device Handling:**
+
 - Automatic device alignment in activity accumulation
 - Supports mixed CPU/GPU training
 - Preserves gradients across device transfers

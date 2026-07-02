@@ -159,6 +159,7 @@ The configuration system is divided into four main files, each responsible for a
 ### 1. config_defaults.yaml
 
 Provides the foundational configuration layer with sensible defaults for all components. Contains:
+
 - Model parameters (time steps, delays, neural dynamics)
 - Temporal presentation parameters (patterns, reaction time masking)
 - Basic training settings (batch size, epochs, optimizer)
@@ -180,6 +181,7 @@ These defaults can be overridden by other configuration files or command-line ar
 ### 2. config_data.yaml
 
 Manages all dataset-specific configurations, including:
+
 - Dataset resolutions and statistics (mean, standard deviation)
 - Data loading settings (FFCV configuration)
 - Dataset groupings and categories
@@ -194,6 +196,7 @@ Defines general visualization parameters. This is still empty, and will be fille
 ### 4. config_experiments.yaml
 
 Defines experiment-specific configurations and parameter sweeps:
+
 - Parameter categories for systematic exploration
 - Experiment-specific data loading settings
 - Stimulus and timing parameters
@@ -204,6 +207,7 @@ This separation allows for organized parameter exploration and experiment reprod
 ### 5. config_workflow.yaml
 
 Controls the current workflow execution parameters:
+
 - Model selection and architecture settings
 - Training hyperparameters for the current run
 - Dataset and category selection
@@ -230,15 +234,18 @@ To make the expansion over `data_args` more compact for specific testing scenari
 
 ```yaml
 model_args:
+
   - tsteps: [10, 20]
   - rctype: ["full", "self"]
 
 experiment:
+
   - contrast
   - duration
 
 data_name: imagenet
 data_group:
+
   - imagenette
   - insects
 ```
@@ -258,6 +265,7 @@ DynVision uses a flexible path management system that automatically adapts to di
 ### Basic Configuration
 
 The path system distinguishes between two main directories :
+
 - **Working Directory**: Contains project-specific data, models, and outputs
 - **Toolbox Directory**: Contains the DynVision source code and scripts
 

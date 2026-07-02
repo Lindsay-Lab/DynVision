@@ -9,6 +9,7 @@ This document tracks the implementation of pattern-aware reaction time masking a
 ### Status: ✅ Completed
 
 **Key Changes:**
+
 1. ✅ Moved `loss_reaction_time` and `_init_loss()` from LightningBase to TemporalBase
 2. ✅ Implemented pattern-aware reaction masking in `_expand_timesteps()`
 3. ✅ Added per-chunk reaction time masking with warnings
@@ -19,17 +20,20 @@ This document tracks the implementation of pattern-aware reaction time masking a
 ### Implementation Details
 
 **Reaction Time Masking:**
+
 - Detects stimulus onset (rising edges in presentation pattern)
 - Masks first `ceil(loss_reaction_time / dt)` timesteps after each onset
 - Warns when reaction window exceeds chunk duration
 - Fully vectorized using PyTorch broadcasting (zero GPU-CPU sync)
 
 **Pattern Shuffling:**
+
 - Shuffles base pattern entries **before** resampling to `n_timesteps`
 - Preserves chunk durations after shuffling
 - Different random order per batch during training
 
 **Performance Optimizations:**
+
 - Vectorized tensor operations throughout
 - Pre-allocated tensor caching with LRU eviction
 - CUDA stream support for async operations
@@ -43,6 +47,7 @@ This document tracks the implementation of pattern-aware reaction time masking a
 Reviewed and fixed the complete loss calculation pipeline to ensure correct handling of valid vs. invalid timesteps across multiple loss types.
 
 **Key Findings:**
+
 - ✅ **CrossEntropyLoss:** Normalizes by valid (non-masked) timesteps only
 - ⚠️ **ActivityLoss:** Was overwriting instead of accumulating activity across timesteps
 - ✅ **Loss Combination:** Correctly weights and sums individual losses
@@ -57,7 +62,7 @@ Reviewed and fixed the complete loss calculation pipeline to ensure correct hand
 
 **Result:** ActivityLoss now correctly measures average absolute activity per unit, per timestep, per module, per sample.
 
-**Detailed documentation:** See [Loss Functions Reference](../reference/losses.md)
+**Detailed documentation:** See [Loss Functions Reference](../../reference/losses.md)
 
 ---
 
@@ -76,6 +81,7 @@ All model parameters were on CPU device instead of cuda:0.
 **Location:** `dynvision/params/trainer_params.py:644-649`
 
 When using single-device training (non-distributed, `world_size=1`) with default `accelerator="auto"`:
+
 1. The code only set `accelerator` if it wasn't "auto": `if self.accelerator != "auto"`
 2. With the default config having `accelerator: auto`, the accelerator was never explicitly set
 3. PyTorch Lightning then defaulted to CPU when accelerator wasn't specified
@@ -102,6 +108,7 @@ else:
 ```
 
 **Behavior:**
+
 - When `accelerator="auto"` in single-device mode:
   - Detects available GPUs using existing `_detect_available_gpu_count()` method
   - If GPUs available: sets `accelerator="gpu"` and `devices` (respects user config or defaults to 1)

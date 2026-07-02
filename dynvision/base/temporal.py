@@ -1,6 +1,5 @@
 """Core neural network functionality for biologically-inspired models."""
 
-from copy import copy
 import logging
 import math
 from typing import Any, Dict, List, Optional, Tuple, Union

@@ -5,6 +5,7 @@
 ## What is FFCV?
 
 FFCV is a drop-in replacement for PyTorch's DataLoader that can provide 10-100x speedups by:
+
 - **Storing data in optimized binary format** (`.beton` files)
 - **Using memory-mapped files** for OS-level caching
 - **Minimizing Python overhead** with compiled data pipelines
@@ -38,6 +39,7 @@ python -c "import ffcv; print(ffcv.__version__)"
 ```
 
 **Note**: FFCV requires:
+
 - Linux or macOS (Windows not supported)
 - CUDA-capable GPU for best performance
 - Sufficient disk space for `.beton` files
@@ -47,6 +49,7 @@ python -c "import ffcv; print(ffcv.__version__)"
 ### Automatic FFCV Usage
 
 DynVision automatically uses FFCV when:
+
 1. `use_ffcv: true` in config
 2. `.beton` files exist in `data/processed/`
 3. FFCV is installed
@@ -83,6 +86,7 @@ snakemake train_model --config use_ffcv=true
 ```
 
 **File locations:**
+
 - Input: `data/interim/<dataset>/` (symlinked ImageFolder structure)
 - Output: `data/processed/<dataset>/train.beton`, `val.beton`
 
@@ -172,6 +176,7 @@ pip install ffcv
 **Symptom**: Training falls back to PyTorch DataLoader
 
 **Check**:
+
 1. Snakemake rule executed: `snakemake --list | grep beton`
 2. Files exist: `ls data/processed/<dataset>/*.beton`
 3. Permissions correct: `chmod 644 data/processed/<dataset>/*.beton`
@@ -187,6 +192,7 @@ snakemake --forcerun create_ffcv_dataset --config data_name=cifar100
 **Symptom**: First epoch slow, subsequent epochs fast
 
 **Explanation**: This is expected! OS cache is being populated.
+
 - First epoch: Loads from disk into cache
 - Later epochs: Served from cache (much faster)
 
@@ -197,6 +203,7 @@ snakemake --forcerun create_ffcv_dataset --config data_name=cifar100
 **Symptom**: Process killed during FFCV conversion
 
 **Solution**:
+
 - Reduce `max_resolution` in conversion script
 - Process dataset in chunks
 - Increase system memory/swap
@@ -208,6 +215,7 @@ snakemake --forcerun create_ffcv_dataset --config data_name=cifar100
 **Explanation**: Some augmentations don't work with FFCV's GPU pipeline
 
 **Solution**:
+
 - Use FFCV-compatible transforms in `ffcv_dataloader.py`
 - Or disable FFCV: `use_ffcv: false`
 
@@ -318,5 +326,5 @@ ffcv:
 ## Related Documentation
 
 - [Data Processing Guide](../../user-guide/data-processing.md)
-- [Performance Optimization](../../user-guide/performance-optimization.md)
+- [DynVision Workflow Guide](../../user-guide/workflows.md)
 - [Snakemake Workflow](snakemake.md)

@@ -74,6 +74,7 @@ snakemake project_paths.models/DyRCNNx4/DyRCNNx4:rctype=full_0001_cifar10_traine
 This will train the model for 50 epochs using the Adam optimizer with a learning rate of 0.001.
 
 The training process will:
+
 1. Load the initialized model
 2. Prepare the data loaders using FFCV
 3. Configure the optimizer and learning rate scheduler
@@ -81,6 +82,7 @@ The training process will:
 5. Save the trained model
 
 You can monitor the training progress with the output logs, which show:
+
 - Training loss and accuracy
 - Validation loss and accuracy
 - Learning rate changes
@@ -188,19 +190,19 @@ This will create visualizations comparing the response properties of models with
 The visualizations will be saved in the `reports/figures/` directory. Let's examine them to understand the model's behavior:
 
 1. **Basic Response Properties**:
-   - Look at the response time courses in each layer (V1, V2, V4, IT)
-   - Note the response latencies (when activity starts to increase)
-   - Observe the peak times and response durations
+      - Look at the response time courses in each layer (V1, V2, V4, IT)
+      - Note the response latencies (when activity starts to increase)
+      - Observe the peak times and response durations
 
 2. **Contrast Response Properties**:
-   - Examine how response magnitude changes with contrast
-   - Observe whether higher contrast leads to faster responses
-   - Compare the contrast sensitivity across layers
+      - Examine how response magnitude changes with contrast
+      - Observe whether higher contrast leads to faster responses
+      - Compare the contrast sensitivity across layers
 
 3. **Recurrence Type Comparison**:
-   - Compare full recurrence vs. self recurrence
-   - Note differences in response magnitude, timing, and shape
-   - Consider which better captures biological properties
+      - Compare full recurrence vs. self recurrence
+      - Note differences in response magnitude, timing, and shape
+      - Consider which better captures biological properties
 
 ## Step 10: Customizing the Training
 
@@ -220,6 +222,7 @@ snakemake train_model --config \
 ```
 
 This example:
+
 - Uses a smaller time step (dt=1ms)
 - Changes the time constant (tau=10ms)
 - Adjusts the feedforward (tff=12ms) and recurrent (trc=5ms) delays
@@ -241,6 +244,7 @@ snakemake train_model --config \
 ```
 
 This example adds:
+
 - `pattern:1011`: Alternating stimulus (1) and null (0) presentation
 - `shufflepattern:true`: Randomly shuffle the pattern per batch
 - `lossrt:4`: Mask labels for 4ms after stimulus onset
@@ -250,6 +254,7 @@ For details on temporal presentation options, see the [Temporal Data Presentatio
 ## Conclusion
 
 Congratulations! You've successfully:
+
 1. Prepared a dataset for DynVision
 2. Trained a recurrent neural network model
 3. Evaluated its performance
@@ -257,9 +262,10 @@ Congratulations! You've successfully:
 5. Compared different recurrence types
 
 Next Steps:
+
 - Try other datasets like CIFAR-100 or ImageNet
 - Experiment with different model architectures
 - Explore other recurrence types
 - Create your own custom model
 
-For more advanced usage, check out the [Custom Models Guide](../user-guide/custom-models.md) and [Advanced Training Techniques](../user-guide/advanced-training.md).
+For more advanced usage, check out the [Custom Models Guide](../user-guide/custom-models.md).

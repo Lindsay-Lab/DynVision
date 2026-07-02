@@ -10,9 +10,7 @@ from typing import Optional, Union, Tuple
 import logging
 
 import torch
-import torch.nn as nn
 from pytorch_lightning import LightningModule
-
 
 logger = logging.getLogger(__name__)
 

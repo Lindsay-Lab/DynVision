@@ -24,24 +24,24 @@ Model Layer
 Each layer processes information through defined stages:
 
 1. **Input Processing**
-   - Dimension adjustment
-   - State preparation
-   - Input normalization
+      - Dimension adjustment
+      - State preparation
+      - Input normalization
 
 2. **Main Computation**
-   - Feedforward processing
-   - Recurrent computation
-   - Feature extraction
+      - Feedforward processing
+      - Recurrent computation
+      - Feature extraction
 
 3. **Dynamics Evolution**
-   - State update
-   - Temporal integration
-   - Activity evolution
+      - State update
+      - Temporal integration
+      - Activity evolution
 
 4. **State Management**
-   - Hidden state tracking
-   - Response recording
-   - Memory management
+      - Hidden state tracking
+      - Response recording
+      - Memory management
 
 ## Component Relationships
 
@@ -78,22 +78,22 @@ Neural Network
 Layers process operations in a defined sequence:
 
 1. **Standard Operations**
-   - `layer`: Main computation
-   - `tstep`: Dynamics step
-   - `nonlin`: Nonlinearity
-   - `pool`: Pooling
+      - `layer`: Main computation
+      - `tstep`: Dynamics step
+      - `nonlin`: Nonlinearity
+      - `pool`: Pooling
 
 2. **Connection Operations**
-   - `addskip`: Skip connections
-   - `addfeedback`: Feedback connections
+      - `addskip`: Skip connections
+      - `addfeedback`: Feedback connections
 
 3. **State Operations**
-   - `record`: Response storage
-   - `delay`: State management
+      - `record`: Response storage
+      - `delay`: State management
 
 4. **Utility Operations**
-   - `norm`: Normalization
-   - Custom operations
+      - `norm`: Normalization
+      - Custom operations
 
 ## Implementation Patterns
 

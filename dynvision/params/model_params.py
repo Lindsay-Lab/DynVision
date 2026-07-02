@@ -2,7 +2,7 @@
 Model parameter handling for DynVision using Pydantic.
 
 This module provides type-safe parameter management for neural network models,
-including biological parameters, architecture settings, optimizer/scheduler 
+including biological parameters, architecture settings, optimizer/scheduler
 configuration, and loss functions.
 """
 
@@ -11,7 +11,6 @@ from collections import OrderedDict
 from pydantic import Field, field_validator, model_validator, ConfigDict
 from typing import Dict, Any, Optional, List, Union, Tuple, Literal, Sequence, ClassVar
 import logging
-from pathlib import Path
 
 from dynvision.params.base_params import BaseParams, DynVisionValidationError
 from dynvision.utils import (
@@ -449,25 +448,32 @@ class ModelParams(BaseParams):
         if isinstance(v, str):
             # Parse string pattern
             import re
+
             v_stripped = v.strip()
             # If no separators, treat each character as a digit
-            if re.search(r'[,\s]', v_stripped):
-                parts = re.split(r'[,\s]+', v_stripped)
+            if re.search(r"[,\s]", v_stripped):
+                parts = re.split(r"[,\s]+", v_stripped)
                 parts = [p for p in parts if p]  # Remove empty strings
             else:
                 parts = list(v_stripped)
             try:
                 v = [int(p) for p in parts]
             except ValueError as e:
-                raise ValueError(f"data_presentation_pattern contains non-integer values: {v}") from e
+                raise ValueError(
+                    f"data_presentation_pattern contains non-integer values: {v}"
+                ) from e
 
         if isinstance(v, list):
             # Validate list contents
             if not all(isinstance(x, int) for x in v):
-                raise ValueError(f"data_presentation_pattern must contain only integers, got {v}")
+                raise ValueError(
+                    f"data_presentation_pattern must contain only integers, got {v}"
+                )
             return v
 
-        raise ValueError(f"data_presentation_pattern must be a string or list, got {type(v).__name__}")
+        raise ValueError(
+            f"data_presentation_pattern must be a string or list, got {type(v).__name__}"
+        )
 
     @field_validator("input_dims")
     def validate_input_dims(cls, v):
@@ -726,7 +732,7 @@ class ModelParams(BaseParams):
             return None
         if not isinstance(self.loss, list):
             self.loss = [self.loss]
-        return [(l, self.loss_configs[l]) for l in self.loss]
+        return [(layer, self.loss_configs[layer]) for layer in self.loss]
 
     def get_timing_summary(self) -> Dict[str, Any]:
         """Get comprehensive timing parameter summary."""
@@ -1027,7 +1033,7 @@ if __name__ == "__main__":
             input_dims=(20, 3, 224, 224),
             supralinearity=2.0,
         )
-        print(f"Default model params created successfully")
+        print("Default model params created successfully")
         print(f"Default criterion_params: {model_params.criterion_params}")
     except Exception as e:
         print(f"Error creating basic model params: {e}")
@@ -1049,7 +1055,7 @@ if __name__ == "__main__":
             learning_rate=0.001,
             optimizer="Adam",
         )
-        print(f"Biological model params created successfully")
+        print("Biological model params created successfully")
     except Exception as e:
         print(f"Error creating biological model params: {e}")
         import traceback
@@ -1097,7 +1103,6 @@ if __name__ == "__main__":
         "model_name": "DyRCNNx4",
         "n_classes": 50,
         "input_dims": [20, 3, 128, 128],
-        "supralinearity": 2.5,
         "dt": 1.5,
         "tau": 10.0,
         "t_feedforward": 2.0,
@@ -1120,7 +1125,7 @@ if __name__ == "__main__":
 
     try:
         file_params = ModelParams.from_cli_and_config(config_path=temp_config)
-        print(f"Config file params created successfully")
+        print("Config file params created successfully")
         print(
             f"Loaded loss criterion_params: {len(file_params.criterion_params)} loss functions"
         )

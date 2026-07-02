@@ -30,6 +30,7 @@ Backend = Literal["torch", "ffcv"]
 
 # ===== Transform String Parser =====
 
+
 def parse_transform_string(
     transform_str: str,
     backend: Backend = "torch",
@@ -93,7 +94,7 @@ def parse_transform_string(
             # Separate positional and keyword arguments
             # Strategy: parse the full call expression via ast.parse, then extract args
             full_expr = f"{module_name}({args_str})"
-            tree = ast.parse(full_expr, mode='eval')
+            tree = ast.parse(full_expr, mode="eval")
 
             # The tree is an Expression with a Call node
             call_node = tree.body

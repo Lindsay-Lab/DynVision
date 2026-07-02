@@ -302,7 +302,7 @@ class LightningBase(pl.LightningModule):
 
         # Quick NaN check
         if torch.isnan(loss):
-            logger.warning(f"⚠️  NaN loss detected")
+            logger.warning("⚠️  NaN loss detected")
 
         return loss
 
@@ -425,7 +425,7 @@ class LightningBase(pl.LightningModule):
 
                 # Set learning rate based on group configuration
                 lr_factor = group_config.pop("lr_factor", 1.0)
-                if not "lr" in group_config:
+                if "lr" not in group_config:
                     group_config["lr"] = base_lr * lr_factor
 
                 param_groups.append(group_config)

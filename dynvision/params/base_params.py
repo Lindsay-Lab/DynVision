@@ -7,8 +7,8 @@ and alias resolution.
 """
 
 from dataclasses import dataclass
-from pydantic import BaseModel, Field, field_validator, ConfigDict, model_validator
-from typing import (
+from pydantic import BaseModel, Field, ConfigDict, model_validator
+from typing import (  # noqa: F401
     Dict,
     Any,
     Optional,
@@ -219,7 +219,7 @@ class BaseParams(BaseModel):
             logger.debug(f"Parsed {len(cli_data)} parameters from CLI")
         except Exception as e:
             raise DynVisionConfigError(
-                f"Failed to parse CLI arguments", {"error": str(e), "args": args}
+                "Failed to parse CLI arguments", {"error": str(e), "args": args}
             )
 
         # Priority 3: Apply direct overrides (highest priority)

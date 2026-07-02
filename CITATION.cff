@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use DynVision in your research, please cite the following paper."
-title: "DynVision: A Modular Toolbox for Biologically Plausible Recurrent Visual Networks"
+title: "Modeling Dynamical Vision with Biologically Plausible Recurrent Convolutional Networks"
 authors:
   - family-names: Gutzen
     given-names: Robin

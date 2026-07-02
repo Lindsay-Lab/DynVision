@@ -21,7 +21,6 @@ from torchvision.models import resnet
 from dynvision.base import BaseModel
 from dynvision.utils import check_stability
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = [

@@ -14,6 +14,13 @@ This guide will walk you through the basic steps to get started, including insta
 ## Quick Installation
 
 ```bash
+# Install from PyPI (recommended)
+pip install dynvision
+```
+
+**From source (for development):**
+
+```bash
 # Clone the repository
 git clone https://github.com/Lindsay-Lab/dynvision.git
 
@@ -88,6 +95,7 @@ snakemake --config experiment=duration model_name=AlexNet model_args='{tsteps: 2
 ```
 
 This command:
+
 1. Initializes an AlexNet version with full recurrence
 2. Downloads and prepares the CIFAR100 dataset if needed
 3. Trains the model using [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/)
@@ -124,7 +132,7 @@ The test results are stored in a pandas DataFrame with the following columns:
 - **`image_index`**: A reference to the specific image of the label class in the dataset.
 - **`label_set`**: The string representation of input over all timesteps (e.g. "-1-1-1-1202020202020" indicating null input (label_index=-1) for 4 timesteps and 6 timesteps of an image with label index 20).
 
-For more details on analyzing test results, see the [Evaluation Guide](user-guide/evaluation.md).
+For more details on analyzing test results, see the [Model Testing Guide](user-guide/model-testing.md).
 
 ## Understanding DynVision
 
@@ -133,10 +141,10 @@ For more details on analyzing test results, see the [Evaluation Guide](user-guid
 1. **Explicit Time Dimension**: DynVision models work with sequences where time is an explicit dimension after the batch dimension: `(batch, timesteps, channels, height, width)`.
 
 2. **Biological Time Unrolling**: Models simulate biological neural dynamics with configurable time steps and delays:
-   - Integration time step (`dt`)
-   - Neural time constant (`tau`)
-   - Feedforward and recurrent delays (`t_feedforward`, `t_recurrent`)
-   - Handling of residual timesteps (timesteps needed for the first input to reach the last model layer)
+      - Integration time step (`dt`)
+      - Neural time constant (`tau`)
+      - Feedforward and recurrent delays (`t_feedforward`, `t_recurrent`)
+      - Handling of residual timesteps (timesteps needed for the first input to reach the last model layer)
 
 3. **Modular Components**: The framework provides a collection of interoperable components to assist model development, and features mechanism to flexibly rearrange their execution order, e.g.:
     ```python
@@ -178,6 +186,7 @@ The recorded unit activations during testing are stored in files with the follow
 ### Core Technologies
 
 DynVision leverages several powerful tools:
+
 - [PyTorch Lightning](https://lightning.ai/docs/pytorch/stable/) for training management
 - [FFCV](https://ffcv.io/) for optimized data loading
 - [Snakemake](https://snakemake.readthedocs.io/) for workflow orchestration
@@ -201,7 +210,7 @@ DynVision leverages several powerful tools:
 
 4. [**Advanced Topics**](user-guide/index.md):
    - [Custom Data Processing](user-guide/data-processing.md)
-   - [Model Evaluation](user-guide/evaluation.md)
+   - [Model Testing](user-guide/model-testing.md)
    - [Result Visualization](user-guide/visualization.md)
    - [Workflow Management](user-guide/workflows.md)
 

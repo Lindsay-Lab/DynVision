@@ -10,6 +10,7 @@
 ## Overview
 
 Split the monolithic `process_test_data` rule into two stages to enable:
+
 1. **Parallel processing** of individual test outputs immediately after generation
 2. **Reduced disk pressure** by compressing large test files sooner
 3. **Better scalability** when running multiple testing experiments concurrently
@@ -19,11 +20,13 @@ Split the monolithic `process_test_data` rule into two stages to enable:
 ### Current Bottleneck
 
 The `process_test_data` rule currently:
+
 - **Input:** Multiple test output tuples (test_responses.pt, test_outputs.csv, test_outputs.csv.config.yaml)
 - **Processing:** Processes all tests for an experiment sequentially in a single batch
 - **Output:** Single aggregated `test_data.csv` file per experiment
 
 **Critical Issues:**
+
 1. **Disk Space Exhaustion:** Large test_responses.pt files (30GB+) accumulate faster than they can be processed
 2. **Sequential Processing:** Even though the script processes files one at a time, Snakemake can't start processing until ALL inputs are ready
 3. **Memory Constraints:** Current implementation already handles large files carefully, but batching is limited
@@ -32,11 +35,13 @@ The `process_test_data` rule currently:
 ### Root Causes
 
 From `snake_runtime.smk:284-368`:
+
 - Rule waits for all category sweep values to complete testing
 - Uses `expand()` to collect all test outputs before processing begins
 - Single monolithic output prevents incremental progress
 
 From `process_test_data.py`:
+
 - Already designed to process files in batches (line 826: `--batch_size`)
 - Already memory-optimized with incremental layer loading
 - But entire script must run to completion before freeing disk space
@@ -69,6 +74,7 @@ output:
 ```
 
 **Key Characteristics:**
+
 - Runs immediately after each test_model execution completes
 - Parallel execution across all tests in experiment
 - Can delete large test_responses.pt after processing
@@ -100,6 +106,7 @@ output:
 ```
 
 **Key Characteristics:**
+
 - Lightweight (no heavy computation, just concatenation)
 - Only runs when all per-test processing complete
 - Fast execution (small CSV files vs large PT files)
@@ -113,6 +120,7 @@ output:
 **Question:** Should we automatically delete the large input files after successful processing?
 
 **Options:**
+
 - **A) Delete after Stage 1 (per-test):**
   - Delete `test_responses.pt` after creating `test_data.csv`
   - Keep `test_outputs.csv` and `test_outputs.csv.config.yaml` for potential reprocessing
@@ -204,12 +212,14 @@ reports/
 **Question:** Should both stages use identical measure configurations, or allow different measures per stage?
 
 **Context:** Current `--measures` parameter specifies:
+
 - Layer metrics: `response_avg`, `response_std`, `spatial_variance`, `feature_variance`
 - Confidence measures: `guess_confidence`, `label_confidence`, `first_label_confidence`
 - Top-k accuracies: `accuracy_top3`, `accuracy_top5`
 - Classifier activations: `classifier_top5`
 
 **Options:**
+
 - **A) Identical measures across both stages:**
   - Stage 1 computes all measures specified in experiment config
   - Stage 2 simply concatenates (no recomputation)
@@ -236,10 +246,12 @@ reports/
 **Question:** Should resolution (sample vs class) be applied in Stage 1 or Stage 2?
 
 **Context:** Current `--sample_resolution` parameter controls:
+
 - `sample`: Output at (sample_index, times_index) level
 - `class`: Output at (first_label_index, times_index) level with aggregation
 
 **Options:**
+
 - **A) Apply resolution in Stage 1:**
   - Each test_data.csv is already at final resolution
   - Stage 2 just concatenates
@@ -269,6 +281,7 @@ reports/
 **Context:** Current script has `--fail_on_missing_inputs` flag (default: True)
 
 **Options:**
+
 - **A) Strict mode (current default):**
   - Stage 1 fails if any test processing fails
   - Stage 2 fails if any test_data.csv is missing
@@ -298,6 +311,7 @@ reports/
 **Question:** Should we maintain the old `process_test_data` rule or deprecate it?
 
 **Options:**
+
 - **A) Complete replacement:**
   - Remove old rule and script entirely
   - All workflows must use new two-stage approach
@@ -423,6 +437,7 @@ visualization rules (existing - may need path updates)
 ### Key Functions to Extract/Adapt
 
 From `process_test_data.py`:
+
 - `build_measure_config()` - reuse as-is
 - `_extract_metadata()` - reuse as-is
 - `_load_responses()` - reuse as-is
@@ -528,6 +543,7 @@ Both stages use identical measure configurations. Stage 2 handles missing measur
 **Chosen:** Option C - Configurable with enhanced reporting
 
 Maintain existing `--fail_on_missing_inputs` flag:
+
 - If True: Fail if any test processing fails or files missing
 - If False: Skip problematic tests, continue with available data
 - Stage 2 adds metadata reporting which tests succeeded/failed
@@ -551,6 +567,7 @@ Keep old `process_test_data` rule with deprecation warning for 1-2 releases. New
   - Output: Aggregated CSV with metadata columns added
 
 **Rationale:**
+
 - Cleaner separation of concerns
 - Metadata extraction happens once (Stage 2) instead of N times (Stage 1)
 - More flexible: can change which parameters to extract without reprocessing data
@@ -621,6 +638,7 @@ Keep old `process_test_data` rule with deprecation warning for 1-2 releases. New
 **2025-12-12 11:30:** All design decisions approved. Updated roadmap. Beginning implementation.
 
 **2025-12-12 12:00:** ✅ Core implementation completed!
+
 - Created `process_single_test.py` (Stage 1 script)
 - Created `aggregate_experiment_data.py` (Stage 2 script)
 - Added `process_single_test` Snakemake rule

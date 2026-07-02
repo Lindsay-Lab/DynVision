@@ -76,31 +76,38 @@ Parameters are resolved using a three-level precedence system:
 **Within each source, scoped beats unscoped**
 
 Scoped parameters use dot notation to target specific components:
+
 - `model.model_name`: Scoped to model component
 - `data.batch_size`: Scoped to data component
 - `init.model.store_responses`: Mode-scoped to model in init mode
 
 Unscoped parameters apply to all matching components:
+
 - `seed`: Shared by all components that accept seed
 - `log_level`: Propagates to all components
 
 **Within CLI args:**
+
 - `--model.model_name X` beats `--model_name Y`
 
 **Within config files:**
+
 - `model.model_name: X` beats `model_name: Y`
 
 **Across sources (source wins):**
+
 - `--model_name X` (CLI unscoped) beats `model.model_name: Y` (config scoped)
 
 ### 3. Alias Precedence (Tertiary)
 **Within same source and scope, aliases beat long forms**
 
 Short-form aliases override their long-form equivalents when at the same scope level:
+
 - `tff` beats `t_feedforward` (both unscoped)
 - `model.tff` beats `model.t_feedforward` (both scoped to model)
 
 But scope precedence still applies across levels:
+
 - `model.t_feedforward` beats `tff` (scoped beats unscoped)
 
 > **Key Insight**: The precedence system uses **source → scope → alias** ordering, where each level is only consulted within ties at the previous level.
@@ -330,6 +337,7 @@ ModeRegistry.register_detector("custom", _detect_custom_mode)
 ```
 
 **Step 3: Toggle the Mode**
+
 - Leave `use_custom_mode: auto` for detector-driven behavior
 - Force it on/off via CLI or Snakemake: `--config use_custom_mode=true`
 

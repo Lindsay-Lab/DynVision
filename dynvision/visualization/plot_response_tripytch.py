@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -19,7 +18,7 @@ from dynvision.utils.visualization_utils import (
     load_config_from_args,
     get_display_name,
 )
-from dynvision.visualization.plot_responses import (
+from dynvision.visualization.plot_responses import (  # noqa: F401
     plot_temporal_ridge_responses,
     _extract_dimension_values,
     _get_colors_for_dimension,
@@ -387,7 +386,7 @@ def _plot_training_accuracy_panel(
             ax.text(
                 0.5,
                 0.5,
-                f"Error plotting training accuracy",
+                "Error plotting training accuracy",
                 ha="center",
                 va="center",
                 fontsize=12,
@@ -1053,7 +1052,7 @@ def main():
 
     try:
         # Create the triptych plot
-        fig = create_triptych_plot(
+        _ = create_triptych_plot(
             data_paths=data_paths,
             category_list=category_list,
             parameter_key=args.parameter,

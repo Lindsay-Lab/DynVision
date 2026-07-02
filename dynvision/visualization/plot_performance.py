@@ -2,7 +2,7 @@
 
 This module provides a specialized plotting function for visualizing accuracy
 and confidence traces across different experimental conditions with three flexible dimensions:
-- Horizontal subplots 
+- Horizontal subplots
 - Vertical rows
 - Hue (color coding)
 
@@ -13,7 +13,7 @@ Supports multiple input files for different experiments.
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, List, Literal, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 import numpy as np
 
 import matplotlib.pyplot as plt
@@ -22,7 +22,7 @@ import pandas as pd
 import seaborn as sns
 
 # Import functions and configurations from plot_responses
-from dynvision.visualization.plot_responses import (
+from dynvision.visualization.plot_responses import (  # noqa: F401
     FORMATTING as RESPONSES_FORMATTING,
     _coerce_measure_list,
     _filter_data_for_column,
@@ -36,7 +36,7 @@ from dynvision.visualization.plot_responses import (
     _validate_dimensions as _validate_dimension_choices,
 )
 
-from dynvision.utils.visualization_utils import (
+from dynvision.utils.visualization_utils import (  # noqa: F401
     calculate_label_indicator,
     get_color,
     get_display_name,
@@ -458,9 +458,9 @@ def _plot_accuracy_panel_with_ffonly(
         )
 
     # Also draw star markers for feedforward-trained models (grey to match dashed line)
-    feedforward_accuracy_markers: Dict[str, bool] = {}
+    _: Dict[str, bool] = {}
     if has_feedforward and not feedforward_data.empty:
-        feedforward_accuracy_markers = _draw_ffonly_max_markers(
+        _ = _draw_ffonly_max_markers(
             dataset=feedforward_data, requested=requested_accuracy, force_color="grey"
         )
 
@@ -1478,7 +1478,7 @@ def _add_panel_letters(
     # Panel B) - Above peak height panel
     if peak_axes:
         peak_ax = peak_axes[0]
-        pos = peak_ax.get_position()
+        _ = peak_ax.get_position()
         peak_ax.text(
             layout["panel_letter_offset_x"],
             1 + layout["panel_letter_offset_y"],
@@ -1493,7 +1493,7 @@ def _add_panel_letters(
     # Panel C) - Above peak time panel
     if peak_time_axes:
         peak_time_ax = peak_time_axes[0]
-        pos = peak_time_ax.get_position()
+        _ = peak_time_ax.get_position()
         peak_time_ax.text(
             layout["panel_letter_offset_x"],
             1 + layout["panel_letter_offset_y"],

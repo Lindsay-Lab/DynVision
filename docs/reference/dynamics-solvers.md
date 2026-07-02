@@ -30,11 +30,13 @@ The Euler method is a first-order numerical procedure for solving ordinary diffe
 $$x(t+dt) = x(t) + \frac{dt}{\tau} \cdot [-x(t) + J(x(t))]$$
 
 **Advantages**:
+
 - Computational efficiency
 - Memory efficiency
 - Stable for small time steps
 
 **Limitations**:
+
 - Less accurate for rapidly changing dynamics
 - Requires small time steps for stability
 
@@ -49,11 +51,13 @@ $$k_4 = f(t_n + dt, y_n + dt \cdot k_3)$$
 $$y_{n+1} = y_n + \frac{dt}{6}(k_1 + 2k_2 + 2k_3 + k_4)$$
 
 **Advantages**:
+
 - Higher accuracy than Euler method
 - Stable for larger time steps
 - Better captures complex dynamics
 
 **Limitations**:
+
 - Computationally more expensive
 - Higher memory requirements
 
@@ -75,10 +79,20 @@ Typical values: 5-20 ms
 
 ### 3. Delay Parameters
 
-DynVision implements separate delays for different types of connections:
+DynVision implements separate, per-connection-type delays. Each delay must be an
+integer multiple of `dt`. The delays are specified in milliseconds (aliases in
+parentheses):
 
-- `t_feedforward`: Delay for feedforward connections (default: 10 ms)
-- `t_recurrence`: Delay for recurrent connections (default: 6 ms)
+- `t_feedforward` (`tff`, $\Delta_{FF}$): feedforward delay between layers. Default `0 ms` (engineering-time unrolling).
+- `t_recurrence` (`trc`, $\Delta_{RC}$): lateral recurrent delay. Default `6 ms`.
+- `t_skip` (`tsk`, $\Delta_{SK}$): skip-connection delay. Default `0 ms` (engineering time).
+- `t_feedback` (`tfb`, $\Delta_{FB}$): feedback-connection delay.
+
+> **Note:** The defaults above describe *engineering-time* unrolling
+> ($\Delta_{FF}=0$), where the signal propagates from input to output within a
+> single timestep. In *biological-time* unrolling the feedforward delay is
+> positive (e.g. `10 ms`) and the skip/feedback delays are adjusted accordingly.
+> See [Engineering vs. Biological Time](../explanation/engineering-vs-biological-time.md).
 
 ## Usage in Models
 

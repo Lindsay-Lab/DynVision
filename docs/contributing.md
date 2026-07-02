@@ -9,13 +9,12 @@ Thank you for your interest in contributing to DynVision! This document provides
 - [Development Workflow](#development-workflow)
 - [Pull Request Process](#pull-request-process)
 - [Coding Standards](#coding-standards)
-- [Testing](#testing)
 - [Documentation](#documentation)
 - [Issue Tracking](#issue-tracking)
 
 ## Code of Conduct
 
-DynVision adopts the Contributor Covenant Code of Conduct. By participating in this project, you agree to abide by its terms. Please report unacceptable behavior to the project maintainers.
+DynVision adopts the [Contributor Covenant Code of Conduct](./code-of-conduct.md). By participating in this project, you agree to abide by its terms. Please report unacceptable behavior to the project maintainers.
 
 ## Getting Started
 
@@ -98,6 +97,7 @@ DynVision follows these coding standards:
 - **Line Length** limited to 88 characters (using Black formatter)
 
 We use several tools to enforce these standards:
+
 - **Black** for code formatting
 - **isort** for import sorting
 - **flake8** for style guide enforcement
@@ -124,6 +124,7 @@ mypy dynvision
 DynVision uses pytest for testing. Tests are located in the `tests/` directory, mirroring the structure of the `dynvision/` package.
 
 When adding new features, please include appropriate tests:
+
 - **Unit tests** for individual functions and classes
 - **Integration tests** for interactions between components
 - **End-to-end tests** for full workflows when appropriate
@@ -151,6 +152,7 @@ Good documentation is crucial for the usability of DynVision. When contributing,
 4. Ensure documentation builds correctly
 
 The documentation follows the "Diátaxis" system with four types of documentation:
+
 - **Tutorials**: Learning-oriented guides for beginners
 - **How-to Guides**: Task-oriented guides for specific problems
 - **Reference**: Information-oriented technical descriptions
@@ -163,6 +165,7 @@ We use GitHub Issues to track bugs, feature requests, and other project tasks.
 ### Reporting Bugs
 
 When reporting bugs, please include:
+
 - A clear, descriptive title
 - Steps to reproduce the bug
 - Expected behavior
@@ -173,6 +176,7 @@ When reporting bugs, please include:
 ### Feature Requests
 
 When suggesting features, please include:
+
 - A clear, descriptive title
 - Detailed description of the proposed feature
 - Rationale: why this feature would be useful
@@ -192,6 +196,7 @@ DynVision is designed to be modular and extensible. If you'd like to add a new m
 ### Model Components Checklist
 
 When adding new model components:
+
 - [ ] Implement the component following the existing architecture
 - [ ] Add type hints and docstrings
 - [ ] Write unit tests

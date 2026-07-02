@@ -13,10 +13,8 @@ categorical (by default, fewer than 60 unique values).
 
 import argparse
 import ast
-import json
 import logging
 import re
-import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -386,7 +384,7 @@ def _extract_dimension_values(
 
         if not layers:
             logger.warning(
-                f"No layer response columns found in data (looking for *_response_avg)"
+                "No layer response columns found in data (looking for *_response_avg)"
             )
             return []
 

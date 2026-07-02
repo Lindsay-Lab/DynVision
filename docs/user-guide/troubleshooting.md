@@ -14,6 +14,7 @@ All parameters on device: cpu
 ```
 
 **Causes:**
+
 1. `accelerator` set to `"auto"` in single-device mode without explicit GPU configuration
 2. CUDA not properly installed
 3. PyTorch built without CUDA support
@@ -49,11 +50,13 @@ python -c "import torch; print(torch.__version__)"
 ### Loss is NaN or Infinite
 
 **Symptoms:**
+
 - Training loss suddenly becomes `nan`
 - Loss values explode (> 1e10)
 - Gradients are `nan` or `inf`
 
 **Causes:**
+
 1. Learning rate too high
 2. Numerical instability in loss computation
 3. Division by zero in custom operations
@@ -142,6 +145,7 @@ if batch_idx % 100 == 0:
 ### Training is Very Slow
 
 **Symptoms:**
+
 - Epochs take much longer than expected
 - GPU utilization is low (< 50%)
 - CPU bottleneck
@@ -196,6 +200,7 @@ Missing key(s) in state_dict: "V1_conv.weight", ...
 ```
 
 **Causes:**
+
 1. Model architecture changed since checkpoint was saved
 2. Loading checkpoint from different model variant
 3. Mismatch in parameter names
@@ -225,11 +230,13 @@ print(checkpoint.keys())  # See what's in the checkpoint
 ### Recurrent Connections Not Working
 
 **Symptoms:**
+
 - Model behaves like feedforward CNN
 - No temporal dynamics observed
 - Responses identical across timesteps
 
 **Causes:**
+
 1. `n_timesteps = 1` (no temporal processing)
 2. Recurrent weights initialized to zero
 3. Time constant too large (tau >> dt * n_timesteps)
@@ -297,6 +304,7 @@ AttributeError: module 'ffcv' has no attribute 'Writer'
 ```
 
 **Causes:**
+
 1. FFCV not installed
 2. Incompatible FFCV version
 3. Missing dataset
@@ -325,6 +333,7 @@ ls -la data/interim/cifar10/train_all/
 ### Double Temporal Expansion
 
 **Symptoms:**
+
 - Output shape is `(batch, n_timesteps, n_timesteps, channels, H, W)`
 - Memory usage much higher than expected
 - Unexpected tensor dimensions
@@ -352,10 +361,12 @@ n_timesteps: 20  # In model config
 ### Configuration Not Taking Effect
 
 **Symptoms:**
+
 - Changed config values but model still uses old values
 - Parameters don't match what's in YAML
 
 **Causes:**
+
 1. Config file load order (later files override earlier)
 2. Command-line args override config files
 3. Model defaults override `None` values
@@ -422,6 +433,7 @@ vim dynvision/configs/config_defaults.yaml  # Change learning_rate: 0.001 → 0.
 
 **Why freezing is necessary:**
 Without freezing, changing config files mid-workflow would cause:
+
 - Jobs submitted early vs. late to have different parameters
 - Inconsistent results within a single experiment
 - Irreproducible workflows
@@ -513,6 +525,7 @@ RuleException: Could not resolve wildcards
 ```
 
 **Causes:**
+
 1. Missing wildcards in target specification
 2. Incorrect path format
 3. Rule doesn't exist
@@ -543,6 +556,7 @@ snakemake --list
 ### Cluster Job Failures
 
 **Symptoms:**
+
 - Jobs fail silently on cluster
 - No output in log files
 - SLURM job status shows FAILED
@@ -628,6 +642,7 @@ dynvision/cluster/executor_wrapper.sh python -c "import torch; print(torch.__ver
 
 3. **Supported schedulers**:
 DynVision detects:
+
 - SLURM (via `SLURM_JOB_ID` or `SLURM_JOBID`)
 - PBS/Torque (via `PBS_JOBID`)
 - LSF (via `LSB_JOBID`)
@@ -695,9 +710,9 @@ for batch in dataloader:
 If you can't find a solution here:
 
 1. **Check logs**:
-   - Training logs: `logs/training/`
-   - Cluster logs: `logs/slurm/`
-   - Runtime config: `logs/config_runtime.yaml`
+      - Training logs: `logs/training/`
+      - Cluster logs: `logs/slurm/`
+      - Runtime config: `logs/config_runtime.yaml`
 
 2. **Enable debug mode**:
    ```yaml
@@ -707,11 +722,11 @@ If you can't find a solution here:
 3. **Search GitHub Issues**: Check if others have encountered the same problem
 
 4. **Create detailed bug report** with:
-   - Complete error message and stack trace
-   - Configuration files used
-   - DynVision version
-   - PyTorch and CUDA versions
-   - Steps to reproduce
+      - Complete error message and stack trace
+      - Configuration files used
+      - DynVision version
+      - PyTorch and CUDA versions
+      - Steps to reproduce
 
 5. **Contact**: robin.gutzen@nyu.edu
 

@@ -41,6 +41,7 @@ The visual cortex contains abundant recurrent connections:
 3. **Skip connections**: Between non-adjacent areas (e.g., V1 to V4)
 
 These connections are thought to enable:
+
 - Contextual modulation of neural responses
 - Perceptual grouping and figure-ground segregation
 - Predictive processing and expectation
@@ -83,12 +84,14 @@ Rather than using discrete-time steps like traditional RNNs, DynVision implement
 ```
 
 Where:
+
 - τ is the time constant
 - x is the neural activity
 - Φ is a nonlinearity
 - f represents inputs from various sources
 
 This approach:
+
 - Better captures the temporal characteristics of neural responses
 - Allows for different time constants in different areas
 - Models the differential delays of various connection types
@@ -97,10 +100,9 @@ This approach:
 
 DynVision models the different delays associated with different connection types:
 
-- **Feedforward delays** (t_feedforward): Time for signals to propagate from one area to the next
-- **Recurrent delays** (t_recurrence): Time for signals to propagate within an area
-
-These delays are typically set to biologically plausible values (e.g., t_feedforward = 10ms, t_recurrence = 6ms).
+- **Feedforward delays** ($\Delta_{FF}$): Time for signals to propagate from one area to the next. Default `0 ms` in engineering-time unrolling; set positive (e.g. `10 ms`) for biological time.
+- **Recurrent delays** ($\Delta_{RC}$): Time for lateral signals to propagate within an area. Default `6 ms`.
+- **Skip delays** ($\Delta_{SK}$) and **feedback delays** ($\Delta_{FB}$): adjusted automatically when switching between engineering and biological time (see [Engineering vs. Biological Time](engineering-vs-biological-time.md)).
 
 ### 4. Supralinear Activation
 

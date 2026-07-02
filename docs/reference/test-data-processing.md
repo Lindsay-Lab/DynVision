@@ -59,6 +59,7 @@ reports/
 ### Purpose
 
 Processes individual test outputs by:
+
 1. Loading neural responses from `.pt` files
 2. Loading predictions and performance from `.csv` files
 3. Computing layer-wise statistics (mean, std, variance)
@@ -110,6 +111,7 @@ The `test_data.csv` file contains:
 ### Purpose
 
 Aggregates multiple processed test files by:
+
 1. Loading test_data.csv files from multiple experimental conditions
 2. Extracting metadata from configuration files and file paths
 3. Adding metadata columns (parameter values, categories, status)
@@ -217,6 +219,7 @@ Epoch values are automatically extracted from status strings containing `epoch=N
 **Pattern:** `epoch=(\d+)` within status string
 
 When `status="trained-epoch=150"`:
+
 - Status column: `"trained-epoch=150"`
 - Epoch column: `150` (auto-added to metadata)
 
@@ -231,9 +234,11 @@ def extract_status_from_path(file_path: Path) -> Optional[str]
 Extracts status value from file path.
 
 **Parameters:**
+
 - `file_path` (Path): Path to config or test_data file
 
 **Returns:**
+
 - `str`: Status string (e.g., `"trained"`, `"trained-epoch=150"`)
 - `None`: If status not found in path
 
@@ -256,9 +261,11 @@ def parse_status_string(status: str) -> Tuple[str, Optional[int]]
 Parses status string to extract base status and optional epoch.
 
 **Parameters:**
+
 - `status` (str): Status string from path
 
 **Returns:**
+
 - `Tuple[str, Optional[int]]`: (status, epoch) where epoch is `None` if not present
 
 **Example:**
@@ -286,15 +293,18 @@ def extract_param_from_string(
 Extracts parameter value from string using key-value pattern.
 
 **Parameters:**
+
 - `s` (str): String containing parameter (e.g., model arguments)
 - `key` (str): Parameter key to extract
 - `value_type` (Optional[type]): Expected type (`int`, `float`, `str`, or `None` for auto-detect)
 - `assigner` (str): Character separating key and value (default: `"="`)
 
 **Returns:**
+
 - Value of appropriate type, or `None` if not found
 
 **Raises:**
+
 - `ValueError`: If parameter not found or type mismatch
 
 **Example:**
@@ -328,6 +338,7 @@ def aggregate_test_data(
 Aggregates multiple test_data.csv files with metadata extraction.
 
 **Parameters:**
+
 - `test_data_files` (List[Path]): Paths to test_data.csv files
 - `config_files` (List[Path]): Paths to corresponding config.yaml files
 - `data_arg_key` (str): Primary parameter key to extract from data namespace
@@ -338,6 +349,7 @@ Aggregates multiple test_data.csv files with metadata extraction.
 - `extract_status` (bool): Whether to extract status from file paths
 
 **Returns:**
+
 - `Tuple[pd.DataFrame, List[Path]]`: (aggregated_dataframe, list_of_successful_files)
 
 **Example:**
@@ -406,6 +418,7 @@ When `status` is included in `additional_parameters`:
 Keeps all individual samples with their full temporal dynamics.
 
 **Output structure:**
+
 - One row per sample per timestep
 - All layer responses preserved
 - All performance metrics at sample level
@@ -417,11 +430,13 @@ Keeps all individual samples with their full temporal dynamics.
 Aggregates data by true label (class) across all samples.
 
 **Aggregation method:**
+
 - Layer responses: Mean across samples of same class
 - Performance metrics: Mean across samples of same class
 - Temporal dimension preserved (per-timestep aggregation)
 
 **Output structure:**
+
 - One row per class per timestep
 - Reduced data size for class-level comparisons
 
@@ -432,6 +447,7 @@ Aggregates data by true label (class) across all samples.
 ### Rule: aggregate_experiment_data
 
 **Input:**
+
 - Expanded list of `test_data.csv` files across category values
 - Corresponding `test_outputs.csv.config.yaml` files
 
@@ -505,6 +521,7 @@ python aggregate_experiment_data.py \
 ```
 
 Result includes:
+
 - `status`: Full status strings (`"trained-epoch=0"`, `"trained-epoch=50"`, ...)
 - `epoch`: Extracted integers (`0`, `50`, ...)
 
@@ -523,6 +540,7 @@ Result includes:
 - **Concatenation**: O(n) in number of files
 
 **Optimization tips:**
+
 1. Use `fail_on_missing_inputs=False` for partial results during development
 2. Process subsets of conditions first to validate pipeline
 3. Use class resolution for exploratory analysis, sample resolution for final analysis
@@ -558,10 +576,12 @@ Warning: extract_status=True but no status found in path: .../test_data.csv
 ### Tolerance Modes
 
 **Strict mode** (`fail_on_missing_inputs=True`, default):
+
 - Fails immediately on missing files or parameters
 - Use for production pipelines
 
 **Tolerant mode** (`fail_on_missing_inputs=False`):
+
 - Skips missing files with warnings
 - Continues processing remaining files
 - Use during development or for partial results
@@ -603,9 +623,9 @@ python plot_training.py \
 
 ## Related Documentation
 
-- [Testing Guide](../user-guide/testing.md) - How to run tests and configure test parameters
-- [Snakemake Workflow](../user-guide/workflow.md) - Complete workflow orchestration
-- [Visualization Reference](visualization.md) - Plotting aggregated data
+- [Testing Guide](../user-guide/model-testing.md) - How to run tests and configure test parameters
+- [Workflows Guide](../user-guide/workflows.md) - Complete workflow orchestration
+- [Visualization Guide](../user-guide/visualization.md) - Plotting aggregated data
 - [Configuration System](configuration.md) - Parameter management and config files
 
 ## Notes
@@ -613,11 +633,13 @@ python plot_training.py \
 ### Path-Based vs Config-Based Parameters
 
 **Path-based** (extracted from file paths):
+
 - `category`: Model argument wildcard (e.g., `rctype=none`)
 - `status`: Model checkpoint indicator (e.g., `trained-epoch=150`)
 - `epoch`: Auto-extracted from status when present
 
 **Config-based** (extracted from .config.yaml):
+
 - All `data.*` parameters
 - All `model.*` parameters
 - Unscoped parameters (e.g., `seed`)
@@ -627,6 +649,7 @@ python plot_training.py \
 ### Automatic Epoch Handling
 
 When `status` contains `epoch=N`:
+
 - Epoch is automatically added to `extra_values`
 - No need to manually add `'epoch'` to `additional_parameters` (though it's harmless to do so)
 - Epoch column always present when status indicates specific epoch

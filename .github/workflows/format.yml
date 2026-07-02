@@ -1,0 +1,49 @@
+name: Format
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install formatters
+        run: pip install "black>=26.5.1" autoflake
+
+      - name: Run black
+        run: black --config pyproject.toml dynvision
+
+      - name: Run autoflake (remove unused imports and variables)
+        run: autoflake --in-place --remove-all-unused-imports --remove-unused-variables --recursive dynvision
+
+      - name: Re-run black after autoflake
+        run: black --config pyproject.toml dynvision
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "style: auto-format by black + autoflake"
+            # GITHUB_TOKEN has push access to same-repo PR branches but not fork PRs.
+            # Fork PRs skip gracefully — the lint CI job still verifies formatting.
+            git push origin HEAD:${{ github.event.pull_request.head.ref }} 2>&1 || echo "Push skipped (fork PR — lint CI will verify)"
+          fi

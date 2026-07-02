@@ -1,4 +1,6 @@
-# User Guide
+---
+title: How-to Guides
+---
 
 Welcome to the DynVision User Guide! This section provides task-oriented guides to help you accomplish specific goals with DynVision.
 
@@ -11,17 +13,21 @@ Welcome to the DynVision User Guide! This section provides task-oriented guides 
 - [**Data Processing**](data-processing.md): Working with datasets and data loaders
 - [**Temporal Data Presentation**](temporal-data-presentation.md): Controlling temporal dynamics and stimulus presentation patterns
 - [**Workflow Management**](workflows.md): Using Snakemake for experiment orchestration
+- [**Training**](training.md): Training models and generating checkpoints
+- [**Model Testing**](model-testing.md): Evaluating trained models on test data
 - [**Visualization**](visualization.md): Visualizing and analyzing results
 - [**Cluster Integration**](cluster-integration.md): Running DynVision on high-performance computing clusters
 - [**Troubleshooting**](troubleshooting.md): Common issues and solutions
 
-<!-- ### Advanced Topics
+### Planned Guides
 
-- [**Model Evaluation**](evaluation.md): Evaluating model performance and biological plausibility
-- [**Hyperparameter Optimization**](hyperparameter-optimization.md): Systematic parameter tuning
-- [**Custom Experiments**](custom-experiments.md): Designing and implementing new experiments
-- [**Performance Optimization**](performance-optimization.md): Making DynVision run faster
-- [**Transfer Learning**](transfer-learning.md): Using pre-trained models -->
+The following guides are planned for future releases:
+
+- **Model Evaluation**: evaluating model performance and biological plausibility
+- **Hyperparameter Optimization**: systematic parameter tuning
+- **Custom Experiments**: designing and implementing new experiments
+- **Performance Optimization**: making DynVision run faster
+- **Transfer Learning**: using pre-trained models
 
 ### Common Tasks
 

@@ -7,13 +7,13 @@ and callback settings.
 """
 
 from pydantic import Field, field_validator, model_validator, ConfigDict
-from typing import Dict, Any, Optional, List, Union, Tuple, ClassVar, Sequence
+from typing import Dict, Any, Optional, Union, ClassVar, Sequence
 import logging
 import pytorch_lightning as pl
 from datetime import timedelta
 import torch
 import os
-from dynvision.params.base_params import BaseParams, DynVisionValidationError
+from dynvision.params.base_params import BaseParams
 from dynvision.utils import (
     SummaryItem,
     get_effective_dtype_from_precision,
@@ -52,7 +52,8 @@ class TrainerParams(BaseParams):
         ..., ge=1, description="Number of batches to accumulate gradients"
     )
     precision: Union[int, str] = Field(
-        ..., description="Training precision (16, 32, 64, '16', '32', '64', 'bf16', '16-mixed', 'bf16-mixed') - Lightning 2.0+"
+        ...,
+        description="Training precision (16, 32, 64, '16', '32', '64', 'bf16', '16-mixed', 'bf16-mixed') - Lightning 2.0+",
     )
     deterministic: Union[bool, str] = Field(
         ..., description="Enable deterministic training (True, False, 'warn')"
@@ -648,7 +649,9 @@ class TrainerParams(BaseParams):
                 if self._detect_available_gpu_count() > 0:
                     trainer_kwargs["accelerator"] = "gpu"
                     # Use configured devices or default to 1 for single-device training
-                    trainer_kwargs["devices"] = self.devices if self.devices is not None else 1
+                    trainer_kwargs["devices"] = (
+                        self.devices if self.devices is not None else 1
+                    )
                 # If no GPU available, let Lightning default to CPU (don't set accelerator)
             else:
                 # User explicitly specified accelerator

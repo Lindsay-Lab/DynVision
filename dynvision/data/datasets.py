@@ -9,7 +9,7 @@ Performance Features:
 
 Usage:
     from dynvision.data.datasets import get_dataset
-    
+
     dataset = get_dataset(
         data_path=Path('data/images'),
         data_transform='imagenet_train',
@@ -34,7 +34,6 @@ from dynvision.data.transforms import (
     get_data_transform,
     get_target_transform,
 )
-
 
 logger = logging.getLogger(__name__)
 

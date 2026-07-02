@@ -17,6 +17,7 @@ DynVision is a modular toolbox for constructing and evaluating recurrent convolu
 **Design Philosophy**: DynVision prioritizes biological plausibility while maintaining computational efficiency, focusing on continuous-time neural dynamics, heterogeneous temporal delays, and modular component composition.
 
 **Key Scientific Goals**:
+
 - Enable systematic exploration of recurrent dynamics in visual processing
 - Bridge computational neuroscience and deep learning
 - Maintain biological plausibility while ensuring computational efficiency
@@ -102,6 +103,7 @@ automatically publish to PyPI via OIDC trusted publishing.
 **Prerequisites (one-time setup):**
 
 Add the Lindsay-Lab/DynVision repository as a trusted publisher on both:
+
 - [PyPI](https://pypi.org/manage/project/dynvision/settings/publishing/)
 - [Test PyPI](https://test.pypi.org/manage/project/dynvision/settings/publishing/)
 
@@ -119,21 +121,21 @@ snakemake <project_paths.data.interim>/<dataset_name>/train_all.ready
 Before making any changes:
 
 1. **Understand the Scientific Context**:
-   - What biological/computational principle is being implemented?
-   - How does this relate to visual neuroscience or neural dynamics?
-   - What are the mathematical foundations (ODEs, connectivity patterns, etc.)?
+      - What biological/computational principle is being implemented?
+      - How does this relate to visual neuroscience or neural dynamics?
+      - What are the mathematical foundations (ODEs, connectivity patterns, etc.)?
 
 2. **Find Existing Patterns**:
-   - Search for similar implementations in the codebase
-   - Check if related functionality exists in model_components/
-   - Review how other models implement similar features
-   - Look for established parameter handling patterns
+      - Search for similar implementations in the codebase
+      - Check if related functionality exists in model_components/
+      - Review how other models implement similar features
+      - Look for established parameter handling patterns
 
 3. **Review Documentation**:
-   - Check docstrings for scientific context and parameter meanings
-   - Review config files to understand parameter ranges and defaults
-   - Consult planning/todo-*.md for known issues and planned work
-   - Reference software-patterns.md for architectural guidance
+      - Check docstrings for scientific context and parameter meanings
+      - Review config files to understand parameter ranges and defaults
+      - Consult planning/todo-*.md for known issues and planned work
+      - Reference software-patterns.md for architectural guidance
 
 ### Scientific Correctness is Paramount
 
@@ -146,6 +148,7 @@ Before making any changes:
 ### Performance Considerations
 
 DynVision runs on GPUs and HPC clusters, so:
+
 - **Profile before optimizing**: Use PyTorch profiler to identify actual bottlenecks
 - **Minimize CPU-GPU transfers**: Keep computations on device
 - **Leverage PyTorch Lightning**: Use built-in optimizations (mixed precision, DDP)
@@ -173,6 +176,7 @@ DynVision runs on GPUs and HPC clusters, so:
 ### Communication Guidelines
 
 When proposing changes:
+
 - **Explain the "why"**: Scientific motivation, not just technical implementation
 - **Show trade-offs**: Performance vs clarity, biological plausibility vs computational cost
 - **Provide alternatives**: Multiple valid approaches often exist
@@ -182,10 +186,11 @@ When proposing changes:
 ### Common Workflows
 
 See the sections below for detailed guidance on:
+
 - [Adding a new model](#adding-a-new-model) (workflow section)
-- [Adding a new recurrent connection type](#adding-recurrent-connections) (architecture section)
-- [Adding a new experiment](#adding-experiments) (workflow section)
-- [Debugging temporal dynamics](#debugging-tips) (known issues section)
+- [Modifying recurrent connections](#modifying-recurrent-connections) (architecture section)
+- [Adding a new experiment](#adding-a-new-experiment) (workflow section)
+- [Known issues](#known-issues-and-inconsistencies) (known issues section)
 
 ## Architecture Overview
 
@@ -205,6 +210,7 @@ TemporalBase    LightningBase    StorageBufferMixin   MonitoringMixin   DtypeDev
 ```
 
 **MRO Inheritance Order**:
+
 1. `TemporalBase` - Provides core neural network methods (forward, _define_architecture)
 2. `LightningBase` - Can call DynVision methods in training steps
 3. `StorageBufferMixin` - Adds Lightning hooks for response storage
@@ -214,34 +220,40 @@ TemporalBase    LightningBase    StorageBufferMixin   MonitoringMixin   DtypeDev
 ### Key Base Classes
 
 **TemporalBase** (`base/temporal.py`):
+
 - Core neural dynamics: timesteps, temporal delays, data presentation patterns
 - Manages delays for feedforward (t_feedforward), recurrent (t_recurrence), skip (t_skip), and feedback (t_feedback) connections
 - Implements `_process_input_dimensions()`, `forward()`, abstract `_define_architecture()`
 - Handles DataBuffer instances for delayed activations
 
 **LightningBase** (`base/lightning.py`):
+
 - PyTorch Lightning integration: training configuration, loss computation, optimizer setup
 - Implements `model_step()`, `training_step()`, `validation_step()`, `configure_optimizers()`
 - Supports multiple loss functions via `criterion_params` list
 - Parameter grouping for different learning rates (regular, recurrence, feedback)
 
 **DtypeDeviceCoordinator** (`base/coordination.py`):
+
 - Auto-discovery network to coordinate dtype/device across modules with persistent state
 - Builds coordination graph via `build_coordination_network()`
 - Propagates dtype/device sync with `propagate_dtype_sync()`
 - Only active in non-distributed setups (disabled when `WORLD_SIZE > 1`)
 
 **StorageBuffer / StorageBufferMixin** (`base/storage.py`):
+
 - `DataBuffer` class: Circular buffers for managing delayed activations across timesteps
 - Response storage and retrieval via `get_responses()`, `get_dataframe()`
 - Configurable CPU vs GPU storage for memory management
 
 **Monitoring / MonitoringMixin** (`base/monitoring.py`):
+
 - Activity recording during forward passes
 - Parameter statistics logging: `log_param_stats()`
 - Weight checking: `_check_weights()` for NaN/Inf detection
 
 **Alternative Compositions**:
+
 - `CoreModel`: TemporalBase + DtypeDeviceCoordinatorMixin only
 - `MonitoredModel`: TemporalBase + MonitoringMixin + DtypeDeviceCoordinatorMixin (no Lightning)
 
@@ -276,6 +288,7 @@ TemporalBase    LightningBase    StorageBufferMixin   MonitoringMixin   DtypeDev
 - **topographic_recurrence.py**: Local/topographic connectivity patterns
 
 **Models** (`dynvision/models/`):
+
 - `dyrcnn.py`: DyRCNNx2, DyRCNNx4, DyRCNNx8 (2/4/8 layer RCNNs with biological features)
 - `alexnet.py`: AlexNet variants with optional recurrence
 - `resnet.py`: ResNet variants (18, 20, 44, 1202)
@@ -294,6 +307,7 @@ Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
 ```
 
 **Workflow Files**:
+
 - `Snakefile`: Main entry point, includes all sub-workflows, defines top-level targets
 - `snake_utils.smk`: Shared utilities (config processing, path handling, argument parsing)
 - `snake_data.smk`: Data download, preprocessing, dataset creation, FFCV conversion
@@ -303,6 +317,7 @@ Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
 - `config_handler.py`: Processes YAML config files and applies wildcard substitutions
 
 **Key Rules**:
+
 - `init_model`: Initialize model architecture from config
 - `train_model`: Train with PyTorch Lightning
 - `test_model`: Evaluate on test scenarios (StimulusDuration, StimulusContrast, noise variants)
@@ -310,6 +325,7 @@ Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
 - `plot_*`: Various visualization rules
 
 **Runtime Scripts** (`dynvision/runtime/`):
+
 - `init_model.py`: Initialize model architecture, save state dict
 - `train_model.py`: Training loop with PyTorch Lightning Trainer
 - `test_model.py`: Evaluation on various test scenarios
@@ -317,6 +333,7 @@ Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
 ### Configuration System
 
 **Config Files** (`dynvision/configs/`):
+
 - `config_defaults.yaml`: Default model/training/data parameters
 - `config_runtime.yaml`: Training hyperparameters (epochs, batch size, optimizer settings)
 - `config_data.yaml`: Dataset definitions, paths, preprocessing options
@@ -330,18 +347,21 @@ Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
 **Parameter Handling System** (`dynvision/params/`):
 
 A sophisticated Pydantic-based validation system with four layers:
+
 1. **Configuration Layer**: YAML files with operational mode management
 2. **Validation Layer**: Pydantic type checking and constraint enforcement
 3. **Composition Layer**: Script-specific parameter combinations (ModelParams, TrainerParams, DataParams)
 4. **Runtime Layer**: Model/trainer/dataloader instantiation
 
 **Parameter Precedence** (lowest to highest):
+
 1. YAML Configuration Files
 2. Snakemake CLI (`snakemake --config param=value`)
 3. Python Script CLI (arguments passed to scripts within rules)
 4. Direct Override kwargs (programmatic)
 
 **Key Parameter Classes**:
+
 - `BaseParams`: Foundation with CLI parsing, config loading, alias resolution
 - `ModelParams`: Neural architecture, biological parameters, optimizer config
 - `TrainerParams`: PyTorch Lightning settings, system config
@@ -350,6 +370,7 @@ A sophisticated Pydantic-based validation system with four layers:
 - `InitParams`, `TestingParams`: Task-specific compositions
 
 **Config Modes**: Auto-detected or explicit parameter overrides based on context
+
 - `debug`: Triggered when log_level="DEBUG" or epochs ≤ 5
 - `large_dataset`: Activated for ImageNet, COCO, OpenImages
 - `distributed`: Must be explicitly enabled
@@ -378,6 +399,7 @@ When adjusting logging verbosity:
 4. DataLoaders handle both FFCV and PyTorch loading modes
 
 **Key Data Classes** (`dynvision/data/`):
+
 - `ffcv_dataloader.py`: Fast FFCV-based loading with `OS_CACHE` and `QUASI_RANDOM` ordering
 - `dataloader.py`: Standard PyTorch DataLoader wrapper
 - `datasets.py`: Custom dataset classes
@@ -395,6 +417,7 @@ When adjusting logging verbosity:
 Many parameters have shortened aliases (defined via `@alias_kwargs` decorator):
 
 **Temporal Parameters**:
+
 - `trc` → `t_recurrence` (recurrent delay in ms)
 - `tff` → `t_feedforward` (feedforward delay in ms)
 - `tsk` → `t_skip` (skip connection delay in ms)
@@ -404,12 +427,14 @@ Many parameters have shortened aliases (defined via `@alias_kwargs` decorator):
 - `tau` → neural time constant (ms)
 
 **Model Parameters**:
+
 - `rctype` → `recurrence_type` (full, self, pointdepthwise, depthpointwise, local, localdepthwise)
 - `rctarget` → `recurrence_target` (output, input, middle)
 - `solver` → `dynamics_solver` (euler, rk4)
 - `lossrt` → `loss_reaction_time` (ms after stimulus onset to apply loss)
 
 **Training Parameters**:
+
 - `lr` → `learning_rate`
 - `ffonly` → `feedforward_only` (disable recurrence)
 - `inadapt` → `input_adaption_weight`
@@ -418,6 +443,7 @@ Many parameters have shortened aliases (defined via `@alias_kwargs` decorator):
 ### Model Initialization Order
 
 When creating a model, initialization follows this sequence:
+
 1. `__init__()` sets attributes (dt, tau, delays, etc.)
 2. `_process_input_dimensions()` determines batch/time dimensions
 3. `_define_architecture()` constructs layers (**must be implemented by subclass**)
@@ -439,6 +465,7 @@ When creating a model, initialization follows this sequence:
 Layers can define a custom sequence of operations via `layer_operations` list:
 
 **Standard Operations**:
+
 - `layer`: Main computation (conv, linear)
 - `tstep`: Dynamics evolution (EulerStep, RungeKuttaStep)
 - `nonlin`: Nonlinearity (ReLU, supralinear, etc.)
@@ -461,6 +488,7 @@ Snakemake uses wildcards in file paths to generate parameter sweeps:
 {model_name}{model_args}_{seed}_{data_name}_{status}_{data_loader}{data_args}_{data_group}
 
 Components:
+
 - model_name: DyRCNNx8, AlexNet, ResNet18
 - model_args: :tsteps=20+rctype=full+tau=5
 - seed: 0000, 0040 (for reproducibility)
@@ -474,11 +502,13 @@ Components:
 ## Project Paths
 
 Edit `dynvision/project_paths.py` to configure:
+
 - `working_dir`: Root for data, models, reports (default: `/home/rgutzen/01_PROJECTS/rhythmic_visual_attention`)
 - `toolbox_dir`: Codebase location (default: auto-detected)
 - Automatically detects cluster environment (checks for SLURM) and redirects large data to scratch partition
 
 **Important Directories**:
+
 - `data/interim/{dataset}/`: Prepared datasets with symlinks
 - `models/{model_name}/`: Trained model checkpoints (`.pt` files)
 - `reports/{experiment}/{full_model_spec}/`: Test results and CSV files
@@ -497,6 +527,7 @@ Models use differential equations rather than discrete updates:
 ```
 
 Where:
+
 - τ (tau): time constant controlling response speed (5-20ms typical)
 - dt: integration time step (1-5ms typical)
 - Φ: nonlinearity (ReLU, supralinear)
@@ -505,12 +536,14 @@ Where:
 ### Temporal Delays
 
 Different connection types have different propagation delays:
+
 - **Feedforward** (t_feedforward): Typically 10ms (longer-range projections)
 - **Recurrent** (t_recurrence): Typically 6ms (shorter-range lateral)
 - **Skip** (t_skip): Variable, can match feedback
 - **Feedback** (t_feedback): Typically > 30ms (top-down from higher areas)
 
 These create **temporally heterogeneous responses** - signals arrive at different layers at different times, mimicking biological response latencies:
+
 - V1: ~40-60ms after stimulus
 - V2: ~50-70ms
 - V4: ~60-80ms
@@ -605,6 +638,7 @@ DynVision includes cluster integration via Snakemake's cluster plugins with **au
 ```
 
 **Automatic Detection:**
+
 - Detects SLURM, PBS, LSF, SGE via environment variables
 - No configuration needed for cluster vs. local execution
 - See `is_cluster_execution()` in `workflow/snake_utils.smk`
@@ -624,6 +658,7 @@ See `cluster/` directory for cluster-specific configuration files and `cluster/e
 The repository does not currently have a formal test suite (no `tests/` directory or pytest configuration).
 
 **When adding tests**:
+
 - Create `tests/` directory
 - Add pytest to dev dependencies in `pyproject.toml`
 - Test critical paths: temporal dynamics, recurrence integration, data loading, parameter validation
@@ -633,6 +668,7 @@ The repository does not currently have a formal test suite (no `tests/` director
 See [`docs/development/planning/todo-docs.md`](../planning/todo-docs.md) for a comprehensive list of documentation-implementation mismatches and areas needing improvement.
 
 **Major Known Issues**:
+
 1. Makefile targets reference old project name `rhythmic_visual_attention` instead of `dynvision`
 2. `project_paths.py` has mixed naming (project_name vs toolbox_name)
 3. Git status shows modified files in model components and coordination - review before committing
@@ -640,18 +676,18 @@ See [`docs/development/planning/todo-docs.md`](../planning/todo-docs.md) for a c
 
 ## References and Documentation
 
-- [Getting Started Guide](docs/getting-started.md): First steps with DynVision
-- [Design Philosophy](docs/explanation/design-philosophy.md): Core design principles
-- [Temporal Dynamics](docs/explanation/temporal_dynamics.md): Understanding temporal properties
-- [Biological Plausibility](docs/explanation/biological-plausibility.md): Alignment with neural systems
-- [Model Components Reference](docs/reference/model-components.md): Core building blocks
-- [Recurrence Types](docs/reference/recurrence-types.md): Different recurrent implementations
-- [Dynamics Solvers](docs/reference/dynamics-solvers.md): ODE solvers
-- [Configuration Reference](docs/reference/configuration.md): Config file documentation
-- [Workflows Guide](docs/user-guide/workflows.md): Snakemake workflow management
-- [Custom Models Guide](docs/user-guide/custom-models.md): Creating custom architectures
-- [Parameter Handling](docs/user-guide/parameter-handling.md): Sophisticated parameter system
-- [Software Patterns](docs/development/software-patterns.md): Design patterns used in DynVision
+- [Getting Started Guide](../../getting-started.md): First steps with DynVision
+- [Design Philosophy](../../explanation/design-philosophy.md): Core design principles
+- [Temporal Dynamics](../../explanation/temporal_dynamics.md): Understanding temporal properties
+- [Biological Plausibility](../../explanation/biological-plausibility.md): Alignment with neural systems
+- [Model Components Reference](../../reference/model-components.md): Core building blocks
+- [Recurrence Types](../../reference/recurrence-types.md): Different recurrent implementations
+- [Dynamics Solvers](../../reference/dynamics-solvers.md): ODE solvers
+- [Configuration Reference](../../reference/configuration.md): Config file documentation
+- [Workflows Guide](../../user-guide/workflows.md): Snakemake workflow management
+- [Custom Models Guide](../../user-guide/custom-models.md): Creating custom architectures
+- [Parameter Handling](../../user-guide/parameter-handling.md): Sophisticated parameter system
+- [Software Patterns](software-patterns.md): Design patterns used in DynVision
 
 ## Quick Reference
 
@@ -672,6 +708,7 @@ snakemake --forcerun test_model --config experiment=contrast
 ```
 
 **Key Files to Edit**:
+
 - Model architecture: `dynvision/models/<model_name>.py`
 - Experiments: `dynvision/configs/config_experiments.yaml`
 - Workflow: `dynvision/workflow/Snakefile` and `snake_*.smk`
@@ -698,6 +735,7 @@ This guide provides **project-specific** context for DynVision. It should be use
 ### When Something is Unclear
 
 If you encounter ambiguity or need clarification:
+
 - Check if it's documented in [planning/todo-docs.md](../planning/todo-docs.md) as a known issue
 - Search the codebase for similar implementations
 - Review config files for parameter defaults and ranges

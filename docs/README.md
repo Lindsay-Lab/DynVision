@@ -1,12 +1,17 @@
 Generating the docs
 ----------
 
-Use [mkdocs](http://www.mkdocs.org/) structure to update the documentation. 
+Uses [MkDocs](https://www.mkdocs.org/) with the
+[Material for MkDocs](https://squidfunk.github.io/mkdocs-material/) theme.
 
-Build locally with:
+Install doc dependencies:
 
-    mkdocs build
+    pip install -e ".[doc]"
 
-Serve locally with:
+Build and preview locally (from the repo root):
 
-    mkdocs serve
+    # Build the site into ../site (exit 0 = success)
+    python -m mkdocs build --config-file docs/mkdocs.yml
+
+    # Serve with live-reload on http://127.0.0.1:8000
+    python -m mkdocs serve --config-file docs/mkdocs.yml

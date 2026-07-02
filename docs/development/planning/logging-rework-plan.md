@@ -24,6 +24,7 @@ Goal: replace the generic `(override)` / `(adjusted)` markers with explicit prov
 	- `config:<path>` – loaded from a config file; `<path>` can encode mode sections (e.g., `config:init.model`).
 	- `cli` – provided via CLI/Snakemake arguments after alias resolution.
 	- `override` – supplied through `override_kwargs` / programmatic injection (highest static priority).
+
 2. **Mutation Type** – whether the value was changed after instantiation:
 	- `runtime` – adjusted via `update_field` (dataset inference, validation correction).
 	- `derived` – computed from other fields during validators (e.g., implicit defaults that are functions of other params).
@@ -105,6 +106,7 @@ We record both dimensions so a log entry can say `(config:init.model; runtime)` 
 	- Prototype a `log_section_table` helper (inspired by the weight-check tables inside `dynvision/base/monitoring.py`) that auto-aligns columns and keeps headers to 1–2 lines while still emitting plain text.
 	- Apply the helper to the heaviest INFO blocks first (`training_run`, `creating_trainer`, `checkpoint_selection`) so operators can skim the columns, keeping richer provenance data in the suffix markers.
 	- Gate the textual table rendering behind INFO, but emit a one-line summary and keep the detailed tables at DEBUG when `verbose` is off; document the convention alongside examples so Snakemake logs remain predictable.
+
 10. Add regression notes/tests (even simple scripts) to ensure `SimpleDataModule`/`TestingDataModule` continue logging provenance correctly when new params are introduced and that the preview→active diff remains obvious despite the DEBUG demotion.
 11. Review `dynvision/base/monitoring.py` and port the existing banners/memory diagnostics onto `log_section` helpers (e.g., `training_start`, `system_resources`) so model-internal instrumentation matches the Params-driven style.
 

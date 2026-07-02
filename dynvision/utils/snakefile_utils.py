@@ -18,10 +18,7 @@ Usage:
 
 import logging
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
-
-from snakemake.logging import logger
-
+from typing import Any, Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
 
@@ -31,13 +28,13 @@ def in_quotes(obj: Any, characters: Optional[List[str]] = None) -> bool:
 
     Args:
         obj: Object to check
-        characters: Characters requiring quotes (default: ["\s", "|"])
+        characters: Characters requiring quotes (default: ["\\s", "|"])
 
     Returns:
         Whether object needs quotes
     """
     if characters is None:
-        characters = ["\s", "|"]
+        characters = ["\\s", "|"]
     return any(c in str(obj) for c in characters)
 
 

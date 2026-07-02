@@ -13,6 +13,7 @@ Architectural patterns define the high-level organization of software systems, a
 **Description**: Organizes components into horizontal layers where each layer provides services to the layer above it and uses services from the layer below.
 
 **When to use**:
+
 - For complex systems that benefit from separation of concerns
 - When different aspects of functionality need to evolve independently
 - For systems requiring clear boundaries between components (e.g., presentation, business logic, data)
@@ -56,6 +57,7 @@ class VisualizationLayer:
 **Description**: Organizes the system as a series of processing stages where the output of one stage is the input to the next.
 
 **When to use**:
+
 - For data processing workflows with well-defined stages
 - When operations need to be chained sequentially
 - For parallel processing of multiple data streams
@@ -91,6 +93,7 @@ result = pipeline.process(input_data)
 **Description**: Focuses on modeling the domain and defining bounded contexts that encapsulate domain logic.
 
 **When to use**:
+
 - For complex domains with rich business rules and constraints
 - When collaborating with domain experts
 - When building systems that need to align closely with real-world concepts
@@ -131,6 +134,7 @@ class NeuralSimulationService:
 **Description**: Components communicate through events, allowing for loose coupling and flexibility.
 
 **When to use**:
+
 - For systems with asynchronous behavior
 - When components need to react to changes in state
 - For building responsive, real-time systems
@@ -178,6 +182,7 @@ Creational patterns deal with object creation mechanisms, encapsulating knowledg
 **Description**: Defines an interface for creating an object, but lets subclasses decide which class to instantiate.
 
 **When to use**:
+
 - When a class can't anticipate the type of objects it must create
 - When you want to delegate responsibility to subclasses
 - For dynamic selection of implementation classes
@@ -223,6 +228,7 @@ def build_model(recurrence_type, input_shape):
 **Description**: Provides an interface for creating families of related or dependent objects without specifying their concrete classes.
 
 **When to use**:
+
 - When the system needs to be independent of how its products are created
 - When families of related products are designed to be used together
 - When you want to provide a library of products and reveal only their interfaces
@@ -292,6 +298,7 @@ standard_network = standard_builder.build_network()
 **Description**: Separates the construction of complex objects from their representation, allowing the same construction process to create different representations.
 
 **When to use**:
+
 - When the construction process is complex with many optional parameters
 - When different representations of an object need to be created
 - To encapsulate code for construction and representation
@@ -343,6 +350,7 @@ model = builder.set_recurrence_type('full') \
 **Description**: Ensures a class has only one instance and provides a global point of access to it.
 
 **When to use**:
+
 - When exactly one instance of a class is needed
 - When you need centralized access to a resource
 - For managing shared state or configuration
@@ -382,6 +390,7 @@ batch_size = config.get('batch_size', 32)
 **Description**: Creates new objects by copying an existing object, known as the prototype.
 
 **When to use**:
+
 - When creating a new object is more expensive than copying an existing one
 - When objects have many possible configurations
 - When the system needs to be independent of how objects are created
@@ -429,6 +438,7 @@ Structural patterns deal with how classes and objects are composed to form large
 **Description**: Converts the interface of a class into another interface clients expect.
 
 **When to use**:
+
 - When you need to use an existing class with an incompatible interface
 - When you want to reuse existing functionality without modifying the source code
 - When integrating with external libraries or systems
@@ -486,6 +496,7 @@ result = tensor_ops.add(t1, t2)
 **Description**: Provides a unified interface to a set of interfaces in a subsystem.
 
 **When to use**:
+
 - When you need a simple interface to a complex subsystem
 - When there are many dependencies between clients and implementation classes
 - When you want to layer your subsystems
@@ -556,6 +567,7 @@ print(f"Accuracy: {results['accuracy']}")
 **Description**: Composes objects into tree structures to represent part-whole hierarchies.
 
 **When to use**:
+
 - When you want to represent part-whole hierarchies of objects
 - When clients should be able to treat individual objects and compositions uniformly
 - For tree-like structures where components can contain other components
@@ -645,6 +657,7 @@ params = model.parameters()
 **Description**: Attaches additional responsibilities to an object dynamically.
 
 **When to use**:
+
 - When you need to add responsibilities to objects dynamically and transparently
 - When extending functionality by subclassing is impractical
 - When you want to keep new functionality separate
@@ -737,6 +750,7 @@ batch = augmented_cached_loader.load_batch(5)
 **Description**: Separates an abstraction from its implementation so that both can vary independently.
 
 **When to use**:
+
 - When you want to avoid a permanent binding between an abstraction and its implementation
 - When both the abstraction and implementation should be extensible by subclassing
 - When changes in the implementation should not impact the client code
@@ -811,6 +825,7 @@ Behavioral patterns are concerned with algorithms and the assignment of responsi
 **Description**: Defines a family of algorithms, encapsulates each one, and makes them interchangeable.
 
 **When to use**:
+
 - When you need different variants of an algorithm
 - When you want to isolate the algorithm from the code that uses it
 - When you have multiple conditional statements in your code
@@ -872,6 +887,7 @@ output2 = layer.forward("Input 2")
 **Description**: Defines a one-to-many dependency between objects so that when one object changes state, all its dependents are notified and updated automatically.
 
 **When to use**:
+
 - When a change to one object requires changing others, and you don't know how many objects need to change
 - When an object should be able to notify other objects without making assumptions about them
 - For event handling systems
@@ -987,6 +1003,7 @@ trainer.train(epochs=20)
 **Description**: Encapsulates a request as an object, allowing you to parameterize clients with different requests, queue or log requests, and support undoable operations.
 
 **When to use**:
+
 - When you want to parameterize objects with operations
 - When you want to queue operations, schedule their execution, or execute them remotely
 - When you need to support undoable operations
@@ -1114,6 +1131,7 @@ manager.undo_last_command()
 **Description**: Defines the skeleton of an algorithm in a method, deferring some steps to subclasses.
 
 **When to use**:
+
 - When you want to let clients extend only particular steps of an algorithm
 - When you have several classes that contain almost identical algorithms with minor variations
 - To implement the invariant parts of an algorithm once and leave the variable parts to subclasses
@@ -1232,6 +1250,7 @@ rnn_model, rnn_metrics = rnn_pipeline.train_model("/data/texts")
 **Description**: Allows an object to alter its behavior when its internal state changes.
 
 **When to use**:
+
 - When an object's behavior depends on its state, and it must change behavior at runtime
 - When operations have large, multipart conditional statements that depend on the object's state
 - To avoid duplication of state-specific code across multiple methods
@@ -1328,6 +1347,7 @@ for t, input_current in enumerate(inputs):
 **Description**: Provides a way to access the elements of an aggregate object sequentially without exposing its underlying representation.
 
 **When to use**:
+
 - When you want to access an aggregate object's contents without exposing its internal structure
 - When you want to support multiple traversal methods for an aggregate object
 - When you want to provide a uniform interface for traversing different structures
@@ -1434,6 +1454,7 @@ while ts_iterator.has_next() and window_count < 5:  # Limit to 5 windows for bre
 **Description**: Represents an operation to be performed on the elements of an object structure.
 
 **When to use**:
+
 - When you need to perform operations on all elements of a complex object structure
 - When the classes defining the object structure rarely change, but operations performed on them change frequently
 - When you want to keep related operations together instead of spreading them across classes
@@ -1577,6 +1598,7 @@ These patterns are particularly relevant to scientific computing and neural netw
 **Description**: Represents computational operations as a directed graph where nodes are operations and edges represent data flow.
 
 **When to use**:
+
 - For building neural networks with automatic differentiation
 - For creating complex computation pipelines
 - When operations can be optimized through graph transformations
@@ -1710,6 +1732,7 @@ print(f"Gradient of w2: {w2.gradient}")
 **Description**: Delays the evaluation of expressions until their values are needed, allowing for optimization opportunities.
 
 **When to use**:
+
 - When computations are expensive and might not be needed
 - For handling large datasets that don't fit in memory
 - To optimize computational graphs before execution
@@ -1821,6 +1844,7 @@ print(f"First ten elements: {first_ten}")
 **Description**: Centralizes the management of model parameters for easier optimization, serialization, and tracking.
 
 **When to use**:
+
 - For complex models with many parameters
 - When parameters need to be optimized jointly
 - For tracking parameter changes during training
@@ -1954,6 +1978,7 @@ param_manager.load("/tmp/model_params.npz")
 **Description**: Separates data loading, preprocessing, and augmentation into a modular and efficient pipeline.
 
 **When to use**:
+
 - When dealing with complex data processing workflows
 - For handling large datasets efficiently
 - To ensure reproducible data processing
@@ -2110,6 +2135,7 @@ for i, (features, labels) in enumerate(eval_pipeline.process(dataset)):
 **Description**: Manages experiment configuration, logging, and results tracking for reproducible research.
 
 **When to use**:
+
 - For tracking multiple experiment runs
 - To ensure reproducibility of results
 - For comparing different model configurations

@@ -705,14 +705,6 @@ class CustomRK4(nn.Module):
         pass
 ```
 
-## Complete Examples
-
-You can find complete examples of custom models in the `examples/` directory of the DynVision repository:
-
-1. `examples/custom_models/simple_rcnn.py` - A simple recurrent CNN
-2. `examples/custom_models/adaptive_rcnn.py` - RCNN with adaptive recurrence
-3. `examples/custom_models/multi_area_model.py` - More complex model with multiple areas
-
 ## Best Practices
 
 When building custom models:

@@ -23,9 +23,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libopencv-dev pkg-config libturbojpeg0-dev
+
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           # Install CPU-only PyTorch first to avoid ~2.5GB CUDA download
@@ -51,9 +55,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libopencv-dev pkg-config libturbojpeg0-dev
+
+      - name: Install Python dependencies
         run: |
           pip install --upgrade pip
           # Install CPU-only PyTorch first to avoid ~2.5GB CUDA download

@@ -75,6 +75,7 @@ snakemake --config experiment=contrast model_args="{rctype:[full,self,depthpoint
 These visualizations show the evolution of neural activity over time in response to a stimulus.
 
 **Key Features to Look For**:
+
 - **Response Onset**: When neural activity begins to increase
 - **Peak Time**: When activity reaches its maximum
 - **Response Duration**: How long activity persists
@@ -83,6 +84,7 @@ These visualizations show the evolution of neural activity over time in response
 **Interpretation Example**:
 
 When analyzing response time courses, you can observe:
+
 1. The V1 layer typically responds first, followed by V2, V4, and IT layers
 2. Higher layers show progressively longer response latencies
 3. Full recurrence often shows stronger adaptation than self recurrence
@@ -98,6 +100,7 @@ snakemake --config experiment=response plot_adaption
 These visualizations show the distribution of weights in different parts of the model.
 
 **Key Features to Look For**:
+
 - **Distribution Shape**: Whether weights follow a Gaussian-like distribution
 - **Magnitude**: The range of weight values
 - **Layer Differences**: How weight distributions differ across layers
@@ -113,6 +116,7 @@ checkpoint paths.
 **Interpretation Example**:
 
 When analyzing weight distributions, you can observe:
+
 1. Feedforward weights often show broader distributions than recurrent weights
 2. Higher layers may have slightly larger weight magnitudes than lower layers
 3. Models may learn sparse connectivity patterns in recurrent connections
@@ -128,6 +132,7 @@ snakemake plot_weight_distributions --config model_name=DyRCNNx4 model_args="{rc
 These visualizations show how neural activity changes with stimulus contrast.
 
 **Key Features to Look For**:
+
 - **Response Magnitude**: How activity increases with contrast
 - **Response Speed**: Whether high-contrast stimuli elicit faster responses
 - **Layer Differences**: How contrast sensitivity differs across layers
@@ -136,6 +141,7 @@ These visualizations show how neural activity changes with stimulus contrast.
 **Interpretation Example**:
 
 When analyzing contrast responses, you can observe:
+
 1. Response magnitude typically increases with contrast in all layers
 2. Higher layers (V4, IT) may show stronger contrast dependence than lower layers (V1, V2)
 3. Full recurrence often shows stronger contrast response than self recurrence
@@ -152,6 +158,7 @@ snakemake --config experiment=contrast plot_adaption
 These visualizations show how neural activity changes with stimulus duration.
 
 **Key Features to Look For**:
+
 - **Temporal Summation**: How activity accumulates with longer stimuli
 - **Saturation**: Whether responses saturate with long stimuli (subadditive temporal summation)
 - **Offset Response**: Whether there's a response when the stimulus ends
@@ -160,6 +167,7 @@ These visualizations show how neural activity changes with stimulus duration.
 **Interpretation Example**:
 
 When analyzing duration responses, you can observe:
+
 1. Response magnitude may increase with stimulus duration but saturate (subadditive temporal summation)
 2. Higher layers (V4, IT) may show stronger saturation than lower layers (V1, V2)
 3. Full recurrence often shows stronger sustained activity than self recurrence
@@ -176,6 +184,7 @@ snakemake --config experiment=duration plot_adaption
 These visualizations show how neural activity responds to repeated stimuli with varying intervals.
 
 **Key Features to Look For**:
+
 - **Repetition Suppression**: Whether the second response is weaker than the first
 - **Recovery**: How the second response recovers with longer intervals
 - **Layer Differences**: How adaptation differs across layers
@@ -184,6 +193,7 @@ These visualizations show how neural activity responds to repeated stimuli with 
 **Interpretation Example**:
 
 When analyzing interval responses, you can observe:
+
 1. The response to the second stimulus is weaker than the first (repetition suppression)
 2. Longer intervals lead to stronger recovery of the second response
 3. Higher layers (V4, IT) show stronger adaptation than lower layers (V1, V2)

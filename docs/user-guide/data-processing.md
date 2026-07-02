@@ -50,6 +50,7 @@ data/raw/                      data/interim/                   data/processed/  
 [Data Acquisition]------------>[Data Organization]---------->[FFCV Processing]----------->[Training]
       |                             |                               |                         |
 Download/Mount                 Create Symlinks              Convert to .beton                 |
+
   - CIFAR10                    - Group by Classes           Configure Loader                  |
   - CIFAR100                   - Train/Test Split           - Extended Timesteps              |
   - MNIST                      - Create PyTorch             - GPU Optimization                |
@@ -64,6 +65,7 @@ Download/Mount                 Create Symlinks              Convert to .beton   
 ```
 
 Key Processing Steps:
+
 1. Raw Data Storage: Original datasets stored in their native format
 2. Interim Organization: Data split into train/test and organized in testing groups
 3. FFCV Optimization: Conversion to .beton format for efficient loading
@@ -181,6 +183,7 @@ transform = get_data_transform(transform=['train', 'test'])
 The `transform` input can single str, list, or dict of keys from the transform presets defined in `dynvision.data.transforms`, which you can edit and extend.
 
 Available transform presets include:
+
 - `train`: Standard training augmentations (random flips, etc.)
 - `test`: Standard test transformations
 - `ffcv_train`: Optimized transforms for FFCV training

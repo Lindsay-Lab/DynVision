@@ -16,7 +16,6 @@ from dynvision.base.storage import DataBuffer
 from pytorch_lightning import LightningModule
 import logging
 
-
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -950,7 +949,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
 
         try:
             self.recurrence._init_parameters()
-        except:
+        except Exception:
             pass
 
     def forward_recurrence(
@@ -1125,7 +1124,7 @@ if __name__ == "__main__":
         logger.info("Number of parameters: %d", n_params)
 
         # Print model summary
-        if not class_name in ["SelfConnection", "InputAdaption"]:
+        if class_name not in ["SelfConnection", "InputAdaption"]:
             print(summary(model, input_shape))
 
         # Generate random input

@@ -48,9 +48,9 @@ If FFCV proves incompatible with Python 3.12:
 1. **Stay on Python 3.11** for the 0.1 release — safest option, no code changes needed
 2. **Make FFCV optional** — allow fallback to standard PyTorch DataLoader when FFCV is unavailable
 3. **Replace FFCV** — alternatives include:
-   - [WebDataset](https://github.com/webdataset/webdataset) — streaming I/O for large datasets
-   - [NVIDIA DALI](https://github.com/NVIDIA/DALI) — GPU-accelerated data loading
-   - Standard PyTorch DataLoader with appropriate tuning
+      - [WebDataset](https://github.com/webdataset/webdataset) — streaming I/O for large datasets
+      - [NVIDIA DALI](https://github.com/NVIDIA/DALI) — GPU-accelerated data loading
+      - Standard PyTorch DataLoader with appropriate tuning
 
 ## Version Bumps Required for 3.12
 
@@ -59,14 +59,17 @@ To update `pyproject.toml` for Python 3.12 support, the following changes are ne
 ```diff
  dependencies = [
      ...
+
 -    "torch >=2.2.0",
 -    "torchvision >=0.16.0",
 +    "torch >=2.4.0",
 +    "torchvision >=0.19.0",
      ...
+
 -    "pytorch-lightning >=2.0.0",
 +    "pytorch-lightning >=2.4.0",
      ...
+
 -    "scikit-learn >=1.2.0,<2",
 +    "scikit-learn >=1.4.0,<2",
      ...

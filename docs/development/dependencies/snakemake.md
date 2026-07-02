@@ -124,6 +124,7 @@ with open(runtime_config, 'w') as f:
 ```
 
 This approach allows:
+
 - Setting sensible defaults in `config_defaults.yaml`
 - Overriding with specific configurations in specialized files
 - Command-line overrides for experimentation
@@ -134,19 +135,19 @@ This approach allows:
 Key configuration categories include:
 
 1. **Model Configuration**:
-   - Architecture parameters (recurrence type, skip connections)
-   - Initialization options (pretrained weights, seed)
-   - Hyperparameters (learning rate, batch size, epochs)
+      - Architecture parameters (recurrence type, skip connections)
+      - Initialization options (pretrained weights, seed)
+      - Hyperparameters (learning rate, batch size, epochs)
 
 2. **Data Configuration**:
-   - Dataset definitions and locations
-   - Data group mappings (category subsets)
-   - Preprocessing parameters (resolution, transforms)
+      - Dataset definitions and locations
+      - Data group mappings (category subsets)
+      - Preprocessing parameters (resolution, transforms)
 
 3. **Experiment Configuration**:
-   - Parameter sweeps (contrast, duration, interval)
-   - Evaluation protocols
-   - Visualization settings
+      - Parameter sweeps (contrast, duration, interval)
+      - Evaluation protocols
+      - Visualization settings
 
 ### 2.3 Parameter Expansion
 
@@ -191,6 +192,7 @@ def args_product(
 ```
 
 This enables:
+
 - Compact representation of parameter combinations
 - Systematic exploration of hyperparameter space
 - Consistent filename generation for experiment outputs
@@ -228,6 +230,7 @@ rule get_data:
 ```
 
 Key features include:
+
 - Support for standard datasets (CIFAR10, CIFAR100, MNIST)
 - Support for external datasets (ImageNet)
 - Efficient symbolic linking for dataset organization
@@ -270,6 +273,7 @@ rule symlink_data_groups:
 ```
 
 This provides:
+
 - Storage efficiency (still no data duplication)
 - Deterministic folder layout `data/interim/<dataset>/<subset>_<group>/<class>`
 - `.ready` files for downstream dependencies without relying on ad-hoc sentinel filenames
@@ -304,6 +308,7 @@ rule build_ffcv_datasets:
 ```
 
 Benefits include:
+
 - Significantly faster data loading (50%+ speedup)
 - Reduced CPU bottlenecks
 - Optimized preprocessing and augmentation
@@ -347,6 +352,7 @@ rule init_model:
 ```
 
 Features include:
+
 - Support for various model architectures (AlexNet, CorNetRT, CordsNet, DyRCNNx4)
 - Parameter customization via model_args
 - Pretrained weight initialization
@@ -408,6 +414,7 @@ rule train_model:
 ```
 
 Key capabilities:
+
 - Configurable training hyperparameters
 - PyTorch Lightning integration for training loop management
 - FFCV dataloader integration for performance
@@ -449,6 +456,7 @@ rule test_model:
 ```
 
 Features include:
+
 - Testing on various data groups and conditions
 - Storage of detailed neural responses
 - Comprehensive result metrics
@@ -534,6 +542,7 @@ rule plot_experiments_on_models:
 ```
 
 This enables systematic analysis of:
+
 - Performance differences between model architectures
 - Effects of recurrence type on neural dynamics
 - Parameter sensitivity (contrast, duration, interval)
@@ -679,6 +688,7 @@ shell:
 ```
 
 **Automatic Detection:**
+
 - `build_execution_command()` calls `is_cluster_execution()`
 - Detects SLURM, PBS, LSF, SGE via environment variables
 - On cluster: wraps with `executor_wrapper.sh` (singularity + conda)
@@ -699,6 +709,7 @@ executor_wrapper.sh python script.py --arg1 value
 
 **Configuration:**
 Customize `dynvision/cluster/executor_wrapper.sh` with your:
+
 - Singularity container path
 - Conda environment name
 - Required overlay images

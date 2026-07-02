@@ -44,6 +44,7 @@
 | `dynvision/visualization/weight_caption_metrics.py` | 471 | Weight distribution metrics for figure captions |
 
 **Dependencies within manuscript files**:
+
 - `plot_all_dynamics_manuscript.py` imports from `plot_dynamics_with_groen.py`
 - `plot_performance_manuscript.py` imports from `plot_performance.py` (general) — will need path adjustment
 - `plot_dynamics_with_groen.py` imports from `plot_dynamics.py` (general) — will need path adjustment
@@ -51,11 +52,13 @@
 - `snake_manuscript.smk` orchestrates all manuscript rules; references `snake_visualizations.smk` for `plot_responses_tripytch`
 
 **Borderline files — KEEP in DynVision**:
+
 - `plot_response_tripytch.py` — used by general `snake_visualizations.smk`, not just manuscript
 - `plot_performance.py`, `plot_dynamics.py`, `plot_responses.py`, `plot_training.py` — general-purpose visualization modules
 - `snake_visualizations.smk` — general workflow rules
 
 **Split procedure**:
+
 1. Create branch `manuscript-split` in DynVision repo
 2. Move the 8 files to a `scripts/` directory in the manuscript repo
 3. Adjust import paths in moved files (they currently import from `dynvision.visualization.*`)
@@ -85,6 +88,7 @@
 | `dynvision/data/noise_old.py` | 652 | Current noise implementation in `dynvision/data/` |
 
 **Procedure**:
+
 1. Verify none of these files are imported by other code
 2. Delete files
 3. Add `*_old.py`, `*_backup.py` patterns to `.gitignore`
@@ -112,6 +116,7 @@
 | `dynvision/project_paths.py:23` | `working_dir = Path("/home/rgutzen/01_PROJECTS/Modeling_Dynamical_Vision")` | User-specific path — should default to `Path.home()` or be configurable via env var | Hard-coded absolute path |
 
 **Procedure**:
+
 1. Update `Makefile` to use `dynvision` consistently
 2. Either remove `PROJECT_ABRV` or rename to `dvn`
 3. Reconcile `project_paths.py` naming — decide whether `project_name` should be "DynVision" (and if the working directory should be separate)
@@ -133,12 +138,14 @@
 ```
 
 **Justification**:
+
 - The only scikit-learn API used is `confusion_matrix(y_true, y_pred)` in `dynvision/visualization/plot_confusion_matrix.py`
 - This API has not changed across all scikit-learn 1.x versions (1.2 through 1.9)
 - scikit-learn 1.2+ provides full Python 3.11 support in CI
 - No breaking changes in any 1.x version affect this code
 
 **Procedure**:
+
 1. Edit `pyproject.toml` line 30
 2. Verify no other scikit-learn usage exists: `grep -r "sklearn\|scikit" dynvision/ --include='*.py'`
 3. Test: `pip install -e ".[dev]"` with the new constraint
@@ -165,17 +172,20 @@
 
 **Key risk: FFCV**
 FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package was removed for 3.12 due to numba incompatibility. With numba 0.61.0 supporting Python 3.12, FFCV *may* work but needs explicit testing. If FFCV fails:
+
 - Option A: Stay on Python 3.11 for the 0.1 release
 - Option B: Document FFCV as optional, provide fallback to standard PyTorch DataLoader
 - Option C: Replace FFCV with an alternative (WebDataset, DALI)
 
 **Recommended approach for 0.1 release**:
+
 1. **Keep `python_requires = ">=3.11,<3.14"`** (forward-compatible but non-breaking)
 2. Document that 3.12+ is not yet officially supported
 3. Add Python 3.12 testing as a post-release item
 4. If time allows, test FFCV on 3.12 with numba 0.61+
 
 **Procedure**:
+
 1. Update `python_requires` to `>=3.11,<3.14` (allows future Python versions)
 2. Update classifiers to include `Programming Language :: Python :: 3.12` (forward-looking)
 3. Create `docs/development/python-3.12-compatibility.md` documenting the research above
@@ -191,26 +201,27 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 
 | # | Issue | Source | Fix |
 |---|-------|--------|-----|
-| 1 | Base class docs mismatched (Mixin vs base) | `docs/reference/model-base.md` | Update to reflect actual Mixin class names |
-| 2 | Broken training.md link | `docs/reference/model-base.md` | Remove or create the referenced training guide |
-| 3 | Missing recurrence type images | `docs/reference/recurrence-types.md` | Either create images or convert to inline Mermaid diagrams |
-| 4 | Missing dynamics equation image | `docs/reference/dynamics-solvers.md` | Replace with inline LaTeX (`$$ \tau \cdot dx/dt = ... $$`) |
-| 5 | Data loader naming mismatch | `docs/explanation/temporal_dynamics.md` | Use actual class names (`StimulusDuration` not `StimulusDurationDataLoader`) |
-| 6 | Solver naming inconsistency | `docs/reference/dynamics-solvers.md` | Clarify string identifiers (`rk4`) vs class names (`RungeKuttaStep`) |
+| 1 | ✅ Base class docs mismatched (Mixin vs base) | `docs/reference/model-base.md` | Verified 2026-07-01: docs already show `*Mixin` variants matching `base/__init__.py` |
+| 2 | ✅ Broken training.md link | `docs/user-guide/model-testing.md` | Fixed 2026-07-01: created `user-guide/training.md`; link repointed and added to nav |
+| 3 | ✅ Missing recurrence type images | `docs/reference/recurrence-types.md` | Fixed: `recurrency_types.png` from manuscript figures |
+| 4 | ✅ Missing dynamics equation image | `docs/reference/dynamics-solvers.md` | Fixed: replaced with inline LaTeX |
+| 5 | ✅ Data loader naming (no mismatch) | docs | Verified 2026-07-01: `get_data_loader_class` appends `DataLoader` automatically, so bare alias and full class name are both valid; docs use each in the correct context |
+| 6 | ✅ Solver naming inconsistency | `docs/reference/dynamics-solvers.md` | Verified 2026-07-01: docs already document config strings `euler`/`rk4` (per `model_params.py` `Literal`) vs classes `EulerStep`/`RungeKuttaStep` |
 
-**Medium-priority fixes**:
+**Medium-priority fixes (status as of 2026-07-01)**:
 
-| # | Issue | Source | Fix |
-|---|-------|--------|-----|
-| 7 | Parameter system integration unclear | `docs/user-guide/parameter-handling.md` | Document how Pydantic params + @alias_kwargs work together |
-| 8 | Config mode detection incomplete | `docs/user-guide/parameter-handling.md` | Document complete mode detection decision tree |
-| 9 | GitHub URLs placeholder | `docs/index.md` | Update to actual `https://github.com/Lindsay-Lab/dynvision` |
-| 10 | FFCV troubleshooting missing | Multiple files | Add FFCV troubleshooting section |
-| 11 | Mixed precision guidance missing | References in configs | Add best practices for bf16-mixed |
+| # | Issue | Source | Status |
+|---|-------|--------|--------|
+| 7 | Parameter system integration unclear | `docs/user-guide/parameter-handling.md` | ⬜ Document how Pydantic params + @alias_kwargs work together |
+| 8 | Config mode detection incomplete | `docs/user-guide/parameter-handling.md` | ⬜ Document complete mode detection decision tree |
+| 9 | GitHub URLs placeholder | `docs/index.md` | ✅ Fixed in docs-website overhaul (2026-06-30) |
+| 10 | FFCV troubleshooting missing | Multiple files | ⬜ Add FFCV troubleshooting section |
+| 11 | Mixed precision guidance missing | References in configs | ⬜ Add best practices for bf16-mixed |
 
 **Procedure**:
-1. Fix items 1-6 (30 min each = ~3 hours)
-2. Fix items 7-11 (20 min each = ~1.5 hours)
+
+1. ✅ Fix items 1-6 (completed 2026-06-30 / 2026-07-01)
+2. Fix items 7, 8, 10, 11 (remaining medium-priority)
 3. Run `mkdocs build` or equivalent to verify docs build cleanly
 4. Review all doc links for broken references
 
@@ -221,6 +232,7 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 **Rationale**: The README is the first thing users see. It needs to be polished for a public release.
 
 **Changes needed**:
+
 1. **Badges**: Update Python version badge, add PyPI badge (if publishing), add test coverage badge
 2. **Citation**: Uncomment and fill in the citation section with the actual paper DOI
 3. **Installation**: Update Python version recommendation, clarify conda vs pip
@@ -230,6 +242,7 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 7. **Remove "Comprehensive Model Zoo"**: The current model count is modest (AlexNet, CorNetRT, ResNet variants, DyRCNN, CordsNet). Either expand or adjust language.
 
 **Procedure**:
+
 1. Edit README.md sections
 2. Verify all links work
 3. Test the Quick Start code snippet in a fresh environment
@@ -241,6 +254,7 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 **Rationale**: The test suite exists but has gaps. Before release, core functionality should have basic test coverage.
 
 **Existing tests** (20 test files):
+
 - `tests/base/`: idle timesteps, temporal masking (2 tests)
 - `tests/params/`: literal string conversion, mode registry, config merging, precedence (5 tests + 1 conftest)
 - `tests/data/`: data params transforms (2 tests)
@@ -249,17 +263,20 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 - `tests/losses/`: loss normalization (1 test)
 
 **Gaps** (from roadmap #29, #30, #31):
+
 - No tests for `DataBuffer` (circular buffer correctness)
 - No tests for delay propagation
 - No tests for recurrence types (full, self, depthwise, pointdepthwise)
 - No tests for ODE solver accuracy (Euler vs RK4)
 
 **Minimal viable additions for 0.1 release**:
+
 1. `tests/base/test_data_buffer.py`: Basic circular buffer operations
 2. `tests/base/test_dynamics_solver.py`: Euler vs RK4 on simple ODE
 3. `tests/model_components/test_recurrence.py`: Smoke test each recurrence type
 
 **Procedure**:
+
 1. Write minimal tests for the three areas above
 2. Run `pytest tests/` and fix any failing existing tests
 3. Document current test coverage in `docs/development/testing.md`
@@ -271,11 +288,13 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 **Rationale**: Inconsistent logging levels and cryptic error messages degrade user experience.
 
 **Issues** (from roadmap #36):
+
 - Logging levels vary across modules (some use `print`, others `logging.info`, others `logger.warning`)
 - Error messages lack scientific context (e.g., shape mismatch without explaining which layer)
 - No structured logging for cluster debugging
 
 **Procedure**:
+
 1. Audit logging across `dynvision/base/`, `dynvision/models/`, `dynvision/data/`
 2. Standardize: use `logging.getLogger(__name__)` consistently
 3. Add scientific context to common error messages
@@ -288,6 +307,7 @@ FFCV 1.0.2 (last released 2023-03-05) predates Python 3.12. The Ubuntu package w
 **Rationale**: The current version is `0.0.1` with development status "Planning". The release should reflect the actual state.
 
 **Changes**:
+
 1. Update `pyproject.toml`: `version = "0.1.0"`
 2. Update classifiers: `"Development Status :: 4 - Beta"` (from `"1 - Planning"`)
 3. Create `CHANGELOG.md` summarizing changes from the initial codebase
@@ -335,17 +355,18 @@ Task 9 (logging) ────────────> (independent)
 
 ## Success Criteria for 0.1 Release
 
-- [ ] Repository is free of old/deprecated/backup files
-- [ ] Manuscript-specific code lives in manuscript repo, not in DynVision
-- [ ] All internal naming is consistent (DynVision, no rva/rva references)
-- [ ] scikit-learn constraint is relaxed (`>=1.2.0,<2`)
-- [ ] Python version compatibility is documented
-- [ ] README is polished (correct badges, citation, links, code examples)
-- [ ] Documentation has no broken links and uses correct class names
-- [ ] Core modules have basic test coverage (DataBuffer, dynamics solver, recurrence)
-- [ ] Version is `0.1.0` with `Development Status :: 4 - Beta`
-- [ ] CHANGELOG.md documents changes
-- [ ] Git tag `v0.1.0` is created
+- [ ] Repository is free of old/deprecated/backup files (Task 2)
+- [ ] Manuscript-specific code lives in manuscript repo, not in DynVision (Task 1)
+- [ ] All internal naming is consistent — DynVision, no rva/rva references (Task 3)
+- [ ] scikit-learn constraint is relaxed (`>=1.2.0,<2`) (Task 4)
+- [ ] Python version compatibility is documented (Task 5)
+- [ ] README is polished — correct badges, citation, links, code examples (Task 7)
+- [x] Documentation has no user-facing broken links and uses correct class names (Task 6 — high-priority fixes verified)
+- [x] Thin reference pages fleshed out, code-vs-doc mismatches resolved (Task 6 — 2026-07-01 sweep)
+- [ ] Core modules have basic test coverage — DataBuffer, dynamics solver, recurrence (Task 8)
+- [ ] Version is `0.1.0` with `Development Status :: 4 - Beta` (Task 10)
+- [ ] CHANGELOG.md documents changes (Task 10)
+- [ ] Git tag `v0.1.0` is created (Task 10)
 
 ---
 

@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 
@@ -1053,7 +1052,7 @@ def plot_training_overview(
     # Use original category_key for test data lookups (may be alias like "activityloss")
     # Use detected_category_key for W&B CSV parsing (full name like "activity_loss_weight")
     test_data_category_key = category_key
-    wandb_category_key = detected_category_key
+    _ = detected_category_key
 
     # Extract dimension values from test data
     logger.info("Extracting dimension values from test data...")
@@ -1069,7 +1068,7 @@ def plot_training_overview(
         category_key=test_data_category_key,
         parameter_key=parameter_key,
     )
-    column_key = (
+    _ = (
         _get_dimension_key(
             dimension=column_var,
             category_key=test_data_category_key,

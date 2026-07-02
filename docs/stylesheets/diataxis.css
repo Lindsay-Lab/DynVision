@@ -1,0 +1,200 @@
+/* =========================================================================
+   DynVision — Diátaxis visual identity
+   -------------------------------------------------------------------------
+   Each of the four documentation quadrants gets a distinct accent colour and
+   icon so users always know which "mode" of documentation they are in:
+
+     Tutorials      green    #2ecc71   (learning-oriented)
+     How-to Guides  brown    #795548   (task-oriented)
+     Reference      slate    #34495e   (information-oriented)
+     Explanation    teal     #16a085   (understanding-oriented)
+
+   Brand colour #CF8A2A (amber) is the global accent — used for links,
+   hover states, and emphasis across ALL quadrants for a coherent feel.
+
+   The body receives a `data-diataxis` attribute set by overrides/main.html
+   (based on the page URL). All section theming keys off that attribute, so it
+   works regardless of the on-disk directory names.
+   ========================================================================= */
+
+:root {
+  --dv-tutorial: #2ecc71;
+  --dv-tutorial-dark: #27ae60;
+  --dv-howto: #795548;
+  --dv-howto-dark: #5D4037;
+  --dv-reference: #34495e;
+  --dv-reference-dark: #2c3e50;
+  --dv-explanation: #16a085;
+  --dv-explanation-dark: #138d75;
+
+  /* Brand amber — global accent colour for links and hover states */
+  --dv-brand: #CF8A2A;
+  --dv-brand-dark: #B07820;
+}
+
+/* -------------------------------------------------------------------------
+   0. Global accent (all quadrants)
+   Links, hover, and active states use the brand amber throughout.
+   ------------------------------------------------------------------------- */
+:root {
+  --md-accent-fg-color: var(--dv-brand);
+  --md-accent-fg-color--dark: var(--dv-brand-dark);
+  --md-accent-fg-color--transparent: rgba(207, 138, 42, 0.1);
+  --md-typeset-a-color: var(--dv-brand);
+}
+
+/* -------------------------------------------------------------------------
+   1. Per-section header colour
+   Override Material's primary header variable per quadrant.
+   ------------------------------------------------------------------------- */
+body[data-diataxis="tutorial"] {
+  --md-primary-fg-color: var(--dv-tutorial);
+  --md-primary-fg-color--dark: var(--dv-tutorial-dark);
+}
+body[data-diataxis="howto"] {
+  --md-primary-fg-color: var(--dv-howto);
+  --md-primary-fg-color--dark: var(--dv-howto-dark);
+}
+body[data-diataxis="reference"] {
+  --md-primary-fg-color: var(--dv-reference);
+  --md-primary-fg-color--dark: var(--dv-reference-dark);
+}
+body[data-diataxis="explanation"] {
+  --md-primary-fg-color: var(--dv-explanation);
+  --md-primary-fg-color--dark: var(--dv-explanation-dark);
+}
+
+/* -------------------------------------------------------------------------
+   2. Diátaxis breadcrumb badge (rendered by overrides/partials)
+   ------------------------------------------------------------------------- */
+.dv-quadrant-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.18em 0.7em;
+  border-radius: 1em;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+.dv-quadrant-badge svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+.dv-quadrant-badge--tutorial { background: var(--dv-tutorial); }
+.dv-quadrant-badge--howto { background: var(--dv-howto); }
+.dv-quadrant-badge--reference { background: var(--dv-reference); }
+.dv-quadrant-badge--explanation { background: var(--dv-explanation); }
+
+/* Accent the left border of the content area per section */
+body[data-diataxis] .md-content__inner { position: relative; }
+body[data-diataxis="tutorial"] .md-content__inner { border-top: 3px solid var(--dv-tutorial); }
+body[data-diataxis="howto"] .md-content__inner { border-top: 3px solid var(--dv-howto); }
+body[data-diataxis="reference"] .md-content__inner { border-top: 3px solid var(--dv-reference); }
+body[data-diataxis="explanation"] .md-content__inner { border-top: 3px solid var(--dv-explanation); }
+
+/* -------------------------------------------------------------------------
+   3. Per-section layout adjustments
+   - Tutorials: single-column, immersive (hide the right-hand TOC, widen).
+   - Explanation: reading typeface + roomier line height.
+   - Reference: tighter, denser tables.
+   ------------------------------------------------------------------------- */
+
+/* Tutorials: hide the secondary TOC for a linear, single-column flow. */
+body[data-diataxis="tutorial"] .md-sidebar--secondary {
+  display: none;
+}
+body[data-diataxis="tutorial"] .md-content {
+  max-width: 48rem;
+  margin: 0 auto;
+}
+
+/* Explanation: extra whitespace for readability (same Inter font as rest). */
+body[data-diataxis="explanation"] .md-content__inner {
+  line-height: 1.85;
+}
+body[data-diataxis="explanation"] .md-content__inner p {
+  max-width: 42rem;
+}
+
+/* Reference: denser tables, no italic conversational filler emphasis. */
+body[data-diataxis="reference"] .md-typeset table:not([class]) {
+  font-size: 0.74rem;
+}
+body[data-diataxis="reference"] .md-typeset table:not([class]) th {
+  background: var(--dv-reference);
+  color: #fff;
+}
+
+/* -------------------------------------------------------------------------
+   4. Callout components ("Goal", "API Spec") layered on Material admonitions
+   Usage in Markdown:
+     !!! goal "Goal"
+     !!! api-spec "API"
+   "tip", "warning", "note" are built-in Material admonition types.
+   ------------------------------------------------------------------------- */
+:root {
+  --md-admonition-icon--goal: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12Zm0 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z"/></svg>');
+  --md-admonition-icon--api-spec: url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.4 16.6 4.8 12l4.6-4.6L8 6l-6 6 6 6 1.4-1.4Zm5.2 0L19.2 12l-4.6-4.6L16 6l6 6-6 6-1.4-1.4Z"/></svg>');
+}
+
+.md-typeset .admonition.goal,
+.md-typeset details.goal {
+  border-color: var(--dv-howto);
+}
+.md-typeset .goal > .admonition-title,
+.md-typeset .goal > summary {
+  background-color: rgba(207, 138, 42, 0.12);
+}
+.md-typeset .goal > .admonition-title::before,
+.md-typeset .goal > summary::before {
+  background-color: var(--dv-howto);
+  -webkit-mask-image: var(--md-admonition-icon--goal);
+          mask-image: var(--md-admonition-icon--goal);
+}
+
+.md-typeset .admonition.api-spec,
+.md-typeset details.api-spec {
+  border-color: var(--dv-reference);
+}
+.md-typeset .api-spec > .admonition-title,
+.md-typeset .api-spec > summary {
+  background-color: rgba(52, 73, 94, 0.1);
+  font-family: "Fira Code", monospace;
+}
+.md-typeset .api-spec > .admonition-title::before,
+.md-typeset .api-spec > summary::before {
+  background-color: var(--dv-reference);
+  -webkit-mask-image: var(--md-admonition-icon--api-spec);
+          mask-image: var(--md-admonition-icon--api-spec);
+}
+
+/* -------------------------------------------------------------------------
+   5. Tutorial Previous/Next buttons (.md-footer already provides these;
+   we just emphasise them in the tutorial section).
+   ------------------------------------------------------------------------- */
+body[data-diataxis="tutorial"] .md-footer__inner {
+  border-top: 2px solid var(--dv-tutorial);
+}
+
+/* -------------------------------------------------------------------------
+   6. Accessibility: ensure focus rings remain visible (WCAG 2.1 — 2.4.7)
+   ------------------------------------------------------------------------- */
+a:focus-visible,
+button:focus-visible,
+.md-nav__link:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* -------------------------------------------------------------------------
+   7. Header logo sizing
+   ------------------------------------------------------------------------- */
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 2.2rem;
+}

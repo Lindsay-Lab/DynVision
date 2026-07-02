@@ -7,7 +7,6 @@ Usage: python inspect_checkpoint.py path/to/checkpoint.ckpt
 import torch
 import sys
 from pathlib import Path
-import json
 from datetime import datetime
 import glob
 
@@ -113,7 +112,7 @@ def format_training_metrics(ckpt):
             lr_state = ckpt["lr_schedulers"][0]
             if "last_lr" in lr_state:
                 metrics["current_lr"] = lr_state["last_lr"]
-        except:
+        except Exception:
             pass
 
     # Look for logged metrics
@@ -128,7 +127,7 @@ def format_training_metrics(ckpt):
                         metrics["best_model_path"] = Path(
                             callback_state.best_model_path
                         ).name
-                except:
+                except Exception:
                     pass
 
     return metrics
@@ -165,7 +164,7 @@ def inspect_checkpoint(checkpoint_path):
             model_info = extract_model_info(hparams, ckpt.get("state_dict", {}))
             dataset_info = extract_dataset_info(hparams)
 
-            print(f"\n🤖 MODEL INFORMATION:")
+            print("\n🤖 MODEL INFORMATION:")
             print(f"   Model Class: {model_info['class']}")
             if model_info["layer_types"]:
                 print(f"   Architecture: {' + '.join(model_info['layer_types'])}")
@@ -187,7 +186,7 @@ def inspect_checkpoint(checkpoint_path):
                 if param in hparams:
                     print(f"   {description}: {hparams[param]}")
 
-            print(f"\n📊 DATASET INFORMATION:")
+            print("\n📊 DATASET INFORMATION:")
             if dataset_info:
                 for key, value in dataset_info.items():
                     if key == "likely_datasets":
@@ -198,7 +197,7 @@ def inspect_checkpoint(checkpoint_path):
                 print(f"   Input Dimensions: {hparams.get('input_dims', 'Unknown')}")
                 print(f"   Classes: {hparams.get('n_classes', 'Unknown')}")
 
-            print(f"\n⚙️  TRAINING CONFIGURATION:")
+            print("\n⚙️  TRAINING CONFIGURATION:")
             print(f"   Learning Rate: {hparams.get('learning_rate', 'Unknown')}")
             print(f"   Optimizer: {hparams.get('optimizer', 'Unknown')}")
             print(f"   Loss Function: {hparams.get('loss', 'Unknown')}")
@@ -236,7 +235,7 @@ def inspect_checkpoint(checkpoint_path):
         # Training metrics
         metrics = format_training_metrics(ckpt)
         if metrics:
-            print(f"\n📈 TRAINING METRICS:")
+            print("\n📈 TRAINING METRICS:")
             for key, value in metrics.items():
                 print(f"   {key.replace('_', ' ').title()}: {value}")
 
@@ -246,13 +245,13 @@ def inspect_checkpoint(checkpoint_path):
             total_params = sum(
                 p.numel() for p in state_dict.values() if hasattr(p, "numel")
             )
-            trainable_params = sum(
+            _ = sum(
                 p.numel()
                 for p in state_dict.values()
                 if hasattr(p, "numel") and "weight" in str(p)
             )
 
-            print(f"\n🧠 MODEL ARCHITECTURE:")
+            print("\n🧠 MODEL ARCHITECTURE:")
             print(f"   Total Parameters: {total_params:,}")
             print(f"   Model Size: {total_params * 4 / (1024**2):.1f} MB (float32)")
 
@@ -264,13 +263,13 @@ def inspect_checkpoint(checkpoint_path):
                     layer_counts[layer_type] = layer_counts.get(layer_type, 0) + 1
 
             if layer_counts:
-                print(f"   Layer Distribution:")
+                print("   Layer Distribution:")
                 for layer_type, count in sorted(layer_counts.items()):
                     print(f"     {layer_type}: {count} layers")
 
         # Training state
         if "lr_schedulers" in ckpt or "optimizer_states" in ckpt:
-            print(f"\n🎯 TRAINING STATE:")
+            print("\n🎯 TRAINING STATE:")
             if "lr_schedulers" in ckpt:
                 print(f"   Learning Rate Schedulers: {len(ckpt['lr_schedulers'])}")
             if "optimizer_states" in ckpt:

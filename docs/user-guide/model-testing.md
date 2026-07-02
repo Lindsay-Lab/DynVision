@@ -2,6 +2,7 @@
 
 ## Overview
 DynVision separates model evaluation into two coordinated steps:
+
 1. Running the `test_model` workflow rule to produce raw classifier predictions and layer responses.
 2. Aggregating those artifacts with `process_test_data.py` to build analysis-ready tables.
 
@@ -21,6 +22,7 @@ This guide explains how to configure each phase, what files are created, and how
 
 ## Step 1: Configure the Experiment
 Each experiment in `config_experiments.yaml` specifies:
+
 - `parameter`: the primary sweep variable injected into filenames.
 - `data_loader`: class responsible for assembling stimuli.
 - `data_args`: mapping of loader arguments; values may be scalars or lists to expand across combinations.
@@ -42,6 +44,7 @@ Snakemake expands `data_args` and `status` to enumerate concrete runs. Category 
 
 ### Extending Experiment Types
 To introduce a novel stimulus protocol:
+
 1. Implement a DataLoader subclass in `dynvision/data/dataloader.py` (use `StandardDataLoader` or the temporal loaders as templates). Provide aliases via `@alias_kwargs` so configuration keys (for example `stim`, `intro`) map cleanly onto constructor arguments.
 2. Register the class name in the `DATALOADER_CLASSES` dictionary so `get_data_loader` can resolve it during workflow execution.
 3. Reference the new loader in `config_experiments.yaml` by setting `data_loader` and supplying the required `data_args`. Snakemake will automatically expand the experiment combinations and pass them into the `test_model` rule.
@@ -53,6 +56,7 @@ snakemake test_model \
   --config experiment=duration model_name=DyRCNNx4 data_name=cifar100 seed=0
 ```
 The rule:
+
 - Loads the trained weights from `project_paths.models/{model_name}`.
 - Mounts the test dataset symlink specified by `data_loader` and `data_group`.
 - Calls `SCRIPTS/runtime/test_model.py` with batch size, normalization stats, and any `model_args`/`data_args` supplied via configuration.
@@ -62,6 +66,7 @@ The rule:
 
 ## Step 3: Inspect Intermediate Results
 Before aggregation, verify the evaluation pass:
+
 - `test_outputs.csv` columns include `sample_index`, `times_index`, `label_index`, `guess_index`, and other task-specific fields produced by the runtime script.
 - `test_responses.pt` should contain layer tensors keyed by module name. Missing tensors usually indicate disabled logging in the model configuration.
 
@@ -72,6 +77,7 @@ snakemake process_test_data \
   --config experiment=duration model_name=DyRCNNx4 data_name=cifar100 seed=0 category=rctype
 ```
 Key parameters injected by the rule:
+
 - `--responses` / `--test_outputs`: glob-expanded lists of matching `.pt` and `.csv` files.
 - `--parameter`: experiment-level sweep key (e.g., `stim`).
 - `--category`: comparison axis taken from `experiment_config['categories']`.
@@ -82,6 +88,7 @@ Key parameters injected by the rule:
 
 ### Script Responsibilities
 Inside `process_test_data.py`:
+
 1. Validates metadata consistency between `.pt` and `.csv` filenames using `extract_param_from_string`.
 2. Loads the CSV with `load_df` and augments it via `process_test_performance`, adding `first_label_index` and `accuracy` indicators.
 3. Optionally computes classifier-derived metrics (confidence, top-k accuracy, top-N unit activations) when `test_responses.pt` contains a `classifier` tensor.
@@ -107,6 +114,7 @@ Use `--fail_on_missing_inputs False` to skip missing file pairs without aborting
 
 ## Step 5: Utilize the Processed Dataset
 Downstream visualization rules (e.g., `plot_performance`, `plot_responses`) consume the `test_data.csv` files produced above. Each CSV contains:
+
 - Metadata columns (experiment parameter, category, additional parameters).
 - Temporal indices (`times_index`) and presentation identifiers (`first_label_index`).
 - Layer statistics (`response_avg`, `response_std`, etc.).
@@ -121,6 +129,7 @@ Downstream visualization rules (e.g., `plot_performance`, `plot_responses`) cons
 
 ### Available Measure Columns
 `process_test_data.py` and `process_single_test.py` organize measures into four categories:
+
 - **Layer metrics** (`response_avg`, `response_std`, `spatial_variance`, `feature_variance`): computed per layer and timestep from response tensors. When `--sample_resolution sample` is used, they emit columns such as `{layer_name}_response_avg`. Under `class` resolution the same metrics aggregate over presentations (`first_label_index`).
 - **Confidence metrics** (`guess_confidence`, `label_confidence`, `first_label_confidence`): derived from classifier logits. Values reflect softmax probabilities and remain at the same resolution as the CSV input.
 - **Top-k accuracy metrics** (`accuracy_top3`, `accuracy_top5`, etc.): Boolean indicators per timestep showing whether the ground-truth label appears in the model’s top-k predictions. With class resolution, they are averaged and accompanied by standard deviation columns.
@@ -147,7 +156,7 @@ filtered = test_data.query("first_label_index == 5 and times_index <= 10")
 - **Empty outputs**: Ensure `test_outputs.csv` contains rows for every sample; rerun `test_model` if the evaluation terminated early.
 
 ## Related Resources
-- `docs/user-guide/training.md` for generating checkpoints.
+- [Training](training.md) for training models and generating checkpoints.
 - `docs/development/guides/ai-style-guide.md` for workflow conventions.
 - `docs/reference/workflow-overview.md` (if available) for a schematic of Snakemake rules.
 - Source scripts in `dynvision/runtime/test_model.py` and `dynvision/processing/process_test_data.py` for implementation details.

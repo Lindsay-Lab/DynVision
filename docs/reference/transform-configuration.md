@@ -20,6 +20,7 @@ python -m dynvision.models.train \
 ```
 
 This automatically applies:
+
 - Dataset-specific augmentations for training
 - Minimal preprocessing for testing
 - Backend-appropriate transforms (PyTorch or FFCV)
@@ -76,17 +77,20 @@ DynVision automatically derives transform parameters from your experiment config
 #### Training Presets
 
 **Base** (default fallback):
+
 - `RandomRotation(10)`: Random rotation up to ±10 degrees
 - `RandomAffine(0, translate=(0.1, 0.1))`: Random translation up to 10% in each direction
 - `RandomHorizontalFlip()`: 50% chance of horizontal flip
 - `ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)`: Color augmentation
 
 **MNIST**:
+
 - `RandomRotation(10)`: Random rotation for digit recognition
 - `RandomAffine(0, translate=(0.1, 0.1))`: Small translations
 - `Grayscale(num_output_channels=1)`: Ensure grayscale format
 
 **Imagenette** (and other ImageNet-derived datasets):
+
 - `Resize(256)`: Resize shorter edge to 256 pixels
 - `CenterCrop(224)`: Crop 224×224 patch from center
 - `RandomRotation(10)`: Moderate rotation
@@ -99,6 +103,7 @@ DynVision automatically derives transform parameters from your experiment config
 **Base**: No augmentation (empty list)
 
 **Imagenette**:
+
 - `Resize(256)`: Resize shorter edge to 256 pixels
 - `CenterCrop(224)`: Crop 224×224 patch from center
 
@@ -107,6 +112,7 @@ DynVision automatically derives transform parameters from your experiment config
 #### Training Presets
 
 **Base**:
+
 - `RandomHorizontalFlip()`: Horizontal flipping
 - `RandomBrightness(0.2)`: Brightness jitter
 - `RandomContrast(0.2)`: Contrast jitter
@@ -114,11 +120,13 @@ DynVision automatically derives transform parameters from your experiment config
 - `RandomTranslate(padding=22, fill=(0, 0, 0))`: Random translation
 
 **MNIST**:
+
 - `RandomBrightness(0.2)`: Brightness jitter
 - `RandomContrast(0.2)`: Contrast jitter
 - `RandomSaturation(0.2)`: Saturation jitter
 
 **Imagenette**:
+
 - `RandomHorizontalFlip()`: Horizontal flipping
 - `RandomBrightness(0.2)`: Brightness jitter
 - `RandomContrast(0.2)`: Contrast jitter
@@ -193,10 +201,12 @@ Each transform is specified as a string with the following format:
 DynVision uses the standard transform libraries:
 
 **PyTorch**: [torchvision.transforms.v2](https://pytorch.org/vision/stable/transforms.html)
+
 - All transforms from torchvision.transforms.v2 are supported
 - Legacy v1 transforms available as fallback
 
 **FFCV**: [FFCV Transforms](https://docs.ffcv.io/api/transforms.html)
+
 - FFCV-specific transforms for optimized data loading
 - Limited to FFCV's transform API
 
@@ -361,6 +371,7 @@ AttributeError: Transform 'CustomTransform' not found in torchvision.transforms.
 ```
 
 **Solution**: Ensure the transform name exactly matches the torchvision or FFCV API. Check the documentation:
+
 - [PyTorch Transforms](https://pytorch.org/vision/stable/transforms.html)
 - [FFCV Transforms](https://docs.ffcv.io/api/transforms.html)
 
@@ -386,6 +397,7 @@ ValueError: Transform 'RandomBrightness' not found in torchvision.transforms.v2
 ```
 
 **Solution**: Some transforms are FFCV-specific. Ensure you're using the correct backend:
+
 - PyTorch: `ColorJitter`, `RandomRotation`, etc.
 - FFCV: `RandomBrightness`, `RandomContrast`, `RandomTranslate`, etc.
 
@@ -495,15 +507,18 @@ Start with simple augmentation and increase complexity only if needed:
 ```yaml
 # Start here
 base:
+
   - "RandomHorizontalFlip()"
 
 # Add if underfitting
 moderate:
+
   - "RandomHorizontalFlip()"
   - "ColorJitter(brightness=0.2)"
 
 # Add if still underfitting
 heavy:
+
   - "RandomHorizontalFlip()"
   - "ColorJitter(brightness=0.3, contrast=0.3)"
   - "RandomRotation(15)"
@@ -550,7 +565,7 @@ print(f"Preset: {params.transform_preset}")
 ## Related Documentation
 
 - **Developer Guide**: [Transform System Architecture](../development/guides/transform-system.md)
-- **How-to Guides**: [Creating Custom Datasets](../user-guide/custom-datasets.md)
+- **How-to Guides**: [Data Processing](../user-guide/data-processing.md)
 - **API Reference**: `dynvision.data.transforms`
 - **External Documentation**:
   - [PyTorch Vision Transforms](https://pytorch.org/vision/stable/transforms.html)
