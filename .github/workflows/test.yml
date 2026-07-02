@@ -36,8 +36,9 @@ jobs:
           # Install CPU-only PyTorch first to avoid ~2.5GB CUDA download
           pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
           pip install -e ".[dev]"
-          # Ensure flake8>=7.1.0: older versions crash on Python 3.12 (pycodestyle IndexError)
-          pip install "flake8>=7.1.0"
+          # flake8<7.1 ships pycodestyle<=2.11.1, which crashes with IndexError on
+          # Python 3.12. Force-upgrade both (pip cache may retain the old versions).
+          pip install --upgrade "flake8>=7.1.0" "pycodestyle>=2.12.0"
 
       - name: Lint with flake8
         run: flake8 dynvision
