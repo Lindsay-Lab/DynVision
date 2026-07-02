@@ -105,7 +105,7 @@ snakemake -j4 --config experiment=duration model_name=DyRCNNx4 model_args="{rcty
 ```
 
 <p align="center">
-  <img src="docs/assets/performance_rctarget.png" alt="Noise robustness by recurrence target" width="600"/>
+  <img src="docs/assets/performance_rctarget.png" alt="Noise robustness by recurrence target" width="800"/>
 </p>
 
 ## Documentation
