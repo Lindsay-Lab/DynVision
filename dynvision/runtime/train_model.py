@@ -32,14 +32,13 @@ from dynvision.data.dataloader import (
 )
 from dynvision.data.datamodule import DataModule
 from dynvision.project_paths import project_paths
-from dynvision.utils import (
+from dynvision.utils import (  # noqa: F401
     filter_kwargs,
     str_to_bool,
     handle_errors,
     log_section,
     format_value,
 )
-from dynvision.visualization import callbacks as custom_callbacks
 from dynvision.utils.checkpoint_to_statedict import get_best_checkpoint
 
 # Import the Pydantic parameter classes

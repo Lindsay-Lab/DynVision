@@ -11,7 +11,8 @@ import logging
 import random
 import time
 from contextlib import contextmanager
-from typing import Any, Optional, Tuple, Union, Callable
+from os import PathLike
+from typing import Optional, Tuple, Union, Callable
 
 import numpy as np
 import pytorch_lightning as pl
@@ -214,7 +215,7 @@ def determine_target_dtype(
                     f"Using Lightning target dtype: {lightning_dtype} for {label}"
                 )
                 return lightning_dtype
-            except:
+            except Exception:
                 pass
 
     return default_dtype

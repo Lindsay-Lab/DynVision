@@ -10,7 +10,9 @@ logger = logging.getLogger(__name__)
 class project_paths_class:
 
     this_file = Path(inspect.getfile(lambda: None)).resolve()
-    project_name = "DynVision_Working"  # working directory name (separate from toolbox_name)
+    project_name = (
+        "DynVision_Working"  # working directory name (separate from toolbox_name)
+    )
     toolbox_name = "DynVision"
     user_name = "rg5022"
 

@@ -44,15 +44,15 @@ def tqdm(*args: Any, **kwargs: Any) -> Any:
     """Progress bar that adapts to environment.
 
     Uses identity function on cluster, progress bar otherwise.
-    
+
     This function provides a context-aware progress tracking:
     - On cluster environments: Returns identity function (no progress display)
     - On other environments: Returns tqdm progress bar
-    
+
     Args:
         *args: Positional arguments passed to tqdm
         **kwargs: Keyword arguments passed to tqdm
-        
+
     Returns:
         Progress bar or identity function based on environment
     """

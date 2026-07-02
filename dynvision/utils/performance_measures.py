@@ -70,7 +70,7 @@ def calculate_topk_accuracy(
 
 def _confidence(softmax_outputs: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
     """Extract confidence scores for given indices efficiently."""
-    device = indices.device
+    _ = indices.device
     dtype = softmax_outputs.dtype
     batch_size, n_timesteps, n_classes = softmax_outputs.shape
 

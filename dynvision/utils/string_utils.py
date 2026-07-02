@@ -185,7 +185,7 @@ def parse_string2dict(
         parse_string2dict("a:1,b:[2,3]")
         -> {'a': 1, 'b': [2, 3]}
     """
-    if type(kwargs_str) == list:
+    if isinstance(kwargs_str, list):
         if len(kwargs_str) == 0:
             return {}
         elif len(kwargs_str) == 1:
@@ -204,7 +204,7 @@ def parse_string2dict(
     my_dict = {}
 
     # match all nested dicts
-    pattern = re.compile("[\w\s]+:{[^}]*},*")
+    pattern = re.compile(r"[\w\s]+:{[^}]*},*")
     for match in pattern.findall(kwargs):
         nested_dict_name, nested_dict = match.split(":{")
         nested_dict = nested_dict[:-1]
@@ -212,7 +212,7 @@ def parse_string2dict(
         kwargs = kwargs.replace(match, "")
 
     # match entries with word value, list value, or tuple value
-    pattern = re.compile("[\w\s]+:(?:[\w\.\s\/\-\&\+]+|\[[^\]]+\]|\([^\)]+\))")
+    pattern = re.compile(r"[\w\s]+:(?:[\w\.\s\/\-\&\+]+|\[[^\]]+\]|\([^\)]+\))")
     for match in pattern.findall(kwargs):
         my_dict.update(str2dict(match))
 

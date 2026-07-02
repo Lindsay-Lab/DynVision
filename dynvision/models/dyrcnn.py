@@ -283,9 +283,7 @@ class DyRCNNx4(DyRCNN):
         # +1 because the source layer's delay already stored the current timestep
         # before addskip runs (source is an earlier layer, fully processed this step)
         self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1
-            if self.t_skip
-            else 1
+            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
         )
         self.delay_index_feedback = (
             int(round(float(self.t_feedback) / float(self.dt)))
@@ -469,9 +467,7 @@ class DyRCNNx8(DyRCNNx4):
         # +1 because the source layer's delay already stored the current timestep
         # before addskip runs (source is an earlier layer, fully processed this step)
         self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1
-            if self.t_skip
-            else 1
+            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
         )
         self.delay_index_feedback = (
             int(round(float(self.t_feedback) / float(self.dt)))
@@ -686,9 +682,7 @@ class DyRCNNx2(DyRCNN):
         # +1 because the source layer's delay already stored the current timestep
         # before addskip runs (source is an earlier layer, fully processed this step)
         self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1
-            if self.t_skip
-            else 1
+            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
         )
         self.delay_index_feedback = (
             int(round(float(self.t_feedback) / float(self.dt)))

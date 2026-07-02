@@ -425,8 +425,12 @@ def plot_unrolling(
 
     # Add shared y-label centered vertically
     fig.text(
-        0.01, 0.5, "Average Response",
-        va="center", ha="center", rotation="vertical",
+        0.01,
+        0.5,
+        "Average Response",
+        va="center",
+        ha="center",
+        rotation="vertical",
         fontsize=fmt["fontsize_axis"],
     )
 

@@ -14,17 +14,9 @@ import sys
 import numpy as np
 import pandas as pd
 import torch
-from tqdm import tqdm
 
 from dynvision.utils import str_to_bool
-from dynvision.utils.visualization_utils import (
-    layer_response_avg,
-    layer_response_std,
-    spatial_variance,
-    feature_variance,
-    tensor_to_numpy,
-    extract_param_from_string,
-)
+from dynvision.utils.visualization_utils import extract_param_from_string
 from dynvision.utils.data_utils import load_df
 from dynvision.utils.performance_measures import (
     calculate_topk_accuracy,
@@ -207,7 +199,9 @@ def chunk_lists(lst1, lst2, lst3, chunk_size):
     """Split three lists into chunks of specified size."""
     # Ensure all lists are the same length
     for i in range(0, len(lst1), chunk_size):
-        yield lst1[i : i + chunk_size], lst2[i : i + chunk_size], lst3[i : i + chunk_size]
+        yield lst1[i : i + chunk_size], lst2[i : i + chunk_size], lst3[
+            i : i + chunk_size
+        ]
 
 
 def calculate_confidence_and_topk_from_classifier(
@@ -431,15 +425,17 @@ def _extract_metadata(
     import yaml
 
     # Load config file
-    with open(config_file, 'r') as f:
+    with open(config_file, "r") as f:
         config = yaml.safe_load(f)
 
     # Extract parameter value from data namespace
     # Format: data.param_name (e.g., data.dsteps, data.intro, data.stim)
-    data_key = f'data.{data_arg_key}'
+    data_key = f"data.{data_arg_key}"
     arg_value = config.get(data_key)
     if arg_value is None:
-        raise ValueError(f"Parameter '{data_key}' not found in config file {config_file}")
+        raise ValueError(
+            f"Parameter '{data_key}' not found in config file {config_file}"
+        )
 
     # Extract category value from model arguments path (only if category provided)
     # The category comes from the model path wildcards, stored in the parent directory structure
@@ -455,10 +451,10 @@ def _extract_metadata(
     extra_values: Dict[str, Optional[str]] = {}
     for param_name in extra_parameters:
         # Try data namespace first
-        value = config.get(f'data.{param_name}')
+        value = config.get(f"data.{param_name}")
         if value is None:
             # Try model namespace
-            value = config.get(f'model.{param_name}')
+            value = config.get(f"model.{param_name}")
         if value is None:
             # Try unscoped
             value = config.get(param_name)
@@ -485,7 +481,9 @@ def _extract_metadata(
                 extra_values["epoch"] = str(epoch)
                 logger.debug(f"    Auto-extracted epoch from status: {epoch}")
         else:
-            logger.warning(f"    extract_status=True but no status found in path: {config_file}")
+            logger.warning(
+                f"    extract_status=True but no status found in path: {config_file}"
+            )
 
     return FileMetadata(
         parameter_value=str(arg_value),
@@ -815,8 +813,12 @@ def process_single_batch_optimized(
     classifier_topk_values = measure_config.classifier_topk
     extra_parameters = extra_parameters or []
 
-    for pt_file, csv_file, config_file in zip(response_files, test_output_files, test_config_files):
-        logger.info(f"  Processing: {pt_file.name} + {csv_file.name} + {config_file.name}")
+    for pt_file, csv_file, config_file in zip(
+        response_files, test_output_files, test_config_files
+    ):
+        logger.info(
+            f"  Processing: {pt_file.name} + {csv_file.name} + {config_file.name}"
+        )
 
         try:
             metadata = _extract_metadata(
@@ -871,7 +873,9 @@ def process_single_batch_optimized(
             memory_monitor.cleanup()
 
         except Exception as e:
-            logger.error(f"ERROR: {pt_file.name} + {csv_file.name} + {config_file.name}")
+            logger.error(
+                f"ERROR: {pt_file.name} + {csv_file.name} + {config_file.name}"
+            )
             logger.error(f"  {type(e).__name__}: {str(e)}")
             raise
 
@@ -991,7 +995,7 @@ if __name__ == "__main__":
     additional_parameters = args.additional_parameters or []
 
     # Determine if status extraction is requested based on additional_parameters
-    extract_status = 'status' in additional_parameters
+    extract_status = "status" in additional_parameters
 
     # Log configuration
     logger.info("=" * 80)
@@ -1010,7 +1014,9 @@ if __name__ == "__main__":
     if additional_parameters:
         logger.info(f"Additional parameters: {additional_parameters}")
     if extract_status:
-        logger.info("Extract status from paths: True (detected from additional_parameters)")
+        logger.info(
+            "Extract status from paths: True (detected from additional_parameters)"
+        )
     if args.sample_resolution == "sample":
         logger.info("NOTE: Output at sample-level (no compression)")
     else:
@@ -1023,7 +1029,9 @@ if __name__ == "__main__":
 
     try:
         # Process data
-        if len(args.responses) != len(args.test_outputs) or len(args.responses) != len(args.test_configs):
+        if len(args.responses) != len(args.test_outputs) or len(args.responses) != len(
+            args.test_configs
+        ):
             mismatch_msg = (
                 "Response file count (%d) does not match test output file count (%d) or config file count (%d)."
                 % (len(args.responses), len(args.test_outputs), len(args.test_configs))
@@ -1034,13 +1042,17 @@ if __name__ == "__main__":
             logger.warning(mismatch_msg + " Extra files will be ignored.")
 
         paired_inputs: List[Tuple[Path, Path, Path]] = []
-        max_pairs = min(len(args.responses), len(args.test_outputs), len(args.test_configs))
+        max_pairs = min(
+            len(args.responses), len(args.test_outputs), len(args.test_configs)
+        )
         for idx in range(max_pairs):
             response_path = args.responses[idx]
             output_path = args.test_outputs[idx]
             config_path = args.test_configs[idx]
             missing_paths = [
-                str(path) for path in (response_path, output_path, config_path) if not path.exists()
+                str(path)
+                for path in (response_path, output_path, config_path)
+                if not path.exists()
             ]
             if missing_paths:
                 missing_msg = f"Missing input file(s) for set {idx + 1}: {', '.join(missing_paths)}"
@@ -1074,7 +1086,10 @@ if __name__ == "__main__":
             batch_count = 0
 
             for response_batch, output_batch, config_batch in chunk_lists(
-                valid_responses, valid_test_outputs, valid_test_configs, args.batch_size
+                valid_responses,
+                valid_test_outputs,
+                valid_test_configs,
+                args.batch_size,
             ):
                 batch_count += 1
                 logger.info(

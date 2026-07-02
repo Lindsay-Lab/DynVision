@@ -9,9 +9,6 @@ Example:
 """
 
 import logging
-import re
-from pathlib import Path
-from typing import Optional
 
 import torch
 
@@ -21,7 +18,6 @@ from dynvision.data.datamodule import SimpleDataModule
 from dynvision.params.init_params import InitParams
 from dynvision.utils import (
     set_seed,
-    str2dict,
     handle_errors,
     log_section,
     format_value,

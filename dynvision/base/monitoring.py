@@ -1,11 +1,10 @@
 """Debugging, logging, and monitoring utilities."""
 
 import logging
-import gc
 import psutil
 import torch
 import torch.nn as nn
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Tuple
 from pytorch_lightning import LightningModule
 import wandb
 
@@ -366,7 +365,10 @@ class MonitoringMixin(Monitoring, LightningModule):
         self._log_memory_usage()
 
     def on_train_batch_start(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Check for critical data issues early in training.
 
@@ -387,7 +389,10 @@ class MonitoringMixin(Monitoring, LightningModule):
             self._validate_batch_data(batch, batch_idx, "train")
 
     def on_validation_batch_start(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Check for critical data issues in validation.
 
@@ -409,7 +414,11 @@ class MonitoringMixin(Monitoring, LightningModule):
             self._log_memory_usage()
 
     def on_train_batch_end(
-        self, outputs: Any, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int, dataloader_idx: int = 0
+        self,
+        outputs: Any,
+        batch: Tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        dataloader_idx: int = 0,
     ) -> None:
         """Monitor training progress and check for issues.
 

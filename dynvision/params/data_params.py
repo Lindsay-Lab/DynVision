@@ -2,7 +2,6 @@ from typing import Dict, List, Optional, Tuple, Union, Any, Literal, Sequence, C
 from pathlib import Path
 from collections import OrderedDict
 from pydantic import (
-    BaseModel,
     Field,
     computed_field,
     field_validator,
@@ -433,6 +432,7 @@ class DataParams(BaseParams):
         - target_data_name from data_name
         - target_data_group based on train mode (all for training, specific group for testing)
         """
+
         def _derive(field: str, value: Any) -> None:
             self.update_field(
                 field,

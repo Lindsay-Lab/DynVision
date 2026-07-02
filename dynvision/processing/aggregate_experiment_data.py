@@ -18,7 +18,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import List, Optional, Sequence
 
 import pandas as pd
 
@@ -31,7 +31,6 @@ from dynvision.processing.process_test_data import (
     _extract_metadata,
     FileMetadata,
 )
-from dynvision.utils.visualization_utils import extract_param_from_string
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -419,7 +418,7 @@ if __name__ == "__main__":
     args.output.parent.mkdir(parents=True, exist_ok=True)
 
     # Determine if status extraction is requested based on additional_parameters
-    extract_status = 'status' in (args.additional_parameters or [])
+    extract_status = "status" in (args.additional_parameters or [])
 
     # Log configuration
     logger.info("=" * 80)
@@ -492,7 +491,9 @@ if __name__ == "__main__":
 
     # Handle collision case where category column is renamed to train_{category}
     param_category_collision = args.category and args.parameter == args.category
-    category_col_name = f"train_{args.category}" if param_category_collision else args.category
+    category_col_name = (
+        f"train_{args.category}" if param_category_collision else args.category
+    )
 
     if category_col_name and category_col_name in aggregated_df.columns:
         logger.info(

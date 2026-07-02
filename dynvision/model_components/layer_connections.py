@@ -2,7 +2,7 @@
 Modules to implement connections between non-successive layers in convolutional neural networks.
 """
 
-from typing import Union, Callable, Optional, Dict, Any, Tuple
+from typing import Union, Callable, Optional, Any, Tuple
 import logging
 from fractions import Fraction
 from dynvision.utils import apply_parametrization
@@ -10,7 +10,6 @@ from dynvision.model_components.integration_strategy import setup_integration_st
 
 import torch
 import torch.nn as nn
-from torch.amp import autocast
 import torch.nn.init as init
 from pytorch_lightning import LightningModule
 

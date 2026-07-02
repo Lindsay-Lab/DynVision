@@ -5,7 +5,7 @@ Provides efficient storage for neural network responses and records with unlimit
 """
 
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 from dataclasses import dataclass
 import threading
 import gc
@@ -1080,9 +1080,9 @@ class StorageBuffer:
         if image_index is None:
             last_record = self.records.get_recent_items(1)
             if last_record:
-                last_image_index = last_record[0].image_index.max()
+                _ = last_record[0].image_index.max()
             else:
-                last_image_index = 0
+                _ = 0
 
             batch_size, n_timesteps = label_index.shape
             image_index = (

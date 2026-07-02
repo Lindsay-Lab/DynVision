@@ -3,7 +3,6 @@ import os
 import torch
 import torch.nn as nn
 import logging
-from dynvision.project_paths import project_paths
 from pytorch_lightning import LightningModule
 
 logger = logging.getLogger(__name__)
@@ -317,7 +316,7 @@ class DtypeDeviceCoordinatorMixin(DtypeDeviceCoordinator, LightningModule):
 
     def debug_coordination_status(self):
         """Enhanced debugging to understand Lightning's precision behavior."""
-        print(f"\n=== COORDINATION DEBUG ===")
+        print("\n=== COORDINATION DEBUG ===")
         print(f"Is root node: {self.is_root_node}")
         print(f"Coordinator target dtype: {self.get_target_dtype()}")
 
@@ -328,11 +327,11 @@ class DtypeDeviceCoordinatorMixin(DtypeDeviceCoordinator, LightningModule):
             print(
                 f"Trainer precision plugin: {type(trainer.precision_plugin).__name__}"
             )
-        except:
+        except Exception:
             print("No trainer available")
 
         # Check actual parameter dtypes
-        print(f"\nFirst 5 parameters:")
+        print("\nFirst 5 parameters:")
         for name, param in list(self.named_parameters())[:5]:
             print(f"  {name}: {param.dtype}")
 
@@ -345,7 +344,7 @@ class DtypeDeviceCoordinatorMixin(DtypeDeviceCoordinator, LightningModule):
                 for name, param in list(child.named_parameters())[:2]:
                     print(f"    {name}: {param.dtype}")
 
-        print(f"=== END DEBUG ===\n")
+        print("=== END DEBUG ===\n")
 
     def setup(self, stage: Optional[str] = None) -> None:
         """Lightning hook: setup coordination network."""

@@ -1,12 +1,6 @@
-from collections import defaultdict
-
-import matplotlib.pyplot as plt
-import numpy as np
 import pytorch_lightning as pl
-import seaborn as sns
 import torch
 import wandb
-from tqdm import tqdm
 
 from dynvision.visualization.plot_classifier_responses import (
     plot_classifier_responses,

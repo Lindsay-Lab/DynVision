@@ -8,7 +8,7 @@ import os
 import logging
 import torch
 import numpy as np
-from types import FunctionType, MethodType
+from types import FunctionType, MethodType  # noqa: F401
 from .coordination import DtypeDeviceCoordinator, DtypeDeviceCoordinatorMixin
 from .storage import StorageBuffer, StorageBufferMixin
 from .monitoring import Monitoring, MonitoringMixin

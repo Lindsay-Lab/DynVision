@@ -3,7 +3,7 @@ Model of the retina and LGN as two convolutional layers with biological inspirat
 """
 
 import logging
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 import torch
 import torch.nn as nn
@@ -161,7 +161,7 @@ if __name__ == "__main__":
     try:
         model(torch.full((1, *input_shape), float("inf"), device=device))
         assert False, "Should raise stability error"
-    except ValueError as e:
+    except ValueError:
         logger.info("Stability check passed")
 
     logger.info("All tests passed!")

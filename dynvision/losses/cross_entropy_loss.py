@@ -47,7 +47,11 @@ class CrossEntropyLoss(BaseLoss):
         )
 
         # Mask ignored targets
-        valid_mask = (targets != self.ignore_index) & (targets >= 0) & (targets < outputs.size(1))
+        valid_mask = (
+            (targets != self.ignore_index)
+            & (targets >= 0)
+            & (targets < outputs.size(1))
+        )
         valid_mask = valid_mask.to(device=device)
 
         # Zero-out invalid entries

@@ -185,11 +185,13 @@ class LocalLateralConnection(LightningModule):
         self.plane_dim_y = self.feature_dim * dim_y
         self.plane_dim_x = self.feature_dim * dim_x
         self.mixed_precision = mixed_precision
-        
+
         if is_square_number(in_channels):
             self.square_n_channels = in_channels
         else:
-            logger.warning(f"in_channels={in_channels} is not a perfect square, internally extending to next square number")
+            logger.warning(
+                f"in_channels={in_channels} is not a perfect square, internally extending to next square number"
+            )
             self.square_n_channels = next_square_number(in_channels)
 
         # Create lookup mappings
@@ -277,13 +279,15 @@ class LocalLateralConnection(LightningModule):
         layer_flat = torch.gather(
             plane_flat, 1, self.flat_layer_mapping.expand(batch_size, -1)
         )
-        layer = layer_flat.view(batch_size, self.square_n_channels, self.dim_y, self.dim_x)
+        layer = layer_flat.view(
+            batch_size, self.square_n_channels, self.dim_y, self.dim_x
+        )
         return layer
 
     def forward(self, x0: torch.Tensor) -> torch.Tensor:
 
-        batch_size = x0.size(0)
-        
+        _ = x0.size(0)
+
         # Extend input to square channel number if necessary
         x0 = extend_to_square_channel_number(x0, dim=1)
 

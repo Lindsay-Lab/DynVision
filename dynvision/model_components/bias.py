@@ -15,7 +15,7 @@ operations (like feedback) may need to generate output without external input.
 
 import torch
 import torch.nn as nn
-from typing import Optional, Tuple
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)

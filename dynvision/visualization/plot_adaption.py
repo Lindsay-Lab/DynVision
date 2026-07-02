@@ -1,5 +1,4 @@
 import argparse
-import json
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,8 +13,6 @@ from dynvision.utils.visualization_utils import (
     save_plot,
     load_config_from_args,
     get_display_name,
-    get_color,
-    get_category_plotting_settings,
 )
 
 # Global styling parameters
@@ -122,7 +119,7 @@ def plot_adaptation_from_csv(
     # This is a placeholder for CSV-based adaptation analysis
     # For now, just create a simple plot showing parameter vs some metric
 
-    print(f"CSV adaptation plot not yet fully implemented")
+    print("CSV adaptation plot not yet fully implemented")
     print(f"Data shape: {df.shape}")
     print(f"Available columns: {df.columns.tolist()}")
 

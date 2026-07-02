@@ -1,6 +1,6 @@
 """plot_dynamics.py
 Unified plot showing layer dynamics across different parameter values with consistent layout.
- 
+
 This script creates a 4-panel visualization of neural network layer responses:
     - Panel A (upper left): Different layers for a reference parameter value
     - Panel B (lower left): Focus layer across different parameter values
@@ -17,7 +17,6 @@ Example:
 import argparse
 import logging
 from pathlib import Path
-from typing import Dict, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,7 +24,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 
-from dynvision.utils.visualization_utils import (
+from dynvision.utils.visualization_utils import (  # noqa: F401
     save_plot,
     load_config_from_args,
     get_display_name,
@@ -38,7 +37,7 @@ from dynvision.utils.visualization_utils import (
 )
 
 # Import functions from plot_responses.py
-from dynvision.visualization.plot_responses import (
+from dynvision.visualization.plot_responses import (  # noqa: F401
     _plot_response_ridges,
     _add_horizontal_legend,
     _extract_dimension_values,
@@ -102,7 +101,7 @@ def determine_experiment_info(experiment, config=None):
 
     if "duration" in experiment.lower():
         param_name = naming.get("duration", "Duration")
-        experiment_name = naming.get(f"duration_experiment", param_name)
+        experiment_name = naming.get("duration_experiment", param_name)
         return {
             "type": "duration",
             "label": param_name,
@@ -112,7 +111,7 @@ def determine_experiment_info(experiment, config=None):
         }
     elif "contrast" in experiment.lower():
         param_name = naming.get("contrast", "Contrast")
-        experiment_name = naming.get(f"contrast_experiment", param_name)
+        experiment_name = naming.get("contrast_experiment", param_name)
         return {
             "type": "contrast",
             "label": param_name,
@@ -122,7 +121,7 @@ def determine_experiment_info(experiment, config=None):
         }
     elif "interval" in experiment.lower():
         param_name = naming.get("interval", "Interval")
-        experiment_name = naming.get(f"interval_experiment", param_name)
+        experiment_name = naming.get("interval_experiment", param_name)
         return {
             "type": "interval",
             "label": param_name,
@@ -596,7 +595,7 @@ def create_panel_d(
     summary_ax.patch.set_alpha(0)
 
     # Add title
-    layer_display = get_display_name(focus_layer, config) or focus_layer.upper()
+    _ = get_display_name(focus_layer, config) or focus_layer.upper()
     _add_layer_circle(
         x=0.5, y=1.1, ax=summary_ax, layer_name=focus_layer, config=config
     )
@@ -767,7 +766,7 @@ def plot_unified_dynamics(
 
     # Create panels
     logger.info("Creating Panel A: Layers")
-    panel_a_axes = create_panel_a(
+    _ = create_panel_a(
         fig,
         df,
         layer_names,
@@ -782,7 +781,7 @@ def plot_unified_dynamics(
     )
 
     logger.info("Creating Panel B: Parameter variation")
-    panel_b_axes = create_panel_b(
+    _ = create_panel_b(
         fig,
         df,
         focus_layer,
@@ -797,10 +796,10 @@ def plot_unified_dynamics(
     )
 
     logger.info("Creating Panel C: Empty panel")
-    panel_c_ax = create_panel_c(fig)
+    _ = create_panel_c(fig)
 
     logger.info("Creating Panel D: Summary metrics")
-    panel_d_ax = create_panel_d(
+    _ = create_panel_d(
         fig,
         df,
         focus_layer,

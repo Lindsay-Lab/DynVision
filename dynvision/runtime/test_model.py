@@ -16,20 +16,14 @@ import logging
 import os
 import sys
 from contextlib import contextmanager
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Dict
 
 import pytorch_lightning as pl
 import torch
-import wandb
 
 from dynvision import models
-from dynvision.data.dataloader import (
-    _adjust_data_dimensions,
-    _adjust_label_dimensions,
-)
+
 from dynvision.data.datamodule import TestingDataModule
-from dynvision.project_paths import project_paths
 from dynvision.utils import (
     filter_kwargs,
     handle_errors,
@@ -38,7 +32,7 @@ from dynvision.utils import (
 )
 
 # Import the Pydantic parameter classes
-from dynvision.params.testing_params import (
+from dynvision.params.testing_params import (  # noqa: F401
     TestingParams,
     DynVisionValidationError,
 )
@@ -304,7 +298,9 @@ class TestingOrchestrator:
 
                 # Check if we have any responses
                 if not response_data or len(response_data) == 0:
-                    logger.warning("No model responses recorded - skipping response file")
+                    logger.warning(
+                        "No model responses recorded - skipping response file"
+                    )
                     return
 
                 logger.info(
@@ -353,12 +349,15 @@ class TestingOrchestrator:
                 del responses
                 del response_data
                 import gc
+
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 logger.debug("Response cleanup completed")
             else:
-                logger.warning("No storage or responses available - skipping response file")
+                logger.warning(
+                    "No storage or responses available - skipping response file"
+                )
         except MemoryError as e:
             logger.error(f"Out of memory while saving model responses: {e}")
             logger.error("Consider reducing store_responses or batch_size")
@@ -367,7 +366,9 @@ class TestingOrchestrator:
         except Exception as e:
             logger.error(f"Failed to save model responses: {e}")
             if "CUDA out of memory" in str(e) or "out of memory" in str(e).lower():
-                logger.error("GPU/CPU out of memory - reduce batch_size or store_responses")
+                logger.error(
+                    "GPU/CPU out of memory - reduce batch_size or store_responses"
+                )
             # Don't save empty dict - let Snakemake detect failure by missing output
             raise
 
@@ -450,6 +451,7 @@ class TestingOrchestrator:
                 del dataloader
                 import gc
                 import time
+
                 gc.collect()
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()

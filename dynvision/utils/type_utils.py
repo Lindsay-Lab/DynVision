@@ -7,7 +7,7 @@ This module provides type-related utilities:
 - Type mapping dictionaries
 """
 
-from typing import Any, Dict, Optional, Union
+from typing import Optional, Union
 
 # Type definitions
 types_int = [
@@ -92,10 +92,10 @@ def guess_type(string: str) -> Union[int, float, str, bool, None]:
     """
     try:
         out = int(string)
-    except:
+    except Exception:
         try:
             out = float(string)
-        except:
+        except Exception:
             out = str(string)
             if out.lower() == "none":
                 out = None
