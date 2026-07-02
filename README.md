@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/logo_white.svg" alt="DynVision Logo" width="400"/>
+  <img src="docs/assets/logo.svg" alt="DynVision Logo" width="400"/>
 </p>
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
@@ -15,7 +15,7 @@
 DynVision is a modular toolbox for constructing and evaluating recurrent convolutional neural networks (RCNNs) with biologically inspired dynamics. It provides a flexible framework for exploring how recurrent connections and temporal dynamics shape visual processing in artificial neural networks and how these networks can be aligned with properties of biological visual systems.
 
 <p align="center">
-  <img src="docs/assets/overview.png" alt="DynVision Approach Overview" width="600"/>
+  <img src="docs/assets/overview.png" alt="DynVision Approach Overview" width="650"/>
 </p>
 
 ## Key Features
