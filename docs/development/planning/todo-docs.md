@@ -15,9 +15,7 @@ Toolbox/code work is tracked separately in the
 
 ## Missing Pages & Sections
 
-- ⬜ **Custom experiments** — how to define a new entry in
-  `config_experiments.yaml` and run it via the `*_model_variations` rules.
-  *(added 2026-07-03: [Custom Experiments guide](../../user-guide/custom-experiments.md))*
+- ✅ **Custom experiments** — [Custom Experiments guide](../../user-guide/custom-experiments.md) (added 2026-07-03).
 - ⬜ **Visualization gallery** — `user-guide/visualization.md` is thin; add
   screenshot examples of each plot type.
 - ⬜ **Monitoring callbacks** — what metrics are logged, where, and how to add

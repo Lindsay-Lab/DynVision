@@ -51,7 +51,7 @@
 /* -------------------------------------------------------------------------
    0. Global brand colours (all quadrants)
    - Header (primary) defaults to dark moss-green; quadrants override below.
-   - Links use a slightly deeper amber for readability on white (>=4.28:1);
+   - Links use a slightly deeper amber for readability on white;
      hover/accent decoration keeps the bright brand amber.
    ------------------------------------------------------------------------- */
 :root {

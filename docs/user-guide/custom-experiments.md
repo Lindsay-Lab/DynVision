@@ -45,7 +45,7 @@ experiment_config:
       intro: 1                  # blank lead-in steps before stimulus onset
       stim: 20                  # steps the stimulus is shown
       contrast: [0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]   # swept values
-      idle: 20                  # trailing blank steps after the stimulus
+      idle: 20                  # model idle timesteps before recorded response (spontaneous warm-up)
 ```
 
 | Field | Required | Meaning |
@@ -56,9 +56,8 @@ experiment_config:
 | `status` | ⬜ | Optional override of which model checkpoint(s) to test, e.g. `[trained-epoch=99, trained-epoch=199]` to probe intermediate checkpoints. Defaults to `config.status` (typically `trained`). |
 
 !!! tip "Timestep budget"
-    For most presentation loaders the timeline is `intro + stim + idle` and
-    should match `dsteps`. Keep them consistent so the stimulus window falls
-    where you expect within the recorded response.
+    For StimulusDuration/Contrast/Interval the recorded timeline is `intro + stim + (dsteps - intro - stim)` (the remainder is blank).
+    `idle` is separate: it maps to the model’s `idle_timesteps` warm-up before recorded timesteps.
 
 ### A minimal custom experiment
 
@@ -134,7 +133,7 @@ plotting, `--config experiment=<name>` (which stimulus probe to apply).
 
     ```bash
     snakemake test_model_variations --config category=rctype experiment=flash \
-      --allowed-rules test_model process_test_data
+      --allowed-rules test_model process_single_test aggregate_experiment_data
     ```
 
 === "Plot the comparison"
@@ -173,9 +172,9 @@ per model variant.
 
 - [ ] Added a named block under `experiment_config` with `parameter`,
       `data_loader`, and `data_args`.
-- [ ] Confirmed `intro + stim + idle` matches `dsteps`.
+- [ ] Confirmed `intro + stim <= dsteps` (blank tail is derived as `dsteps - intro - stim`).
 - [ ] (Optional) Added or reused a `categories` entry for the model sweep.
-- [ ] Verified the chosen `data_loader` exists in `dynvision/data/dataloader.py`.
+- [ ] Verified the chosen `data_loader` maps to a `*DataLoader` class in `dynvision/data/dataloader.py` (bare names like `StimulusDuration` are accepted).
 - [ ] Ran `test_model_variations` (or the `--allowed-rules` variant) and found
       `test_data.csv` under `reports/{experiment}/…`.
 
