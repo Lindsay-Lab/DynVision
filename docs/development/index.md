@@ -21,17 +21,15 @@ The Developer Guide is organized into four main sections:
 
 Forward-looking documentation tracking what needs to be done:
 
-- **[Documentation TODOs](planning/todo-docs.md)**: Documentation fixes and doc/code mismatches (24 issues)
-  - Critical issues (project naming, broken links, class mismatches)
-  - Documentation gaps (missing examples, images, templates)
-  - Code vs documentation mismatches
-  - Performance and optimization docs needed
+- **[Documentation TODOs](planning/todo-docs.md)**: Open documentation tasks
+  - Missing pages and sections
+  - Doc/code consistency issues
+  - Content-quality improvements
 
-- **[Development Roadmap](planning/todo-roadmap.md)**: Feature development and enhancements (30 items)
-  - Phase 1: Quick Wins (user onboarding, config validation, pre-commit hooks)
-  - Phase 2: Foundation (test suite, CI/CD, minimal examples)
-  - Phase 3: Tools & Analysis (inspector, benchmarking, profiling)
-  - Phase 4: Advanced Features (performance optimizations, research tools)
+- **[Development Roadmap](planning/todo-development.md)**: Planned improvements to the toolbox
+  - Compatibility & packaging (Python 3.12/3.13, templates)
+  - Configuration, parameters, and logging
+  - Workflow, reproducibility, performance, and testing
 
 **When to use**: Before starting new work, check these files to avoid duplication and align with project priorities.
 
@@ -126,7 +124,7 @@ Recommended reading order:
 2. Reference [Research Software](guides/software-patterns.md) for design guidance
 3. Consult [Documentation Style Guide](guides/documentation-style.md) when writing docs
 4. Review [Documentation TODOs](planning/todo-docs.md) to find contribution opportunities
-5. Check [Development Roadmap](planning/todo-roadmap.md) for aligned feature work
+5. Check [Development Roadmap](planning/todo-development.md) for aligned feature work
 
 ### For AI Assistants
 
@@ -156,10 +154,10 @@ Together, these guides minimize the need for extensive code reading while ensuri
 
 Track project health via:
 
-- [Documentation TODOs](planning/todo-docs.md) - 24 documentation issues to address
-- [Development Roadmap](planning/todo-roadmap.md) - 30 development items organized by priority
+- [Documentation TODOs](planning/todo-docs.md) - open documentation tasks
+- [Development Roadmap](planning/todo-development.md) - planned toolbox improvements
 
-Both files include priority rankings and effort estimates.
+Both files group items by area for easy scanning.
 
 ## Quick Links
 
@@ -167,7 +165,7 @@ Both files include priority rankings and effort estimates.
 
 - [Claude Code Guide](guides/claude-guide.md) - Complete developer reference
 - [Todo Docs](planning/todo-docs.md) - Known documentation issues
-- [Roadmap](planning/todo-roadmap.md) - Planned features
+- [Roadmap](planning/todo-development.md) - Planned toolbox improvements
 
 **Dependency Docs**:
 
@@ -181,7 +179,7 @@ Both files include priority rankings and effort estimates.
 
 ## Contributing Workflow
 
-1. **Find a Task**: Check [Documentation TODOs](planning/todo-docs.md) or [Development Roadmap](planning/todo-roadmap.md)
+1. **Find a Task**: Check [Documentation TODOs](planning/todo-docs.md) or [Development Roadmap](planning/todo-development.md)
 2. **Understand Context**: Read [Claude Code Guide](guides/claude-guide.md) architecture section
 3. **Follow Standards**: Reference [Documentation Style Guide](guides/documentation-style.md)
 4. **Implement**: Use codebase patterns for guidance
@@ -195,7 +193,7 @@ This Developer Guide should be updated:
 
 - **When adding features**: Update [Claude Code Guide](guides/claude-guide.md) architecture
 - **When finding bugs**: Add to [Documentation TODOs](planning/todo-docs.md)
-- **When planning work**: Update [Development Roadmap](planning/todo-roadmap.md)
+- **When planning work**: Update [Development Roadmap](planning/todo-development.md)
 - **When writing docs**: Follow [Documentation Style Guide](guides/documentation-style.md)
 - **When changing dependencies**: Update relevant dependency docs
 

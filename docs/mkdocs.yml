@@ -1,5 +1,9 @@
-site_name: ""
-site_description: Documentation for DynVision - Modeling dynamical vision with biologically plausible recurrent convolutional networks
+site_name: DynVision
+site_description: >-
+  DynVision — a PyTorch framework for modeling dynamical vision with
+  biologically plausible recurrent convolutional networks. Build, train,
+  and evaluate recurrent CNNs with configurable temporal dynamics and
+  compare them against neural data.
 site_author: Robin Gutzen
 site_url: https://lindsay-lab.github.io/DynVision/
 
@@ -58,18 +62,21 @@ theme:
   name: material
   custom_dir: overrides
   palette:
-    # Light/dark toggle
+    # Light/dark toggle.
+    # primary/accent set to "custom" so the exact brand hues are driven from
+    # stylesheets/diataxis.css (moss-green header by default, amber accent).
+    # Per-Diátaxis-quadrant header colours override the primary at runtime.
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode
@@ -151,9 +158,13 @@ plugins:
       fallback_to_build_date: true
   # - social  # Disabled: requires cairosvg (pip install "mkdocs-material[imaging]")
 
+# MathJax rendering for LaTeX math (paired with pymdownx.arithmatex above).
+# polyfill.io removed: domain compromised (2024 supply-chain malware) and
+# unnecessary for modern browsers. mathjax.js configures arithmatex output and
+# re-typesets after navigation.
 extra_javascript:
-  - https://polyfill.io/v3/polyfill.min.js?features=es6
-  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - javascripts/mathjax.js
+  - https://unpkg.com/mathjax@3/es5/tex-mml-chtml.js
 
 # -----------------------------------------------------------------------------
 # Navigation — organised by the four Diátaxis quadrants.
@@ -178,6 +189,7 @@ nav:
     - Data Processing: user-guide/data-processing.md
     - Temporal Data Presentation: user-guide/temporal-data-presentation.md
     - Workflow Management: user-guide/workflows.md
+    - Custom Experiments: user-guide/custom-experiments.md
     - Training: user-guide/training.md
     - Model Testing: user-guide/model-testing.md
     - Visualization: user-guide/visualization.md
@@ -218,7 +230,7 @@ nav:
     - Documentation Map: development/documentation-map.md
     - Planning:
       - Documentation TODOs: development/planning/todo-docs.md
-      - Development Roadmap: development/planning/todo-roadmap.md
+      - Development Roadmap: development/planning/todo-development.md
     - Guides:
       - AI Style Guide: development/guides/ai-style-guide.md
       - Claude Code Guide: development/guides/claude-guide.md
