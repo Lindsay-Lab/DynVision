@@ -76,8 +76,7 @@ experiment_config:
     data_args:
       dsteps: 80
       intro: 5
-      stim: [1, 2, 4]      # three brief flash durations to compare
-      idle: 74             # long tail to watch the response decay
+      stim: [1, 2, 4]      # three brief flash durations to compare (tail is derived from dsteps - intro - stim)
 ```
 
 That is the entire definition — no code changes required.
