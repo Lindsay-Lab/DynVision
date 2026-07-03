@@ -30,6 +30,34 @@
     {% set quadrant = "" %}
   {% endif %}
   <meta name="dv-diataxis" content="{{ quadrant }}">
+
+  {#- --------------------------------------------------------------------
+      SEO / social sharing metadata
+      - Canonical URL, keywords, theme colour
+      - Open Graph (Facebook/LinkedIn) + Twitter summary card
+      Per-page title/description fall back to the site-level values.
+     -------------------------------------------------------------------- #}
+  {% set page_title = page.title if page and page.title else config.site_name %}
+  {% set page_desc = page.meta.description if page and page.meta and page.meta.description else config.site_description %}
+  {% set page_url = page.canonical_url if page and page.canonical_url else config.site_url %}
+  {% set og_image = config.site_url ~ "assets/logo.svg" %}
+
+  <meta name="keywords" content="DynVision, recurrent neural network, convolutional neural network, RCNN, computational neuroscience, biologically plausible, vision model, PyTorch, temporal dynamics, neural data, deep learning">
+  <meta name="theme-color" content="#CF8A2A">
+  <link rel="canonical" href="{{ page_url }}">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ page_title }}">
+  <meta property="og:description" content="{{ page_desc }}">
+  <meta property="og:url" content="{{ page_url }}">
+  <meta property="og:image" content="{{ og_image }}">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="{{ page_title }}">
+  <meta name="twitter:description" content="{{ page_desc }}">
+  <meta name="twitter:image" content="{{ og_image }}">
+
   {#- Dual favicons for dark/light mode — media-query based switching -#}
   <link rel="icon" href="{{ base_url }}/assets/favicon_D.svg" media="(prefers-color-scheme: light)">
   <link rel="icon" href="{{ base_url }}/assets/favicon_D.svg" media="(prefers-color-scheme: dark)">

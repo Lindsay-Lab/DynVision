@@ -1,5 +1,9 @@
-site_name: ""
-site_description: Documentation for DynVision - Modeling dynamical vision with biologically plausible recurrent convolutional networks
+site_name: DynVision
+site_description: >-
+  DynVision — a PyTorch framework for modeling dynamical vision with
+  biologically plausible recurrent convolutional networks. Build, train,
+  and evaluate recurrent CNNs with configurable temporal dynamics and
+  compare them against neural data.
 site_author: Robin Gutzen
 site_url: https://lindsay-lab.github.io/DynVision/
 
@@ -58,18 +62,21 @@ theme:
   name: material
   custom_dir: overrides
   palette:
-    # Light/dark toggle
+    # Light/dark toggle.
+    # primary/accent set to "custom" so the exact brand hues are driven from
+    # stylesheets/diataxis.css (moss-green header by default, amber accent).
+    # Per-Diátaxis-quadrant header colours override the primary at runtime.
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
-      accent: blue
+      primary: custom
+      accent: custom
       toggle:
         icon: material/weather-sunny
         name: Switch to light mode

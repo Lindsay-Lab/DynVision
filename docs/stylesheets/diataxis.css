@@ -1,16 +1,25 @@
 /* =========================================================================
    DynVision — Diátaxis visual identity
    -------------------------------------------------------------------------
-   Each of the four documentation quadrants gets a distinct accent colour and
-   icon so users always know which "mode" of documentation they are in:
+   Palette philosophy: muted, earthy, brand-adjacent. The header colours are
+   desaturated natural tones that harmonise with the two brand hues — amber
+   #CF8A2A and deep purple #672E6B — rather than shrill primaries. All colours
+   are defined in HSL for readable, tunable hue/saturation/lightness.
 
-     Tutorials      green    #2ecc71   (learning-oriented)
-     How-to Guides  brown    #795548   (task-oriented)
-     Reference      slate    #34495e   (information-oriented)
-     Explanation    teal     #16a085   (understanding-oriented)
+   Brand hues
+     amber   hsl(35, 66%, 49%)   #CF8A2A  — global link / hover / emphasis
+     purple  hsl(296, 40%, 30%)  #672E6B  — secondary accent (badges, borders)
 
-   Brand colour #CF8A2A (amber) is the global accent — used for links,
-   hover states, and emphasis across ALL quadrants for a coherent feel.
+   Default header (Home / About — no Diátaxis quadrant)
+     moss    hsl(143, 23%, 22%)  #2C4636  — dark, organic moss-green
+
+   Diátaxis quadrant headers (each distinct so users know their "mode")
+     Tutorials      sage-green  hsl(142, 22%, 39%)  #4E7A5E  (learning)
+     How-to Guides  warm ochre  hsl(34, 37%, 39%)   #8A6A3F  (task)
+     Reference      slate       hsl(212, 20%, 36%)  #4A5B6E  (information)
+     Explanation    deep teal   hsl(171, 30%, 32%)  #3A6B64  (understanding)
+
+   All header colours carry white text and pass WCAG AA (>=4.5:1 contrast).
 
    The body receives a `data-diataxis` attribute set by overrides/main.html
    (based on the page URL). All section theming keys off that attribute, so it
@@ -18,49 +27,89 @@
    ========================================================================= */
 
 :root {
-  --dv-tutorial: #2ecc71;
-  --dv-tutorial-dark: #27ae60;
-  --dv-howto: #795548;
-  --dv-howto-dark: #5D4037;
-  --dv-reference: #34495e;
-  --dv-reference-dark: #2c3e50;
-  --dv-explanation: #16a085;
-  --dv-explanation-dark: #138d75;
+  /* --- Brand hues -------------------------------------------------------- */
+  --dv-brand: hsl(35, 66%, 49%);          /* amber  #CF8A2A */
+  --dv-brand-dark: hsl(35, 71%, 38%);     /* deeper amber #A86E1C — link text on light bg (AA) */
+  --dv-brand-purple: hsl(296, 40%, 30%);  /* purple #672E6B — secondary accent */
+  --dv-brand-purple-soft: hsla(296, 40%, 30%, 0.10);
 
-  /* Brand amber — global accent colour for links and hover states */
-  --dv-brand: #CF8A2A;
-  --dv-brand-dark: #B07820;
+  /* --- Default header (no quadrant): dark moss-green --------------------- */
+  --dv-default: hsl(143, 23%, 22%);       /* #2C4636 */
+  --dv-default-dark: hsl(143, 24%, 17%);  /* #223529 — hover/darker variant */
+
+  /* --- Diátaxis quadrant headers (muted, earthy) ------------------------ */
+  --dv-tutorial: hsl(142, 22%, 39%);      /* sage-green #4E7A5E */
+  --dv-tutorial-dark: hsl(142, 24%, 31%); /* #3E6149 */
+  --dv-howto: hsl(34, 37%, 39%);          /* warm ochre #8A6A3F */
+  --dv-howto-dark: hsl(34, 40%, 31%);     /* #6E5330 */
+  --dv-reference: hsl(212, 20%, 36%);     /* slate #4A5B6E */
+  --dv-reference-dark: hsl(212, 22%, 29%);/* #3A4859 */
+  --dv-explanation: hsl(171, 30%, 32%);   /* deep teal #3A6B64 */
+  --dv-explanation-dark: hsl(171, 32%, 25%); /* #2C5450 */
 }
 
 /* -------------------------------------------------------------------------
-   0. Global accent (all quadrants)
-   Links, hover, and active states use the brand amber throughout.
+   0. Global brand colours (all quadrants)
+   - Header (primary) defaults to dark moss-green; quadrants override below.
+   - Links use a slightly deeper amber for readability on white (>=4.28:1);
+     hover/accent decoration keeps the bright brand amber.
    ------------------------------------------------------------------------- */
 :root {
+  /* Default primary (header/footer) — used on Home, About, and any page
+     without a Diátaxis quadrant. Fed by `primary: custom` in mkdocs.yml. */
+  --md-primary-fg-color: var(--dv-default);
+  --md-primary-fg-color--light: var(--dv-default);
+  --md-primary-fg-color--dark: var(--dv-default-dark);
+
+  /* Accent (hover, active, focus) — bright brand amber. */
   --md-accent-fg-color: var(--dv-brand);
-  --md-accent-fg-color--dark: var(--dv-brand-dark);
-  --md-accent-fg-color--transparent: rgba(207, 138, 42, 0.1);
+  --md-accent-fg-color--transparent: hsla(35, 66%, 49%, 0.1);
+
+  /* Link text — deeper amber for AA contrast on the light background. */
+  --md-typeset-a-color: var(--dv-brand-dark);
+}
+
+/* Dark scheme (slate): Material's slate scheme ships blue-ish primary/accent
+   defaults — re-point them to the brand palette so nothing renders blue.
+   The bright brand amber reads well on dark backgrounds (contrast ~5.6:1). */
+[data-md-color-scheme="slate"] {
   --md-typeset-a-color: var(--dv-brand);
+  --md-accent-fg-color: var(--dv-brand);
+  --md-accent-fg-color--transparent: hsla(35, 66%, 49%, 0.12);
+  --md-primary-fg-color: var(--dv-default);
+  --md-primary-fg-color--light: var(--dv-default);
+  --md-primary-fg-color--dark: var(--dv-default-dark);
+
+  /* Lightened purple so the secondary accent stays visible on dark. */
+  --dv-brand-purple: hsl(296, 40%, 58%);
+  --dv-brand-purple-soft: hsla(296, 40%, 58%, 0.16);
 }
 
 /* -------------------------------------------------------------------------
    1. Per-section header colour
-   Override Material's primary header variable per quadrant.
+   Override Material's primary header variable per quadrant. The `body[...]`
+   selector out-specifies both `:root` and the `[data-md-color-scheme]` blocks,
+   so these apply identically in light and dark mode. We set --light as well so
+   the slate scheme cannot fall back to its blue default anywhere.
    ------------------------------------------------------------------------- */
 body[data-diataxis="tutorial"] {
   --md-primary-fg-color: var(--dv-tutorial);
+  --md-primary-fg-color--light: var(--dv-tutorial);
   --md-primary-fg-color--dark: var(--dv-tutorial-dark);
 }
 body[data-diataxis="howto"] {
   --md-primary-fg-color: var(--dv-howto);
+  --md-primary-fg-color--light: var(--dv-howto);
   --md-primary-fg-color--dark: var(--dv-howto-dark);
 }
 body[data-diataxis="reference"] {
   --md-primary-fg-color: var(--dv-reference);
+  --md-primary-fg-color--light: var(--dv-reference);
   --md-primary-fg-color--dark: var(--dv-reference-dark);
 }
 body[data-diataxis="explanation"] {
   --md-primary-fg-color: var(--dv-explanation);
+  --md-primary-fg-color--light: var(--dv-explanation);
   --md-primary-fg-color--dark: var(--dv-explanation-dark);
 }
 
@@ -148,7 +197,7 @@ body[data-diataxis="reference"] .md-typeset table:not([class]) th {
 }
 .md-typeset .goal > .admonition-title,
 .md-typeset .goal > summary {
-  background-color: rgba(207, 138, 42, 0.12);
+  background-color: hsla(35, 66%, 49%, 0.12);
 }
 .md-typeset .goal > .admonition-title::before,
 .md-typeset .goal > summary::before {
@@ -163,7 +212,7 @@ body[data-diataxis="reference"] .md-typeset table:not([class]) th {
 }
 .md-typeset .api-spec > .admonition-title,
 .md-typeset .api-spec > summary {
-  background-color: rgba(52, 73, 94, 0.1);
+  background-color: hsla(212, 20%, 36%, 0.10);
   font-family: "Fira Code", monospace;
 }
 .md-typeset .api-spec > .admonition-title::before,
@@ -182,6 +231,33 @@ body[data-diataxis="tutorial"] .md-footer__inner {
 }
 
 /* -------------------------------------------------------------------------
+   5b. Secondary brand accent — deep purple #672E6B
+   Used sparingly for small UI touches so both brand hues are present without
+   competing with the amber link accent or the earthy quadrant headers:
+     - a thin purple keyline beneath the header (pairs with the quadrant colour)
+     - ==highlighted== text (pymdownx.mark)
+     - the active table-of-contents marker
+   ------------------------------------------------------------------------- */
+.md-header {
+  border-bottom: 2px solid var(--dv-brand-purple);
+}
+
+.md-typeset mark {
+  background-color: var(--dv-brand-purple-soft);
+  box-shadow: 0 0 0 0.08em var(--dv-brand-purple-soft);
+}
+
+/* Active heading marker in the right-hand table of contents. */
+.md-nav__link--active,
+.md-nav__link--active:focus,
+.md-nav__link--active:hover {
+  color: var(--dv-brand-purple);
+}
+[data-md-color-scheme="slate"] .md-nav__link--active {
+  color: var(--dv-brand-purple);
+}
+
+/* -------------------------------------------------------------------------
    6. Accessibility: ensure focus rings remain visible (WCAG 2.1 — 2.4.7)
    ------------------------------------------------------------------------- */
 a:focus-visible,
@@ -197,4 +273,14 @@ button:focus-visible,
 .md-header__button.md-logo img,
 .md-header__button.md-logo svg {
   height: 2.2rem;
+}
+
+/* -------------------------------------------------------------------------
+   8. Header wordmark
+   site_name is set to "DynVision" for SEO (<title>, og:site_name), but the
+   logo already contains the wordmark — hide the redundant header text so the
+   visual header stays logo-only. The <title>/metadata are unaffected.
+   ------------------------------------------------------------------------- */
+.md-header__title .md-header__topic:first-child .md-ellipsis {
+  visibility: hidden;
 }
