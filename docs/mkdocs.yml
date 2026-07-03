@@ -189,6 +189,7 @@ nav:
     - Data Processing: user-guide/data-processing.md
     - Temporal Data Presentation: user-guide/temporal-data-presentation.md
     - Workflow Management: user-guide/workflows.md
+    - Custom Experiments: user-guide/custom-experiments.md
     - Training: user-guide/training.md
     - Model Testing: user-guide/model-testing.md
     - Visualization: user-guide/visualization.md
@@ -229,7 +230,7 @@ nav:
     - Documentation Map: development/documentation-map.md
     - Planning:
       - Documentation TODOs: development/planning/todo-docs.md
-      - Development Roadmap: development/planning/todo-roadmap.md
+      - Development Roadmap: development/planning/todo-development.md
     - Guides:
       - AI Style Guide: development/guides/ai-style-guide.md
       - Claude Code Guide: development/guides/claude-guide.md

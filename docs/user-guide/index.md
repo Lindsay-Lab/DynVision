@@ -13,6 +13,7 @@ Welcome to the DynVision User Guide! This section provides task-oriented guides 
 - [**Data Processing**](data-processing.md): Working with datasets and data loaders
 - [**Temporal Data Presentation**](temporal-data-presentation.md): Controlling temporal dynamics and stimulus presentation patterns
 - [**Workflow Management**](workflows.md): Using Snakemake for experiment orchestration
+- [**Custom Experiments**](custom-experiments.md): Designing new stimulus-presentation experiments and model sweeps
 - [**Training**](training.md): Training models and generating checkpoints
 - [**Model Testing**](model-testing.md): Evaluating trained models on test data
 - [**Visualization**](visualization.md): Visualizing and analyzing results
@@ -25,7 +26,6 @@ The following guides are planned for future releases:
 
 - **Model Evaluation**: evaluating model performance and biological plausibility
 - **Hyperparameter Optimization**: systematic parameter tuning
-- **Custom Experiments**: designing and implementing new experiments
 - **Performance Optimization**: making DynVision run faster
 - **Transfer Learning**: using pre-trained models
 
