@@ -22,6 +22,7 @@ from dynvision.utils import (
     log_section_table,
     format_value,
 )
+from dynvision.utils.dtype_policy import coordinate_component_dtypes
 
 from pydantic import (  # noqa: F401
     Field,
@@ -206,15 +207,7 @@ class TrainingParams(CompositeParams):
         Ensure all components (trainer, data, model) use consistent dtypes.
         """
         # Get the effective dtype from trainer precision
-        trainer_dtype = self.trainer.get_effective_dtype()
-
-        # Ensure data uses the same dtype
-        if self.data.dtype != trainer_dtype:
-            logging.warning(
-                f"Data dtype ({self.data.dtype}) differs from trainer dtype ({trainer_dtype}). "
-                f"Aligning data dtype to trainer."
-            )
-            self.data.update_field("dtype", trainer_dtype, mutation_tag="derived")
+        trainer_dtype = coordinate_component_dtypes(self)
 
         # Store for model initialization
         self._coordinated_dtype = trainer_dtype

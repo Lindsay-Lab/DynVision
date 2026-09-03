@@ -117,7 +117,6 @@ loss_reaction_time: 0  # ms - reaction time for loss calculation
 non_label_index: -1  # Index for non-label timesteps
 
 # ===== TRAINING BEHAVIOR =====
-target_dtype: "float16"  # Target dtype for model outputs
 retain_graph: False  # Retain computational graph for repeated backprop
 
 # Data

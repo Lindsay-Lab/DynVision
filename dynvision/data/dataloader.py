@@ -74,7 +74,7 @@ class StandardDataLoader(DataLoader):
         *args,
         n_timesteps: int = 1,
         memory_format: torch.memory_format = torch.contiguous_format,
-        dtype: torch.dtype = torch.float16,
+        dtype: torch.dtype = torch.float32,
         device: Optional[str] = None,
         use_channels_last: bool = False,
         use_cuda_streams: bool = True,

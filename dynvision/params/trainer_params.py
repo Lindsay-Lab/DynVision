@@ -373,16 +373,16 @@ class TrainerParams(BaseParams):
         """
         Ensure trainer precision aligns with expected dtypes.
         """
-        # Use the same shared function as DataParams
-        expected_dtype_str = get_effective_dtype_from_precision(str(self.precision))
+        # Resolve the stored-parameter dtype for this precision (shared resolver).
+        expected_dtype = get_effective_dtype_from_precision(self.precision)
 
         # Log what dtype this precision will actually use
         logging.debug(
-            f"Trainer precision '{self.precision}' will use dtype '{expected_dtype_str}'"
+            f"Trainer precision '{self.precision}' will use dtype '{expected_dtype}'"
         )
 
         # Store the effective dtype for coordination with other components
-        self._effective_dtype = expected_dtype_str
+        self._effective_dtype = expected_dtype
 
         return self
 
@@ -732,19 +732,11 @@ class TrainerParams(BaseParams):
 
     def get_effective_dtype(self) -> torch.dtype:
         """Get the actual torch.dtype that this trainer configuration will use."""
-        dtype_map = {
-            "float16": torch.float16,
-            "float32": torch.float32,
-            "float64": torch.float64,
-            "bfloat16": torch.bfloat16,
-        }
-
         if hasattr(self, "_effective_dtype"):
-            return dtype_map[self._effective_dtype]
+            return self._effective_dtype
         else:
             # Fallback to derivation
-            dtype_str = get_effective_dtype_from_precision(str(self.precision))
-            return dtype_map[dtype_str]
+            return get_effective_dtype_from_precision(self.precision)
 
     def get_early_stopping_callback_kwargs(self) -> Optional[Dict[str, Any]]:
         """Get early stopping callback configuration."""

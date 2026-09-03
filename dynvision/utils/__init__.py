@@ -70,6 +70,15 @@ from .torch_utils import (
     _torch_load_with_retries,
 )
 
+from .dtype_policy import (
+    PRECISION_TO_DTYPE,
+    DEFAULT_DTYPE,
+    normalize_precision,
+    resolve_dtype,
+    DtypePolicy,
+    coordinate_component_dtypes,
+)
+
 from .model_utils import (
     check_stability,
     check_weights,
@@ -144,6 +153,13 @@ __all__ = [
     "determine_target_dtype",
     "calculate_conv_out_dim",
     "_torch_load_with_retries",
+    # Dtype policy
+    "PRECISION_TO_DTYPE",
+    "DEFAULT_DTYPE",
+    "normalize_precision",
+    "resolve_dtype",
+    "DtypePolicy",
+    "coordinate_component_dtypes",
     # Model utilities
     "check_stability",
     "check_weights",

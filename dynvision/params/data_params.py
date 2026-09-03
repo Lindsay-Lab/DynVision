@@ -15,7 +15,6 @@ import json
 import os
 from dynvision.params.base_params import BaseParams
 from dynvision.utils import (
-    get_effective_dtype_from_precision,
     SummaryItem,
     log_section,
     format_value,
@@ -77,7 +76,6 @@ class DataParams(BaseParams):
         ),
         "Precision": (
             SummaryItem("dtype"),
-            SummaryItem("precision"),
             SummaryItem("use_distributed"),
             SummaryItem("pin_memory"),
             SummaryItem("prefetch_factor"),
@@ -167,10 +165,7 @@ class DataParams(BaseParams):
     page_size: int = Field(..., description="Size of the page for data processing")
     dtype: Optional[Union[str, torch.dtype]] = Field(
         default=None,
-        description="Data type for tensors - if None`, derived from precision",
-    )
-    precision: Optional[str] = Field(
-        default=None, description="Training precision (PyTorch Lightning format)"
+        description="Data type for tensors - if None, derived from trainer precision",
     )
     batches_ahead: int = Field(
         ..., ge=1, description="Number of batches to prefetch with ffcv"
@@ -214,12 +209,13 @@ class DataParams(BaseParams):
                 "float16": torch.float16,
                 "float32": torch.float32,
                 "float64": torch.float64,
+                "bfloat16": torch.bfloat16,
                 "int8": torch.int8,
                 "int16": torch.int16,
                 "int32": torch.int32,
                 "int64": torch.int64,
             }
-            return dtype_map.get(self.dtype, torch.float16)
+            return dtype_map.get(self.dtype, torch.float32)
 
         return None
 
@@ -330,39 +326,6 @@ class DataParams(BaseParams):
 
         raise ValueError(f"Invalid normalize format: {v}")
 
-    @field_validator("precision")
-    @classmethod
-    def validate_precision(cls, v: Optional[str]) -> Optional[str]:
-        """Validate precision matches PyTorch Lightning format.
-
-        Note: This validator must match PyTorch Lightning's accepted precision values.
-        For Lightning 2.0+, the valid values are:
-        - String: '64', '32', '16', 'bf16', '16-mixed', 'bf16-mixed'
-        - Integer: 64, 32, 16
-        """
-        if v is None:
-            return None
-
-        # Convert to string for consistent handling
-        v_str = str(v).lower()
-
-        # Valid PyTorch Lightning 2.0+ precision values
-        valid_precisions = {
-            "16",
-            "32",
-            "64",
-            "bf16",
-            "16-mixed",
-            "bf16-mixed",
-        }
-
-        if v_str not in valid_precisions:
-            raise ValueError(
-                f"Precision '{v}' is invalid. Allowed precision values: {valid_precisions}"
-            )
-
-        return v_str
-
     @field_validator("dtype")
     @classmethod
     def validate_dtype(
@@ -466,37 +429,6 @@ class DataParams(BaseParams):
             # Use "all" for training, specific group for testing
             target_group = "all" if self.train else self.data_group
             _derive("target_data_group", target_group)
-
-        return self
-
-    @model_validator(mode="after")
-    def resolve_dtype_precision_compatibility(self):
-        """
-        Resolve dtype/precision compatibility using shared logic with TrainerParams.
-        """
-
-        # Derive dtype if not explicitly set
-        if self.dtype is None:
-            derived_dtype_str = get_effective_dtype_from_precision(self.precision)
-
-            # Convert string to torch.dtype
-            dtype_map = {
-                "float16": torch.float16,
-                "float32": torch.float32,
-                "float64": torch.float64,
-                "bfloat16": torch.bfloat16,
-            }
-
-            self.update_field(
-                "dtype",
-                dtype_map[derived_dtype_str],
-                verbose=True,
-                validate=False,
-                mutation_tag="derived",
-            )
-            logging.debug(
-                f"Derived data dtype '{derived_dtype_str}' from precision '{self.precision}'"
-            )
 
         return self
 

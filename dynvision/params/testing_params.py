@@ -31,6 +31,9 @@ from dynvision.params.model_params import ModelParams
 from dynvision.params.trainer_params import TrainerParams
 from dynvision.params.data_params import DataParams
 from dynvision.utils import SummaryItem, log_section, format_value
+from dynvision.utils.dtype_policy import coordinate_component_dtypes
+
+import torch
 
 logger = logging.getLogger(__name__)
 
@@ -122,6 +125,18 @@ class TestingParams(CompositeParams):
         self._optimize_memory_usage()
 
         return self
+
+    @model_validator(mode="after")
+    def coordinate_component_dtypes(self) -> "TestingParams":
+        """Align data dtype to the trainer's effective dtype (shared with training)."""
+        self._coordinated_dtype = coordinate_component_dtypes(self)
+        return self
+
+    def get_coordinated_dtype(self) -> torch.dtype:
+        """Get the dtype that all components should use."""
+        if hasattr(self, "_coordinated_dtype") and self._coordinated_dtype is not None:
+            return self._coordinated_dtype
+        return self.trainer.get_effective_dtype()
 
     @classmethod
     def get_component_assignment_order(cls) -> Iterable[str]:
@@ -373,7 +388,6 @@ class TestingParams(CompositeParams):
                 "pattern": "model.data_presentation_pattern",
                 "solver": "model.dynamics_solver",
                 # Trainer aliases (routed to trainer component)
-                "precision": "trainer.precision",
                 "benchmark": "trainer.benchmark",
                 "devices": "trainer.devices",
                 # Data aliases (routed to data component)
