@@ -29,7 +29,6 @@ from dynvision.params.resolution import (
     separate_source,
 )
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: a miniature composite schema with no pydantic behind it
 # ---------------------------------------------------------------------------
@@ -117,9 +116,9 @@ def test_resolution_layer_only_depends_on_provenance_within_dynvision():
                 if alias.name.startswith("dynvision"):
                     dynvision_imports.add(alias.name)
 
-    assert dynvision_imports <= {"dynvision.params.provenance"}, (
-        f"resolution.py must only depend on provenance, got {dynvision_imports}"
-    )
+    assert dynvision_imports <= {
+        "dynvision.params.provenance"
+    }, f"resolution.py must only depend on provenance, got {dynvision_imports}"
 
 
 # ---------------------------------------------------------------------------
@@ -168,9 +167,7 @@ def test_unscoped_key_without_alias_reaches_every_declaring_component():
 
 def test_same_scope_alias_wins_over_target():
     params = {"model.tff": 3, "model.t_feedforward": 9}
-    resolved, prov = resolve_aliases(
-        params, {}, {"model.tff": "model.t_feedforward"}
-    )
+    resolved, prov = resolve_aliases(params, {}, {"model.tff": "model.t_feedforward"})
     assert resolved == {"model.t_feedforward": 3}
 
 
@@ -204,7 +201,9 @@ def test_cross_scope_scoped_alias_beats_unscoped_target():
 
 def test_alias_resolution_is_a_noop_without_aliases():
     params = {"batch_size": 8}
-    resolved, prov = resolve_aliases(params, {"batch_size": ProvenanceRecord("cli")}, {})
+    resolved, prov = resolve_aliases(
+        params, {"batch_size": ProvenanceRecord("cli")}, {}
+    )
     assert resolved == params
     assert prov["batch_size"].source == "cli"
 
@@ -548,7 +547,9 @@ def test_merge_mode_sections_without_a_mode_is_a_noop():
 
 def test_separate_source_returns_plain_dicts():
     schema = make_schema()
-    separated = separate_source(source("config", {"data.batch_size": 8, "seed": 1}), schema)
+    separated = separate_source(
+        source("config", {"data.batch_size": 8, "seed": 1}), schema
+    )
 
     assert separated.components["data"]["batch_size"] == 8
     assert separated.composite["seed"] == 1

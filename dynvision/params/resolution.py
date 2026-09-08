@@ -125,7 +125,9 @@ class ConfigSchema:
         if self.component_order:
             known = set(self.component_fields)
             ordered = [name for name in self.component_order if name in known]
-            ordered.extend(name for name in self.component_fields if name not in ordered)
+            ordered.extend(
+                name for name in self.component_fields if name not in ordered
+            )
             return tuple(ordered)
         return tuple(self.component_fields)
 
@@ -378,12 +380,19 @@ def resolve_aliases(
         if target in resolved:
             logger.debug(
                 "Alias '%s'=%s overrides '%s'=%s (same scope depth %d, alias wins)",
-                alias, resolved[alias], target, resolved[target], depth,
+                alias,
+                resolved[alias],
+                target,
+                resolved[target],
+                depth,
             )
         else:
             logger.debug(
                 "Alias '%s'=%s resolves to '%s' (scope depth %d)",
-                alias, resolved[alias], target, depth,
+                alias,
+                resolved[alias],
+                target,
+                depth,
             )
         _promote(alias, target)
         _drop(alias)
@@ -395,13 +404,21 @@ def resolve_aliases(
         if target in resolved and target_depth > alias_depth:
             logger.debug(
                 "Scoped target '%s'=%s beats unscoped alias '%s'=%s (%d > %d)",
-                target, resolved[target], alias, resolved[alias],
-                target_depth, alias_depth,
+                target,
+                resolved[target],
+                alias,
+                resolved[alias],
+                target_depth,
+                alias_depth,
             )
         else:
             logger.debug(
                 "Alias '%s'=%s resolves to '%s' (alias depth %d, target depth %d)",
-                alias, resolved[alias], target, alias_depth, target_depth,
+                alias,
+                resolved[alias],
+                target,
+                alias_depth,
+                target_depth,
             )
             _promote(alias, target)
         _drop(alias)
@@ -456,7 +473,11 @@ def separate_source(source: ConfigSource, schema: ConfigSchema) -> SeparatedSour
                     f"{mode}.{comp_name}"
                 )
                 logger.debug(
-                    "Mode+Component: %s.%s=%s [mode=%s]", comp_name, param_name, value, mode
+                    "Mode+Component: %s.%s=%s [mode=%s]",
+                    comp_name,
+                    param_name,
+                    value,
+                    mode,
                 )
                 continue
 
@@ -544,8 +565,12 @@ def separate_source(source: ConfigSource, schema: ConfigSchema) -> SeparatedSour
         for base_key, base_value in composite.items():
             if base_key not in components[comp_name]:
                 components[comp_name][base_key] = base_value
-                record = composite_prov.get(base_key, ProvenanceRecord(source="default"))
-                component_provenance[comp_name][base_key] = record.with_scope(comp_name)
+                record = composite_prov.get(
+                    base_key, ProvenanceRecord(source="default")
+                )
+                component_provenance[comp_name][base_key] = record.with_scope(
+                    comp_name
+                )
 
     return SeparatedSource(
         components=components,
@@ -560,9 +585,7 @@ def separate_source(source: ConfigSource, schema: ConfigSchema) -> SeparatedSour
 # ---------------------------------------------------------------------------
 
 
-def resolve(
-    sources: Sequence[ConfigSource], schema: ConfigSchema
-) -> ResolvedConfig:
+def resolve(sources: Sequence[ConfigSource], schema: ConfigSchema) -> ResolvedConfig:
     """Resolve labelled parameter sources into per-component parameter dicts.
 
     This is the single entry point of the resolution layer, and the seam that
@@ -608,7 +631,9 @@ def resolve(
             if values:
                 components[comp_name].update(values)
             if comp_name in part.component_provenance:
-                component_provenance[comp_name].update(part.component_provenance[comp_name])
+                component_provenance[comp_name].update(
+                    part.component_provenance[comp_name]
+                )
 
     _apply_preprocessors(components, component_provenance, schema)
 
