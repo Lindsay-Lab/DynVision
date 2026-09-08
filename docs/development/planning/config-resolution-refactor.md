@@ -1,6 +1,6 @@
 # Splitting Config Resolution from Config Validation
 
-**Status:** 🚧 IN PROGRESS
+**Status:** ✅ IMPLEMENTED
 **Created:** 2026-09-08
 **Issue:** [Lindsay-Lab/DynVision#13](https://github.com/Lindsay-Lab/DynVision/issues/13)
 **Branch:** `refactor/split-config-resolution` (stacked on `refactor/dtype-policy`)
@@ -260,11 +260,48 @@ alias tables, preprocessor callables, and the `_handle_unscoped_param` hooks. Th
 
 ## 6. Success criteria
 
-- [ ] `resolve()` is callable with plain dicts and asserts without pydantic or torch.
-- [ ] The `c10::Half` alias-shadowing shape has a direct regression test.
-- [ ] All pre-existing params tests pass unchanged.
-- [ ] Full suite matches the recorded baseline.
-- [ ] Docs guide reflects the new structure.
+- [x] `resolve()` is callable with plain dicts and asserts without pydantic or torch.
+      Enforced by `test_resolution_layer_has_no_validation_dependencies`.
+- [x] The `c10::Half` alias-shadowing shape has a direct regression test
+      (`test_alias_diverts_unscoped_key_away_from_sibling_components`).
+- [x] All pre-existing params tests pass unchanged — including the 10+ call sites
+      that use the private classmethods directly.
+- [x] Full suite matches the recorded baseline: 238 passed / 3 skipped
+      (191 baseline + 47 new), with the same 3 pre-existing `ffcv` failures.
+- [x] `docs/development/guides/parameter-processing.md` reflects the new structure.
+
+### Outcome
+
+| Metric | Before | After |
+| --- | --- | --- |
+| `composite_params.py` | 1,107 lines | 743 lines |
+| Resolution logic | spread across 4 files, reachable only via pydantic | `resolution.py`, 670 lines, pure |
+| Tests covering resolution rules directly | 0 | 47 |
+
+### Deviations from the plan
+
+- `remove_conflicting_base_keys` turned out to demote a base-level key **only** when
+  the mode block names that same key. A base key the mode block does not mention still
+  fans out to every component declaring it. This is pre-existing behaviour, preserved
+  verbatim and now pinned by
+  `test_remove_conflicting_base_keys_leaves_non_colliding_base_keys_alone`. It is a
+  latent sharp edge of the same family as the alias-shadowing bug, but fixing it would
+  be a behaviour change and belongs in its own issue.
+- Mode *toggle* resolution (`ModeRegistry` lookups, `_gather_mode_toggle_values`,
+  `_flatten_mode_patches`) stayed on `CompositeParams` rather than moving into
+  `resolution.py`. `ModeRegistry` reads YAML from disk, so moving it would have pulled
+  I/O into the pure layer. Only the pure part (`flatten_nested_payload`,
+  `merge_mode_sections`) moved.
+- The legacy `_separate_component_configs` single-source path now also tags
+  preprocessor-derived values in provenance, which it previously did not. This is a
+  strict improvement and consistent with the two-source path.
+
+### Not done
+
+- `mkdocs build` was **not** run: mkdocs is not installed in the `dynvision` conda env.
+  Markdown structure was checked manually (code-fence parity, referenced files exist,
+  planning docs are covered by the existing `not_in_nav` rule). The docs build should
+  be confirmed in CI.
 
 ## 7. Decision log
 

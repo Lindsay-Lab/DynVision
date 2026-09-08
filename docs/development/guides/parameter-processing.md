@@ -35,21 +35,59 @@ The DynVision parameter processing system handles the complex flow of configurat
                        │
                        ▼
 ┌────────────────────────────────────────────────────────────────┐
-│            CompositeParams (composite_params.py)                │
-│  • Separates config and CLI parameter sources                   │
-│  • Applies scope-aware precedence within each source            │
-│  • Merges with CLI taking priority                              │
-│  • Routes parameters to component classes                       │
+│      CompositeParams — GATHER stage (composite_params.py)       │
+│  • Parses CLI args and loads the config file (I/O)              │
+│  • Determines which modes are active                            │
+│  • Wraps each source as a labelled ConfigSource                 │
 └──────────────────────┬─────────────────────────────────────────┘
                        │
                        ▼
 ┌────────────────────────────────────────────────────────────────┐
-│         Component Instantiation (ModelParams, etc.)             │
+│          RESOLVE stage — resolve() (resolution.py)              │
+│  • PURE: plain dicts in, plain dicts out                        │
+│  • Resolves aliases with scope-aware precedence                 │
+│  • Applies scope precedence within each source                  │
+│  • Merges sources: config → modes → CLI                         │
+│  • No pydantic, no torch — directly unit-testable               │
+└──────────────────────┬─────────────────────────────────────────┘
+                       │  ResolvedConfig (unvalidated)
+                       ▼
+┌────────────────────────────────────────────────────────────────┐
+│    VALIDATE stage — Component Instantiation (ModelParams, …)    │
 │  • Pydantic validation of parameters                            │
 │  • Type checking and constraint enforcement                     │
 │  • Computed properties and cross-validation                     │
 └────────────────────────────────────────────────────────────────┘
 ```
+
+### Resolution vs. validation
+
+Resolution and validation are separate layers (see
+[issue #13](https://github.com/Lindsay-Lab/DynVision/issues/13) and
+`docs/development/planning/config-resolution-refactor.md`).
+
+| | Resolution | Validation |
+| --- | --- | --- |
+| Module | `dynvision/params/resolution.py` | the `*Params` classes |
+| Interface | `resolve(sources, schema) -> ResolvedConfig` | `Component(**kwargs)` |
+| Operates on | plain `dict` | pydantic models |
+| Dependencies | stdlib + `provenance.py` | pydantic, torch |
+| Owns | alias/scope/source precedence | types, constraints, cross-field rules |
+
+The practical consequence: a precedence rule can be asserted on a plain dictionary,
+without a dataset, a checkpoint, or torch. This is what made the `c10::Half` dtype
+crash — an alias that silently diverted `precision` away from `DataParams` — visible
+to a test rather than only to a runtime crash.
+
+The three resolution-layer types are:
+
+- **`ConfigSchema`** — plain-data description of the target composite: component
+  field names, base fields, aliases, mode name, preprocessors, and the
+  unscoped-key handler. Built by `CompositeParams.build_config_schema()`, which is
+  the only adapter between pydantic and the resolver.
+- **`ConfigSource`** — one labelled bundle of raw parameters plus provenance.
+- **`ResolvedConfig`** — per-component kwargs dicts and their provenance,
+  fully resolved but **not** validated.
 
 ## Three-Level Precedence Hierarchy
 
@@ -59,19 +97,15 @@ The DynVision parameter processing system handles the complex flow of configurat
 
 This is the highest-level precedence rule. Regardless of how a parameter is scoped or aliased, if it comes from the CLI it will override the same parameter from the config.
 
-**Implementation** (`_separate_component_configs_two_sources`):
+**Implementation** (`resolution.resolve`):
 ```python
-# Separate config params (scoped > unscoped within config)
-config_components = cls._separate_single_source(config_params)
+# Each source is separated independently (scoped > unscoped within the source)
+separated = [separate_source(source, schema) for source in sources if source.params]
 
-# Separate CLI params (scoped > unscoped within CLI)
-cli_components = cls._separate_single_source(cli_params)
-
-# Merge: CLI always wins over config
-for comp_name in component_classes:
-    final_configs[comp_name] = composite_base.copy()
-    final_configs[comp_name].update(config_components.get(comp_name, {}))
-    final_configs[comp_name].update(cli_components.get(comp_name, {}))  # CLI wins
+# Then layered in order: config -> modes -> cli, so the last source wins
+for part in separated:
+    for comp_name in component_names:
+        components[comp_name].update(part.components.get(comp_name, {}))
 ```
 
 **Examples:**
@@ -89,7 +123,7 @@ Scoped parameters use dot notation to target specific components or modes:
 - **2-part keys**: `component.param` or `mode.param` (e.g., `model.model_name`, `init.batch_size`)
 - **1-part keys**: `param` (unscoped, applies to all matching components)
 
-**Implementation** (`_separate_single_source`):
+**Implementation** (`resolution.separate_source`):
 ```python
 # Phase 1: Classify parameters by scope
 for key, value in params.items():
@@ -97,35 +131,35 @@ for key, value in params.items():
     
     if len(parts) == 3:  # mode.component.param
         if mode and parts[0] == mode and parts[1] in component_classes:
-            level_2_mode_component[parts[1]][parts[2]] = value
+            mode_scoped[parts[1]][parts[2]] = value
             
     elif len(parts) == 2:  # component.param or mode.param
         if mode and parts[0] == mode:
-            level_3_mode[parts[1]] = value
+            mode_level[parts[1]] = value
         elif parts[0] in component_classes:
-            level_4_component[parts[0]][parts[1]] = value
+            scoped[parts[0]][parts[1]] = value
             
     else:  # Unscoped
         if key in base_fields:
             composite_base[key] = value
-        level_5_base[key] = value  # Also add to base for routing
+        unscoped[key] = value  # Also add to base for routing
 
 # Phase 2: Apply precedence (higher level overrides lower)
 for comp_name in component_classes:
     comp_config = {}
     
     # Level 5: Unscoped (lowest)
-    comp_config.update({k: v for k, v in level_5_base.items() 
+    comp_config.update({k: v for k, v in unscoped.items() 
                        if k in comp_fields and (comp_name, k) not in explicitly_scoped})
     
     # Level 4: Component-scoped
-    comp_config.update(level_4_component[comp_name])
+    comp_config.update(scoped[comp_name])
     
     # Level 3: Mode-scoped
-    comp_config.update({k: v for k, v in level_3_mode.items() if k in comp_fields})
+    comp_config.update({k: v for k, v in mode_level.items() if k in comp_fields})
     
     # Level 2: Mode+Component-scoped (highest)
-    comp_config.update(level_2_mode_component[comp_name])
+    comp_config.update(mode_scoped[comp_name])
 ```
 
 **Examples:**
@@ -140,7 +174,7 @@ for comp_name in component_classes:
 
 Aliases provide convenient short-forms for commonly used parameters. When both an alias and its target exist at the same scope level within the same source, the alias takes precedence.
 
-**Implementation** (`_resolve_aliases_with_precedence`):
+**Implementation** (`resolution.resolve_aliases`):
 ```python
 # Group parameters by scope level (number of dots)
 by_scope = {0: {}, 1: {}, 2: {}}  # 0=unscoped, 1=one dot, 2=two dots
@@ -197,15 +231,15 @@ When a user provides `--seed 42`, this value should propagate to all components 
 
 **Phase 1: Dual Routing**
 
-Single-part keys are added to BOTH `composite_base` AND `level_5_base`:
+Single-part keys are added to BOTH `composite_base` AND `unscoped`:
 
 ```python
 # Single-part key (Level 5 or composite base)
 if key in base_fields:
     composite_base[key] = value
 
-# Also add to level_5_base for component routing
-level_5_base[key] = value
+# Also add to unscoped for component routing
+unscoped[key] = value
 ```
 
 This ensures shared fields can route to components while also being stored at the composite level.
@@ -392,95 +426,134 @@ BaseParams
 
 #### `from_cli_and_config` (CompositeParams)
 
-Entry point for parameter resolution:
+Entry point for parameter resolution. Three explicit stages:
 
 ```python
 @classmethod
-def from_cli_and_config(
-    cls,
-    config_path: Optional[str] = None,
-    override_kwargs: Optional[Dict[str, Any]] = None,
-    args: Optional[List[str]] = None,
-) -> "CompositeParams":
-    # Get config and CLI params separately
+def from_cli_and_config(cls, config_path=None, override_kwargs=None, args=None):
+    # --- Stage 1: gather sources (I/O) ---
     config_params, cli_params = cls._get_config_and_cli_params_separate(
-        config_path=config_path,
-        override_kwargs=override_kwargs,
-        args=args
+        config_path=config_path, override_kwargs=override_kwargs, args=args
     )
-    
-    # Separate and merge with proper precedence
+    mode_params, mode_resolution = cls._resolve_mode_overrides(config_params, cli_params)
+    cls._strip_mode_toggle_keys(config_params, cli_params)
+
+    # --- Stages 2 & 3: resolve (pure), then validate ---
     separated = cls._separate_component_configs_two_sources(
-        config_params=config_params,
-        cli_params=cli_params
+        config_params=config_params, cli_params=cli_params, mode_params=mode_params
     )
-    
-    return cls(**separated)
+    instance = cls(**separated)
+    ...
+    return instance
 ```
 
-#### `_separate_single_source` (CompositeParams)
+#### `resolve` (resolution.py)
 
-Processes a single parameter source with scope-aware precedence:
+The single entry point of the resolution layer:
+
+```python
+def resolve(sources: Sequence[ConfigSource], schema: ConfigSchema) -> ResolvedConfig:
+    """Turn labelled parameter sources into per-component parameter dicts."""
+```
+
+Callable directly, with no pydantic involved:
+
+```python
+from dynvision.params.resolution import ConfigSchema, ConfigSource, resolve
+
+schema = ConfigSchema(
+    component_fields={
+        "model": frozenset({"model_name", "n_timesteps"}),
+        "data": frozenset({"batch_size"}),
+    },
+    base_fields=frozenset({"seed"}),
+    aliases={"tsteps": "model.n_timesteps"},
+    mode_name="test",
+)
+
+resolved = resolve(
+    [
+        ConfigSource("config", {"data.batch_size": 8, "tsteps": 12}),
+        ConfigSource("cli", {"batch_size": 64}),
+    ],
+    schema,
+)
+
+resolved.components["data"]["batch_size"]        # 64  (CLI beats config)
+resolved.components["model"]["n_timesteps"]      # 12  (alias resolved)
+resolved.component_provenance["data"]["batch_size"].source  # "cli"
+```
+
+#### `build_config_schema` (CompositeParams)
+
+The adapter between the two layers — the one place that reads pydantic
+`model_fields` and hands the resolver plain data:
 
 ```python
 @classmethod
-def _separate_single_source(
-    cls, params: Dict[str, Any]
-) -> Dict[str, Dict[str, Any]]:
-    # Resolve aliases with scope precedence
-    params = cls._resolve_aliases_with_precedence(params)
-    
-    # Phase 1: Classify parameters by scope
-    # ... (see Scope Precedence section)
-    
-    # Phase 2: Apply precedence hierarchy
-    # ... (higher levels override lower)
-    
-    # Phase 3: Handle unscoped parameters
-    # ... (route to matching components)
-    
-    # Phase 4: Add composite base fields
-    # ... (propagate shared fields)
-    
-    return component_configs
+def build_config_schema(cls) -> ConfigSchema:
+    component_classes = cls.get_component_classes()
+    return ConfigSchema(
+        component_fields={
+            name: frozenset(comp.model_fields.keys())
+            for name, comp in component_classes.items()
+        },
+        base_fields=frozenset(cls.model_fields.keys()) - set(component_classes),
+        aliases=cls.get_aliases(),
+        mode_name=cls._get_active_mode(),
+        component_order=tuple(cls.get_component_assignment_order()),
+        preprocessors=cls.get_component_preprocessors(),
+        unscoped_handler=cls._handle_unscoped_param,
+    )
 ```
 
-#### `_resolve_aliases_with_precedence` (CompositeParams)
+Subclass hooks (`get_component_preprocessors`, `_handle_unscoped_param`,
+`get_component_assignment_order`, `get_aliases`) are passed through as data, so
+overriding them in `TrainingParams` / `TestingParams` / `InitParams` works exactly
+as before.
+
+#### `separate_source` (resolution.py)
+
+Processes a single source with scope-aware precedence:
+
+```python
+def separate_source(source: ConfigSource, schema: ConfigSchema) -> SeparatedSource:
+    # Resolve aliases with scope precedence
+    params, provenance = resolve_aliases(source.params, source.provenance, schema.aliases)
+
+    # Phase 1: Classify parameters by scope   (see Scope Precedence section)
+    # Phase 2: Apply the precedence hierarchy (higher levels override lower)
+    # Phase 3: Handle keys matching no component field (unscoped_handler)
+    # Phase 4: Propagate composite base fields to components
+```
+
+#### `resolve_aliases` (resolution.py)
 
 Scope-aware alias resolution:
 
 ```python
-@classmethod
-def _resolve_aliases_with_precedence(
-    cls, params: Dict[str, Any]
-) -> Dict[str, Any]:
-    aliases = cls.get_aliases()
-    
-    # Group by scope level
-    by_scope = {0: {}, 1: {}, 2: {}}
-    for key, value in params.items():
-        scope_level = key.count('.')
-        by_scope[scope_level][key] = value
-    
-    # Resolve aliases within each scope level
-    for scope_level in [0, 1, 2]:
-        scope_params = by_scope[scope_level]
-        
-        for alias, full_name in aliases.items():
-            if (alias.count('.') == scope_level and 
-                full_name.count('.') == scope_level and
-                alias in scope_params):
-                scope_params[full_name] = scope_params[alias]
-                del scope_params[alias]
-    
-    # Merge with scope precedence
-    resolved = {}
-    resolved.update(by_scope[0])  # Unscoped
-    resolved.update(by_scope[1])  # One dot
-    resolved.update(by_scope[2])  # Two dots
-    
-    return resolved
+def resolve_aliases(params, provenance=None, aliases=None):
+    """Rewrite alias keys to their targets, respecting scope precedence.
+
+    1. Same scope depth  -> the alias wins.
+    2. Differing depth   -> the deeper-scoped key wins.
+    3. Target absent     -> the alias always resolves to it.
+    """
 ```
+
+!!! warning "Aliases divert keys away from sibling components"
+    The alias key is removed in **every** branch. So an alias whose target is scoped
+    to one component (`precision -> trainer.precision`) stops that key from reaching
+    other components that declare the same field — `DataParams.precision` silently
+    stays unset. This caused the `c10::Half` crash; see
+    `docs/development/planning/dtype-handling-refactor.md`. Prefer leaving a key
+    unscoped when several components should see it.
+
+`CompositeParams` retains thin delegating wrappers
+(`_resolve_aliases_with_precedence`, `_separate_single_source`, `_deep_merge`,
+`_remove_conflicting_base_keys`, `_flatten_component_sections`,
+`_flatten_nested_payload`) for backward compatibility. New code should call the
+`resolution.py` functions directly.
 
 ## Type Coercion for CLI Arguments
 
@@ -724,7 +797,7 @@ python script.py --config config.yaml --model_name CliUnscoped
 if key in base_fields:
     composite_base[key] = value
 else:
-    level_5_base[key] = value  # ❌ Should be unconditional
+    unscoped[key] = value  # ❌ Should be unconditional
 ```
 
 **Correct implementation:**
@@ -732,8 +805,8 @@ else:
 if key in base_fields:
     composite_base[key] = value
 
-# Always add to level_5_base for component routing
-level_5_base[key] = value  # ✅
+# Always add to unscoped for component routing
+unscoped[key] = value  # ✅
 ```
 
 ### Pitfall 4: Hard-coding defaults in Pydantic classes
@@ -768,29 +841,23 @@ class InitParams(CompositeParams):
     mode_name: ClassVar[str] = "init"  # ✅ Class variable
 ```
 
-2. **Use two-source separation:**
+2. **Use multi-source resolution:**
 ```python
 # Old (single merged dict)
 params = cls.get_params_from_cli_and_config(...)
 separated = cls._separate_component_configs(params)
 
-# New (config and CLI kept separate)
+# New (sources kept separate, resolved as plain data, then validated)
 config_params, cli_params = cls._get_config_and_cli_params_separate(...)
 separated = cls._separate_component_configs_two_sources(
     config_params=config_params,
-    cli_params=cli_params
+    cli_params=cli_params,
 )
 ```
 
-3. **Add shared field dual routing:**
-```python
-# Add to Phase 1 of _separate_single_source
-if key in base_fields:
-    composite_base[key] = value
-
-# Always add to level_5_base (new)
-level_5_base[key] = value
-```
+3. **Shared field dual routing** is handled inside `resolution.separate_source`:
+a key naming a composite base field is recorded on the composite *and* left
+available for component routing, so both see it.
 
 
 ## Mode-Aware Workflow Integration
