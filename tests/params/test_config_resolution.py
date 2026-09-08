@@ -485,11 +485,24 @@ def test_deep_merge_creates_missing_sections():
     assert base == {"trainer": {"devices": 1}}
 
 
-def test_remove_conflicting_base_keys_moves_base_value_into_scope():
+def test_remove_conflicting_base_keys_demotes_a_colliding_base_key():
+    """A base-level key is demoted into the scope only when the mode block names it."""
     config = {"devices": 4, "trainer": {}}
-    remove_conflicting_base_keys(config, {"trainer": {"epochs": 10}})
+    remove_conflicting_base_keys(config, {"trainer": {"devices": 1}})
     assert "devices" not in config
     assert config["trainer"]["devices"] == 4
+
+
+def test_remove_conflicting_base_keys_leaves_non_colliding_base_keys_alone():
+    """``devices`` survives at base level because the mode block only sets ``epochs``.
+
+    Pins a real limitation of the existing algorithm: conflict resolution is keyed
+    on names present in the override, so an unrelated base-level key still fans out
+    to every component that declares it.
+    """
+    config = {"devices": 4, "trainer": {}}
+    remove_conflicting_base_keys(config, {"trainer": {"epochs": 10}})
+    assert config == {"devices": 4, "trainer": {"epochs": 10}}
 
 
 def test_flatten_component_sections_produces_dotted_keys():
