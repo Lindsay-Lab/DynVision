@@ -192,16 +192,19 @@ class DyRCNN(BaseModel):
         # This overrides every layer's delay() call directly (not just the
         # model-level self.delay_feedforward), since per-layer t_feedforward
         # can differ from the model-level value (see #11).
+        # Restoration is wrapped in try/finally so a failure during the
+        # shape-inference forward pass can't leave the model stuck in
+        # eval mode with the delay override still active.
         self._delay_feedforward_override = 0
-
-        with torch.no_grad():
-            x = torch.randn((1, *self.input_dims), device=device, dtype=dtype)
-            _ = self.forward(x, store_responses=False)
-
-        # Restore normal per-layer delay behavior and training mode
-        self._delay_feedforward_override = None
-        if was_training:
-            self.train()
+        try:
+            with torch.no_grad():
+                x = torch.randn((1, *self.input_dims), device=device, dtype=dtype)
+                _ = self.forward(x, store_responses=False)
+        finally:
+            # Restore normal per-layer delay behavior and training mode
+            self._delay_feedforward_override = None
+            if was_training:
+                self.train()
 
         self.reset()
 
