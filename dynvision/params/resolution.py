@@ -300,7 +300,8 @@ def merge_mode_sections(
     Returns:
         A new flattened config dict. The input is not modified.
     """
-    merged = dict(config)
+    import copy
+    merged = copy.deepcopy(config)
 
     if not mode_name or mode_name not in merged:
         return merged
