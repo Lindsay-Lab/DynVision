@@ -59,16 +59,30 @@ class TestSetupWithFeedforwardDelay:
 
         ``_initialize_connections`` sets ``self._delay_feedforward_override``
         and switches to eval mode for the duration of a probe forward pass.
-        If that forward pass raises, both must still be restored (see
+        If that forward pass raises, both must still be restored, and the
+        (possibly partially-mutated) hidden state must still be reset (see
         review discussion on #11's fix PR).
         """
         model = DyRCNNx4(n_classes=10, input_dims=(10, 1, 28, 28), tff=2)
         model.train()
         assert model.training is True
+        original_override = model._delay_feedforward_override
 
-        with patch.object(DyRCNNx4, "forward", side_effect=RuntimeError("boom")):
+        with patch.object(
+            DyRCNNx4, "forward", side_effect=RuntimeError("boom")
+        ), patch.object(
+            DyRCNNx4, "reset", wraps=DyRCNNx4.reset, autospec=True
+        ) as mock_reset:
             with pytest.raises(RuntimeError, match="boom"):
                 model.setup("fit")
+            reset_call_count = mock_reset.call_count
 
-        assert model._delay_feedforward_override is None
+        # super().setup() calls reset() once before _initialize_connections
+        # runs; _initialize_connections must call it again in its finally
+        # block to clear state mutated by the failed probe forward.
+        assert model._delay_feedforward_override == original_override
         assert model.training is True
+        assert reset_call_count >= 2, (
+            "reset() must be called again after the probe forward raises, "
+            "not just once by super().setup()"
+        )
