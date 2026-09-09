@@ -152,13 +152,14 @@ def coordinate_component_dtypes(config: Any) -> Optional[torch.dtype]:
     if data is None:
         return trainer_dtype
 
-    if data.dtype is not None and data.dtype != trainer_dtype:
-        logger.warning(
-            "Data dtype (%s) differs from trainer dtype (%s). "
-            "Aligning data dtype to trainer.",
-            data.dtype,
-            trainer_dtype,
-        )
-    data.update_field("dtype", trainer_dtype, mutation_tag="derived")
+    if data.dtype is None or data.dtype != trainer_dtype:
+        if data.dtype is not None:
+            logger.warning(
+                "Data dtype (%s) differs from trainer dtype (%s). "
+                "Aligning data dtype to trainer.",
+                data.dtype,
+                trainer_dtype,
+            )
+        data.update_field("dtype", trainer_dtype, mutation_tag="derived")
 
     return trainer_dtype

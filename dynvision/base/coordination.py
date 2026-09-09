@@ -30,7 +30,7 @@ class DtypeDeviceCoordinator:
 
         super().__init__()
 
-    def map_dtype(self, dtype: Any) -> Optional[torch.dtype]:
+    def map_dtype(self, dtype: Optional[torch.dtype]) -> Optional[torch.dtype]:
         if dtype is None:
             return None
         if isinstance(dtype, torch.dtype):
