@@ -189,19 +189,27 @@ class DyRCNN(BaseModel):
         # Temporarily disable feedforward delay so all layers receive valid
         # tensors (otherwise the empty delay buffer returns None and
         # skip/feedback modules can't inspect .shape to set up transforms).
-        saved_delay = self.delay_feedforward
-        self.delay_feedforward = 0
-
-        with torch.no_grad():
-            x = torch.randn((1, *self.input_dims), device=device, dtype=dtype)
-            _ = self.forward(x, store_responses=False)
-
-        # Restore feedforward delay and training mode
-        self.delay_feedforward = saved_delay
-        if was_training:
-            self.train()
-
-        self.reset()
+        # This overrides every layer's delay() call directly (not just the
+        # model-level self.delay_feedforward), since per-layer t_feedforward
+        # can differ from the model-level value (see #11).
+        # Restoration is wrapped in try/finally so a failure during the
+        # shape-inference forward pass can't leave the model stuck in
+        # eval mode, with the delay override still active, or with hidden
+        # states/delay buffers partially mutated by the aborted probe.
+        saved_delay_override = self._delay_feedforward_override
+        self._delay_feedforward_override = 0
+        try:
+            with torch.no_grad():
+                x = torch.randn((1, *self.input_dims), device=device, dtype=dtype)
+                _ = self.forward(x, store_responses=False)
+        finally:
+            # Restore normal per-layer delay behavior and training mode
+            self._delay_feedforward_override = saved_delay_override
+            if was_training:
+                self.train()
+            # Clear any hidden state mutated by the probe forward, whether
+            # it completed or raised partway through.
+            self.reset()
 
 
 class DyRCNNx4(DyRCNN):
