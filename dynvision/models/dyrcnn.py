@@ -189,15 +189,17 @@ class DyRCNN(BaseModel):
         # Temporarily disable feedforward delay so all layers receive valid
         # tensors (otherwise the empty delay buffer returns None and
         # skip/feedback modules can't inspect .shape to set up transforms).
-        saved_delay = self.delay_feedforward
-        self.delay_feedforward = 0
+        # This overrides every layer's delay() call directly (not just the
+        # model-level self.delay_feedforward), since per-layer t_feedforward
+        # can differ from the model-level value (see #11).
+        self._delay_feedforward_override = 0
 
         with torch.no_grad():
             x = torch.randn((1, *self.input_dims), device=device, dtype=dtype)
             _ = self.forward(x, store_responses=False)
 
-        # Restore feedforward delay and training mode
-        self.delay_feedforward = saved_delay
+        # Restore normal per-layer delay behavior and training mode
+        self._delay_feedforward_override = None
         if was_training:
             self.train()
 

@@ -127,6 +127,13 @@ class TemporalBase(nn.Module):
 
         self.delay_feedforward = int(t_feedforward / dt)
 
+        # Optional override applied to every layer's delay() call, regardless
+        # of that layer's own t_feedforward. Used by shape-inference forward
+        # passes (e.g. DyRCNN._initialize_connections) to force all delayed
+        # activations to be non-None at t=0. None means "no override" -> each
+        # layer uses its own per-layer t_feedforward as usual.
+        self._delay_feedforward_override: Optional[int] = None
+
         # Process input dimensions and determine timesteps
         self._process_input_dimensions(input_dims, n_timesteps)
 
@@ -371,9 +378,13 @@ class TemporalBase(nn.Module):
                     if hasattr(self, f"delay_{layer_name}"):
                         delay_func = getattr(self, f"delay_{layer_name}")
                         x = delay_func(x)
-                    # Then try layer's delay method (uses per-layer t_feedforward)
+                    # Then try layer's delay method (uses per-layer t_feedforward,
+                    # unless self._delay_feedforward_override forces a value for
+                    # all layers, e.g. during shape-inference initialization)
                     elif hasattr(layer, "delay"):
-                        x = layer.delay(x)
+                        x = layer.delay(
+                            x, delay_feedforward=self._delay_feedforward_override
+                        )
                     # Fall back to original implementation
                     elif hasattr(layer, "set_hidden_state"):
                         layer.set_hidden_state(x)
