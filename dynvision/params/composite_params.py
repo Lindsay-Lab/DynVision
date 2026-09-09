@@ -33,6 +33,19 @@ from dynvision.params.base_params import (
     ProvenanceRecord,
 )
 from dynvision.params.mode_registry import ModeRegistry, ModeResolution
+from dynvision.params.resolution import (
+    ConfigSchema,
+    ConfigSource,
+    ResolvedConfig,
+    deep_merge,
+    flatten_component_sections,
+    flatten_nested_payload,
+    merge_mode_sections,
+    remove_conflicting_base_keys,
+    resolve,
+    resolve_aliases,
+    separate_source,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +162,37 @@ class CompositeParams(BaseParams):
         """Return the active mode name if defined."""
         return cls.mode_name
 
+    # ------------------------------------------------------------------
+    # Adapter onto the pure resolution layer
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def build_config_schema(cls) -> ConfigSchema:
+        """Project this pydantic class graph onto a plain :class:`ConfigSchema`.
+
+        This is the adapter between the validation layer (pydantic classes, which
+        own field declarations and validators) and the resolution layer
+        (:mod:`dynvision.params.resolution`, which owns precedence rules and knows
+        nothing about pydantic).
+
+        Subclass extension points -- ``get_component_preprocessors`` and
+        ``_handle_unscoped_param`` -- are passed through as explicit callables, so
+        overriding them keeps working exactly as before.
+        """
+        component_classes = cls.get_component_classes()
+        return ConfigSchema(
+            component_fields={
+                name: frozenset(comp.model_fields.keys())
+                for name, comp in component_classes.items()
+            },
+            base_fields=frozenset(cls.model_fields.keys()) - set(component_classes),
+            aliases=cls.get_aliases(),
+            mode_name=cls._get_active_mode(),
+            component_order=tuple(cls.get_component_assignment_order()),
+            preprocessors=cls.get_component_preprocessors(),
+            unscoped_handler=cls._handle_unscoped_param,
+        )
+
     @classmethod
     def _load_config_file(cls, config_path) -> Dict[str, Any]:
         """
@@ -165,49 +209,21 @@ class CompositeParams(BaseParams):
 
         For TestingParams (mode_name="test"), this merges test.data.train into data.train.
         """
-        # Load base config using parent method
+        # Load base config using parent method, then fold in the `<mode>:` block.
         config = super()._load_config_file(config_path)
-
-        # Apply mode-specific overrides if mode is defined
-        mode = cls._get_active_mode()
-        if mode and mode in config:
-            mode_entry = config.get(mode)
-
-            # Only treat the mode key as overrides when it is a dictionary. Primitive
-            # values (e.g., the legacy root-level `train: true`) must remain in the
-            # config so they continue to act as component defaults.
-            if isinstance(mode_entry, dict):
-                mode_overrides = config.pop(mode)
-
-                # Deep merge mode overrides into base config
-                cls._deep_merge(config, mode_overrides)
-
-                # Resolve conflicts between base-level and scoped keys
-                # E.g., if test.data.train was merged into data.train, remove base-level train
-                cls._remove_conflicting_base_keys(config, mode_overrides)
-
-                # Flatten nested component sections back to dotted notation
-                # _separate_single_source expects flat keys like "trainer.devices", not nested dicts
-                config = cls._flatten_component_sections(config)
-
-        return config
+        return merge_mode_sections(
+            config,
+            cls._get_active_mode(),
+            cls.get_component_classes().keys(),
+        )
 
     @classmethod
     def _deep_merge(cls, base: Dict[str, Any], override: Dict[str, Any]) -> None:
-        """
-        Deep merge override dict into base dict (modifies base in-place).
+        """Deprecated alias for :func:`dynvision.params.resolution.deep_merge`.
 
-        Args:
-            base: Base dictionary to merge into
-            override: Override dictionary to merge from
+        Retained because existing tests call it as a classmethod.
         """
-        for key, value in override.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                # Recursively merge nested dicts
-                cls._deep_merge(base[key], value)
-            else:
-                # Override value
-                base[key] = value
+        deep_merge(base, override)
 
     @classmethod
     def _flatten_component_sections(cls, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -231,90 +247,17 @@ class CompositeParams(BaseParams):
         Returns:
             Flattened config dict with dotted keys
         """
-        component_names = set(cls.get_component_classes().keys())
-        flattened = {}
-
-        for key, value in config.items():
-            if key in component_names and isinstance(value, dict):
-                # This is a component section - flatten it
-                for subkey, subvalue in value.items():
-                    flattened[f"{key}.{subkey}"] = subvalue
-            else:
-                # Not a component section, keep as-is
-                flattened[key] = value
-
-        return flattened
+        return flatten_component_sections(config, cls.get_component_classes().keys())
 
     @classmethod
     def _remove_conflicting_base_keys(
         cls, config: Dict[str, Any], mode_overrides: Dict[str, Any]
     ) -> None:
+        """Deprecated alias for :func:`resolution.remove_conflicting_base_keys`.
+
+        Retained because existing tests call it as a classmethod.
         """
-        Resolve conflicts between base-level keys and scoped mode overrides.
-
-        Instead of removing base-level keys, this method applies precedence rules:
-        1. Mode-specific scoped value (e.g., test.trainer.devices) - highest
-        2. Existing scoped value (e.g., trainer.devices) - medium
-        3. Base-level value (e.g., devices) - lowest
-
-        If a base-level key conflicts with a mode override, we ensure the scoped
-        section has the correct value and can safely use the base-level as fallback.
-
-        Args:
-            config: Base config dictionary to resolve (modified in-place)
-            mode_overrides: Mode-specific overrides that were merged
-        """
-
-        def resolve_conflicts(overrides: Dict[str, Any], scope: str = "") -> None:
-            """
-            Recursively resolve conflicts by ensuring scoped sections have values.
-
-            For each mode override like 'trainer.devices = 1':
-            1. Ensure config['trainer']['devices'] = 1 (from mode merge)
-            2. If base-level 'devices' exists, ensure scoped version takes precedence
-            3. If scoped section missing the key, copy from base-level (fallback)
-            """
-            for key, value in overrides.items():
-                if isinstance(value, dict):
-                    # This is a scope (e.g., 'data', 'trainer')
-                    # Ensure the scope exists in config
-                    if key not in config:
-                        config[key] = {}
-                    elif not isinstance(config[key], dict):
-                        # Base-level value exists but scope needs to be a dict
-                        # Convert it to a dict (this is rare/unusual)
-                        config[key] = {}
-
-                    # Recurse into the scope
-                    resolve_conflicts(value, key)
-                else:
-                    # This is a leaf key within a scope
-                    if scope:
-                        # Ensure the scoped section exists
-                        if scope not in config:
-                            config[scope] = {}
-                        elif not isinstance(config[scope], dict):
-                            config[scope] = {}
-
-                        # Apply precedence: mode override > scoped value > base-level value
-                        if key in config and not isinstance(config[key], dict):
-                            # Base-level key exists - use it as fallback if scoped version doesn't exist
-                            base_value = config[key]
-
-                            if key not in config[scope]:
-                                # Copy base-level value to scoped section as fallback
-                                config[scope][key] = base_value
-
-                            # Remove base-level key to prevent conflict during component separation
-                            config.pop(key)
-                        else:
-                            # No base-level conflict, mode override already applied
-                            if key not in config[scope]:
-                                # Shouldn't happen after deep_merge, but ensure scoped key exists
-                                config[scope][key] = value
-
-        # Resolve all conflicts
-        resolve_conflicts(mode_overrides)
+        remove_conflicting_base_keys(config, mode_overrides)
 
     @classmethod
     def _resolve_aliases_with_precedence(
@@ -322,105 +265,13 @@ class CompositeParams(BaseParams):
         params: Dict[str, Any],
         sources: Optional[Dict[str, ProvenanceRecord]] = None,
     ) -> Tuple[Dict[str, Any], Dict[str, ProvenanceRecord]]:
+        """Resolve aliases with scope-aware precedence.
+
+        Thin wrapper over :func:`dynvision.params.resolution.resolve_aliases`,
+        supplying this class's alias table. See that function for the precedence
+        rules and for the alias-shadowing caveat.
         """
-        Resolve aliases with scope-aware precedence.
-
-        Precedence rules:
-        1. Scope level is primary: scoped > unscoped (target wins if scoped)
-        2. Within same scope: alias > long form
-        3. Cross-scope: only resolve if target doesn't exist
-
-        Examples:
-            - model.tff + model.t_feedforward → model.t_feedforward = tff_value (same scope, alias wins)
-            - tff + t_feedforward → t_feedforward = tff_value (same scope, alias wins)
-            - model.t_feedforward + tff → model.t_feedforward keeps its value (target scoped, beats unscoped alias)
-            - tsteps → model.n_timesteps (cross-scope, resolve if target absent)
-
-        Args:
-            params: Parameters with potential aliases
-
-        Returns:
-            Parameters with aliases resolved respecting scope precedence
-        """
-        aliases = cls.get_aliases()
-        if not aliases:
-            return params, (sources or {})
-
-        resolved = params.copy()
-        resolved_sources: Dict[str, ProvenanceRecord] = dict(sources or {})
-
-        # Process aliases grouped by relationship:
-        # 1. Same-scope aliases (alias and target at same scope level)
-        # 2. Cross-scope aliases (alias and target at different scope levels)
-
-        same_scope_aliases = []
-        cross_scope_aliases = []
-
-        for alias, target in aliases.items():
-            alias_scope = alias.count(".")
-            target_scope = target.count(".")
-            if alias_scope == target_scope:
-                same_scope_aliases.append((alias, target, alias_scope))
-            else:
-                cross_scope_aliases.append((alias, target, alias_scope, target_scope))
-
-        # === Phase 1: Resolve same-scope aliases (alias wins over target) ===
-        for alias, target, scope_level in same_scope_aliases:
-            if alias in resolved:
-                alias_value = resolved[alias]
-                if target in resolved:
-                    # Both exist at same scope - alias wins
-                    logger.debug(
-                        f"Alias '{alias}'={alias_value} overrides '{target}'={resolved[target]} "
-                        f"(same scope level {scope_level}, alias wins)"
-                    )
-                else:
-                    # Only alias exists - resolve it
-                    logger.debug(
-                        f"Alias '{alias}'={alias_value} resolves to '{target}' (same scope level {scope_level})"
-                    )
-                resolved[target] = alias_value
-                if alias in resolved_sources:
-                    resolved_sources[target] = resolved_sources[alias]
-                resolved_sources.pop(alias, None)
-                del resolved[alias]
-
-        # === Phase 2: Resolve cross-scope aliases (scoped target beats unscoped alias) ===
-        for alias, target, alias_scope, target_scope in cross_scope_aliases:
-            if alias in resolved:
-                alias_value = resolved[alias]
-                if target in resolved:
-                    # Target exists - which has precedence?
-                    if target_scope > alias_scope:
-                        # Target is more scoped (higher precedence) - keep target
-                        logger.debug(
-                            f"Scoped target '{target}'={resolved[target]} beats unscoped alias '{alias}'={alias_value} "
-                            f"(target scope {target_scope} > alias scope {alias_scope})"
-                        )
-                    else:
-                        # Alias is more scoped (higher precedence) - use alias
-                        logger.debug(
-                            f"Scoped alias '{alias}'={alias_value} overrides unscoped target '{target}'={resolved[target]} "
-                            f"(alias scope {alias_scope} > target scope {target_scope})"
-                        )
-                        resolved[target] = alias_value
-                        if alias in resolved_sources:
-                            resolved_sources[target] = resolved_sources[alias]
-                    # Remove alias in both cases
-                    resolved_sources.pop(alias, None)
-                    del resolved[alias]
-                else:
-                    # Only alias exists - resolve it to target
-                    logger.debug(
-                        f"Cross-scope alias '{alias}'={alias_value} resolves to '{target}' "
-                        f"(alias scope {alias_scope}, target scope {target_scope})"
-                    )
-                    resolved[target] = alias_value
-                    if alias in resolved_sources:
-                        resolved_sources[target] = resolved_sources[alias]
-                    resolved_sources.pop(alias, None)
-                    del resolved[alias]
-        return resolved, resolved_sources
+        return resolve_aliases(params, sources or {}, cls.get_aliases())
 
     @classmethod
     def from_cli_and_config(
@@ -429,14 +280,22 @@ class CompositeParams(BaseParams):
         override_kwargs: Optional[Dict[str, Any]] = None,
         args: Optional[List[str]] = None,
     ) -> "CompositeParams":
-        """Create an instance with component-aware parameter separation.
+        """Create an instance from config files, CLI arguments and modes.
 
-        Applies proper precedence:
-        - Within config files: scoped > unscoped (model.model_name > model_name)
-        - Within CLI args: scoped > unscoped (model.model_name > model_name)
-        - Between sources: ALL CLI args > ALL config values
+        Runs in three clearly separated stages:
+
+        1. **Gather** (I/O) -- parse CLI args, load the config file, resolve which
+           modes are active.
+        2. **Resolve** (pure) -- :func:`dynvision.params.resolution.resolve` turns
+           the labelled sources into per-component dictionaries. No validation,
+           no pydantic; see ``tests/params/test_config_resolution.py``.
+        3. **Validate** -- instantiate the components and the composite.
+
+        Precedence:
+        - Within a source: scoped > unscoped (``model.model_name`` > ``model_name``)
+        - Between sources: ALL CLI args > modes > ALL config values
         """
-        # Get config params and CLI params separately
+        # --- Stage 1: gather sources (I/O) ---
         config_params, cli_params = cls._get_config_and_cli_params_separate(
             config_path=config_path, override_kwargs=override_kwargs, args=args
         )
@@ -449,7 +308,7 @@ class CompositeParams(BaseParams):
         # Remove toggle keys so they do not leak into component configs
         cls._strip_mode_toggle_keys(config_params, cli_params)
 
-        # Separate each source independently, then merge with CLI taking precedence
+        # --- Stages 2 & 3: resolve, then validate ---
         separated = cls._separate_component_configs_two_sources(
             config_params=config_params,
             cli_params=cli_params,
@@ -613,22 +472,8 @@ class CompositeParams(BaseParams):
 
     @staticmethod
     def _flatten_nested_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
-        """Flatten arbitrarily nested dictionaries into dotted keys."""
-
-        flattened: Dict[str, Any] = {}
-
-        def _recurse(prefix: str, value: Any) -> None:
-            if isinstance(value, dict):
-                for subkey, subvalue in value.items():
-                    new_prefix = f"{prefix}.{subkey}" if prefix else subkey
-                    _recurse(new_prefix, subvalue)
-            else:
-                flattened[prefix] = value
-
-        for key, value in payload.items():
-            _recurse(key, value)
-
-        return flattened
+        """Deprecated alias for :func:`resolution.flatten_nested_payload`."""
+        return flatten_nested_payload(payload)
 
     # ------------------------------------------------------------------
     # Persistence helpers
@@ -753,11 +598,10 @@ class CompositeParams(BaseParams):
         cli_params: ParamsDict,
         mode_params: Optional[ParamsDict] = None,
     ) -> ParamsDict:
-        """
-        Split parameters from multiple sources with proper precedence.
+        """Resolve all sources, then instantiate (and thereby validate) components.
 
-        Within each source, apply scoped > unscoped precedence. Then merge sources
-        in the order config → modes → CLI, with later sources overriding earlier ones.
+        The two halves are now explicit: :func:`resolution.resolve` works out the
+        values over plain dicts, and :meth:`_instantiate_resolved` validates them.
 
         Args:
             config_params: Parameters from config files
@@ -765,97 +609,62 @@ class CompositeParams(BaseParams):
             mode_params: Parameters injected by active modes (optional)
 
         Returns:
-            Dictionary with instantiated components and composite base fields
+            ParamsDict of instantiated components plus composite base fields.
         """
-        source_specs = [
+        sources = cls._build_config_sources(config_params, cli_params, mode_params)
+        resolved = resolve(sources, cls.build_config_schema())
+        return cls._instantiate_resolved(resolved)
+
+    @classmethod
+    def _build_config_sources(
+        cls,
+        config_params: Optional[ParamsDict],
+        cli_params: Optional[ParamsDict],
+        mode_params: Optional[ParamsDict] = None,
+    ) -> List[ConfigSource]:
+        """Wrap the raw parameter dicts as ordered, labelled resolution sources.
+
+        Order encodes cross-source precedence: config -> modes -> cli.
+        """
+        specs = (
             ("config", config_params),
             ("modes", mode_params),
             ("cli", cli_params),
+        )
+        return [
+            ConfigSource(
+                label=label,
+                params=dict(params),
+                provenance=dict(getattr(params, "provenance", {}) or {}),
+            )
+            for label, params in specs
+            if params
         ]
 
-        separated_sources: List[
-            Tuple[
-                str, Dict[str, Dict[str, Any]], Dict[str, Dict[str, ProvenanceRecord]]
-            ]
-        ] = []
+    @classmethod
+    def _instantiate_resolved(cls, resolved: ResolvedConfig) -> ParamsDict:
+        """Validate a :class:`ResolvedConfig` by instantiating each component.
 
-        for label, params in source_specs:
-            if not params:
-                continue
-            source_map = getattr(params, "provenance", {})
-            data = dict(params)
-            if not data:
-                continue
-            components, provenance = cls._separate_single_source(data, source_map)
-            separated_sources.append((label, components, provenance))
-
-        component_classes = cls.get_component_classes()
-        final_configs: Dict[str, Dict[str, Any]] = {}
-        final_provenance: Dict[str, Dict[str, ProvenanceRecord]] = {}
-
-        # Merge composite base fields honoring source order (last source wins)
-        composite_base: Dict[str, Any] = {}
-        composite_base_provenance: Dict[str, ProvenanceRecord] = {}
-        for _, components, provenance in separated_sources:
-            base_values = components.get("_composite_base", {})
-            composite_base.update(base_values)
-            composite_base_provenance.update(provenance.get("_composite_base", {}))
-
-        for comp_name in component_classes:
-            final_configs[comp_name] = composite_base.copy()
-            final_provenance[comp_name] = {
-                key: composite_base_provenance[key]
-                for key in composite_base
-                if key in composite_base_provenance
-            }
-
-        # Apply component overrides in source order
-        for _, components, provenance in separated_sources:
-            for comp_name in component_classes:
-                comp_values = components.get(comp_name, {})
-                if comp_values:
-                    final_configs[comp_name].update(comp_values)
-                if comp_name in provenance:
-                    final_provenance[comp_name].update(provenance[comp_name])
-
-        # Apply preprocessors
-        preprocessors = cls.get_component_preprocessors()
-        for comp_name, preprocessor in preprocessors.items():
-            if comp_name in final_configs and preprocessor is not None:
-                original_values = final_configs[comp_name].copy()
-                updated = preprocessor(final_configs[comp_name])
-                if updated is not None:
-                    final_configs[comp_name] = updated
-                else:
-                    updated = final_configs[comp_name]
-
-                provenance_map = final_provenance.setdefault(comp_name, {})
-                for key, value in updated.items():
-                    if key in original_values and original_values[key] == value:
-                        continue
-                    record = provenance_map.get(
-                        key, ProvenanceRecord(source="default")
-                    )
-                    provenance_map[key] = record.add_mutation("derived")
-
-        # Instantiate components
+        This is the validation half of the split. Everything upstream of it operates
+        on plain dictionaries and can be tested without pydantic.
+        """
         instantiated: Dict[str, Any] = {}
-        for comp_name, comp_cls in component_classes.items():
+        for comp_name, comp_cls in cls.get_component_classes().items():
             try:
-                component_instance = comp_cls(**final_configs[comp_name])
-                object.__setattr__(
-                    component_instance,
-                    "_value_provenance",
-                    final_provenance.get(comp_name, {}),
-                )
-                instantiated[comp_name] = component_instance
+                component_instance = comp_cls(**resolved.components.get(comp_name, {}))
             except Exception as exc:
                 raise DynVisionValidationError(
                     f"{cls.__name__} component '{comp_name}' validation failed: {exc}"
                 ) from exc
+            object.__setattr__(
+                component_instance,
+                "_value_provenance",
+                resolved.component_provenance.get(comp_name, {}),
+            )
+            instantiated[comp_name] = component_instance
 
-        instantiated.update(composite_base)
-        return ParamsDict(instantiated, provenance=composite_base_provenance)
+        instantiated.update(resolved.composite)
+        return ParamsDict(instantiated, provenance=resolved.composite_provenance)
 
     @classmethod
     def _separate_single_source(
@@ -863,209 +672,36 @@ class CompositeParams(BaseParams):
         params: Dict[str, Any],
         sources: Optional[Dict[str, ProvenanceRecord]] = None,
     ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Dict[str, ProvenanceRecord]]]:
+        """Split one source's parameters into component configs.
+
+        Thin wrapper over :func:`dynvision.params.resolution.separate_source`,
+        preserving the legacy return shape in which composite-level values are
+        carried under the ``_composite_base`` key.
         """
-        Split parameters from a single source into component configs.
+        separated = separate_source(
+            ConfigSource(label="config", params=params, provenance=sources or {}),
+            cls.build_config_schema(),
+        )
 
-        Applies scoped > unscoped precedence within this source only and returns
-        both the resolved parameter dictionary and the associated provenance map.
-        """
-        sources = sources or {}
-        params, sources = cls._resolve_aliases_with_precedence(params, sources)
-
-        component_classes = cls.get_component_classes()
-        mode = cls._get_active_mode()
-
-        component_field_sets = {
-            name: set(comp.model_fields.keys())
-            for name, comp in component_classes.items()
-        }
-        base_fields = set(cls.model_fields.keys()) - set(component_classes.keys())
-
-        # Storage for parameters at each precedence level and their provenance
-        level_5_base: Dict[str, Any] = {}
-        level_5_base_prov: Dict[str, ProvenanceRecord] = {}
-        level_4_component = {name: {} for name in component_classes}
-        level_4_component_prov = {name: {} for name in component_classes}
-        level_3_mode: Dict[str, Any] = {}
-        level_3_mode_prov: Dict[str, ProvenanceRecord] = {}
-        level_2_mode_component = {name: {} for name in component_classes}
-        level_2_mode_component_prov = {name: {} for name in component_classes}
-        composite_base: Dict[str, Any] = {}
-        composite_base_prov: Dict[str, ProvenanceRecord] = {}
-
-        def _record_for_key(key: str) -> ProvenanceRecord:
-            return sources.get(key, ProvenanceRecord(source="default"))
-
-        # ===== PHASE 1: Classify parameters by scope =====
-        for key, value in params.items():
-            parts = key.split(".")
-            record = _record_for_key(key)
-
-            if len(parts) == 3:
-                mode_prefix, comp_name, param_name = parts
-                if mode and mode_prefix == mode and comp_name in component_classes:
-                    scoped_record = record.with_scope(f"{mode}.{comp_name}")
-                    level_2_mode_component[comp_name][param_name] = value
-                    level_2_mode_component_prov[comp_name][param_name] = scoped_record
-                    logger.debug(
-                        f"Mode+Component: {comp_name}.{param_name}={value} [mode={mode}]"
-                    )
-                    continue
-                level_5_base[key] = value
-                level_5_base_prov[key] = record
-                continue
-
-            if len(parts) == 2:
-                prefix, param_name = parts
-                if mode and prefix == mode:
-                    scoped_record = record.with_scope(mode)
-                    level_3_mode[param_name] = value
-                    level_3_mode_prov[param_name] = scoped_record
-                    logger.debug(f"Mode: {param_name}={value} [mode={mode}]")
-                    continue
-
-                if prefix in component_classes:
-                    scoped_record = record.with_scope(prefix)
-                    level_4_component[prefix][param_name] = value
-                    level_4_component_prov[prefix][param_name] = scoped_record
-                    logger.debug(f"Component: {prefix}.{param_name}={value}")
-                    continue
-
-                level_5_base[key] = value
-                level_5_base_prov[key] = record
-                continue
-
-            if key in base_fields:
-                composite_base[key] = value
-                composite_base_prov[key] = record
-
-            level_5_base[key] = value
-            level_5_base_prov[key] = record
-
-        # ===== PHASE 2: Apply precedence hierarchy within this source =====
-        component_configs: Dict[str, Dict[str, Any]] = {}
-        component_provenance: Dict[str, Dict[str, ProvenanceRecord]] = {
-            name: {} for name in component_classes
-        }
-
-        explicitly_scoped = set()
-        for comp_name in component_classes:
-            for key in level_4_component[comp_name]:
-                explicitly_scoped.add((comp_name, key))
-            for key in level_2_mode_component[comp_name]:
-                explicitly_scoped.add((comp_name, key))
-
-        for comp_name in component_classes:
-            comp_fields = component_field_sets[comp_name]
-            comp_config: Dict[str, Any] = {}
-            comp_prov: Dict[str, ProvenanceRecord] = {}
-
-            for key, value in level_5_base.items():
-                if key in comp_fields and (comp_name, key) not in explicitly_scoped:
-                    comp_config[key] = value
-                    comp_prov[key] = level_5_base_prov[key].with_scope(comp_name)
-                    logger.debug(
-                        f"Unscoped '{key}' routed to {comp_name} (no explicit scope in this source)"
-                    )
-
-            for key, value in level_4_component[comp_name].items():
-                comp_config[key] = value
-                comp_prov[key] = level_4_component_prov[comp_name][key]
-
-            for key, value in level_3_mode.items():
-                if key in comp_fields:
-                    comp_config[key] = value
-                    comp_prov[key] = level_3_mode_prov[key]
-
-            for key, value in level_2_mode_component[comp_name].items():
-                comp_config[key] = value
-                comp_prov[key] = level_2_mode_component_prov[comp_name][key]
-
-            component_configs[comp_name] = comp_config
-            component_provenance[comp_name] = comp_prov
-
-        # ===== PHASE 3: Handle remaining unscoped parameters =====
-        for key, value in level_5_base.items():
-            already_handled = any(
-                key in component_field_sets[comp] for comp in component_classes
-            )
-            if already_handled:
-                continue
-
-            cls._handle_unscoped_param(key, value, component_configs, composite_base)
-            if key not in composite_base_prov:
-                composite_base_prov[key] = level_5_base_prov[key]
-            for comp_name in component_classes:
-                if (
-                    key in component_configs.get(comp_name, {})
-                    and key not in component_provenance[comp_name]
-                ):
-                    component_provenance[comp_name][key] = level_5_base_prov[
-                        key
-                    ].with_scope(comp_name)
-
-        # ===== PHASE 4: Add composite base fields to all components =====
-        for comp_name in component_configs:
-            for base_key, base_value in composite_base.items():
-                if base_key not in component_configs[comp_name]:
-                    component_configs[comp_name][base_key] = base_value
-                    base_record = composite_base_prov.get(
-                        base_key, ProvenanceRecord(source="default")
-                    )
-                    component_provenance[comp_name][base_key] = base_record.with_scope(
-                        comp_name
-                    )
-
-        component_configs["_composite_base"] = composite_base
-        component_provenance["_composite_base"] = composite_base_prov
-
+        component_configs = dict(separated.components)
+        component_provenance = dict(separated.component_provenance)
+        component_configs["_composite_base"] = separated.composite
+        component_provenance["_composite_base"] = separated.composite_provenance
         return component_configs, component_provenance
 
     @classmethod
     def _separate_component_configs(cls, params: Dict[str, Any]) -> ParamsDict:
+        """Split flat parameters into component configs (legacy single-source path).
+
+        For backward compatibility with direct instantiation. Applies scoped >
+        unscoped precedence within the single parameter dict. For proper config vs
+        CLI precedence, use :meth:`from_cli_and_config` instead.
         """
-        Split flat parameters into component configs (legacy single-source method).
-
-        For backward compatibility with direct instantiation (not from_cli_and_config).
-        Applies scoped > unscoped precedence within the single parameter dict.
-
-        For proper config vs CLI precedence, use from_cli_and_config instead.
-        """
-        # Use single source separation
-        component_configs, component_provenance = cls._separate_single_source(params)
-
-        # Remove _composite_base marker and merge into result
-        composite_base = component_configs.pop("_composite_base", {})
-        composite_base_prov = component_provenance.pop("_composite_base", {})
-
-        # Apply preprocessors
-        component_classes = cls.get_component_classes()
-        preprocessors = cls.get_component_preprocessors()
-        for comp_name, preprocessor in preprocessors.items():
-            if comp_name in component_configs and preprocessor is not None:
-                component_configs[comp_name] = preprocessor(
-                    component_configs[comp_name]
-                )
-
-        # Instantiate components
-        instantiated: Dict[str, Any] = {}
-        for comp_name, comp_cls in component_classes.items():
-            try:
-                component_instance = comp_cls(**component_configs[comp_name])
-                object.__setattr__(
-                    component_instance,
-                    "_value_provenance",
-                    component_provenance.get(comp_name, {}),
-                )
-                instantiated[comp_name] = component_instance
-            except Exception as exc:
-                raise DynVisionValidationError(
-                    f"{cls.__name__} component '{comp_name}' validation failed: {exc}"
-                ) from exc
-
-        instantiated.update(composite_base)
-        params_dict = ParamsDict(instantiated, provenance=composite_base_prov)
-        return params_dict
+        resolved = resolve(
+            [ConfigSource(label="config", params=params)],
+            cls.build_config_schema(),
+        )
+        return cls._instantiate_resolved(resolved)
 
     @staticmethod
     def _find_component_targets(

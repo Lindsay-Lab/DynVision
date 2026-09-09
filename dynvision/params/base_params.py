@@ -6,7 +6,6 @@ across all DynVision scripts with support for CLI parsing, config file loading,
 and alias resolution.
 """
 
-from dataclasses import dataclass
 from pydantic import BaseModel, Field, ConfigDict, model_validator
 from typing import (  # noqa: F401
     Dict,
@@ -37,53 +36,11 @@ from dynvision.utils import (
     build_section,
 )
 
-
-@dataclass(frozen=True)
-class ProvenanceRecord:
-    """Track where a value originated and how it was mutated."""
-
-    source: str
-    scope: Optional[str] = None
-    mutations: Tuple[str, ...] = ()
-
-    def with_scope(self, scope: Optional[str]) -> "ProvenanceRecord":
-        if not scope or scope == self.scope:
-            return self
-        return ProvenanceRecord(self.source, scope, self.mutations)
-
-    def add_mutation(self, tag: str) -> "ProvenanceRecord":
-        if tag in self.mutations:
-            return self
-        return ProvenanceRecord(
-            self.source,
-            self.scope,
-            self.mutations + (tag,),
-        )
-
-    def is_default(self) -> bool:
-        return self.source == "default" and not self.mutations and not self.scope
-
-    def format(self) -> Optional[str]:
-        if self.is_default():
-            return None
-        base = self.source if not self.scope else f"{self.source}:{self.scope}"
-        segments = [base] if base else []
-        segments.extend(self.mutations)
-        return "; ".join(segments) if segments else None
-
-
-class ParamsDict(dict):
-    """Dictionary that carries provenance metadata for each key."""
-
-    def __init__(
-        self, *args, provenance: Optional[Dict[str, ProvenanceRecord]] = None, **kwargs
-    ):
-        super().__init__(*args, **kwargs)
-        self.provenance: Dict[str, ProvenanceRecord] = provenance or {}
-
-    def copy(self) -> "ParamsDict":
-        return ParamsDict(super().copy(), provenance=self.provenance.copy())
-
+# Provenance primitives live in a dependency-free module so that the config
+# resolution layer can use them without importing pydantic. Re-exported here to
+# keep every historical import path (`from dynvision.params.base_params import
+# ProvenanceRecord`) working.
+from dynvision.params.provenance import ParamsDict, ProvenanceRecord  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
