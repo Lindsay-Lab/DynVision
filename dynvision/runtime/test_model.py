@@ -290,6 +290,11 @@ class TestingOrchestrator:
             del results_df
         except Exception as e:
             logger.error(f"Failed to save test results: {e}")
+            # Don't silently swallow the error - a partial/corrupt or missing
+            # test_outputs.csv must fail the job so Snakemake reruns it,
+            # instead of being picked up as valid input by downstream
+            # processing steps (mirrors the response-saving error handling below).
+            raise
 
         # Save model responses (tensors)
         try:
