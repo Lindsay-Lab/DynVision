@@ -10,7 +10,6 @@ from pydantic import (
 )
 import logging
 import torch
-from ffcv.loader import OrderOption
 import json
 import os
 from dynvision.params.base_params import BaseParams
@@ -20,6 +19,23 @@ from dynvision.utils import (
     format_value,
     resolve_signature_defaults,
 )
+
+try:
+    from ffcv.loader import OrderOption
+except ImportError:  # pragma: no cover - ffcv is an optional dependency
+    from enum import IntEnum
+
+    class OrderOption(IntEnum):
+        """Stand-in for ffcv.loader.OrderOption when ffcv is not installed.
+
+        Mirrors ffcv's enum so DataParams can validate/store the `order`
+        field without requiring ffcv unless use_ffcv=True is actually used.
+        """
+
+        SEQUENTIAL = 0
+        RANDOM = 1
+        QUASI_RANDOM = 2
+
 
 logger = logging.getLogger(__name__)
 
@@ -203,21 +219,9 @@ class DataParams(BaseParams):
     @property
     def effective_dtype(self) -> Optional[torch.dtype]:
         """Get effective dtype without optimization (to avoid circular dependency)."""
-        # Convert string dtype to torch dtype if specified
-        if self.dtype is not None:
-            dtype_map = {
-                "float16": torch.float16,
-                "float32": torch.float32,
-                "float64": torch.float64,
-                "bfloat16": torch.bfloat16,
-                "int8": torch.int8,
-                "int16": torch.int16,
-                "int32": torch.int32,
-                "int64": torch.int64,
-            }
-            return dtype_map.get(self.dtype, torch.float32)
-
-        return None
+        # validate_dtype already normalizes self.dtype to a torch.dtype (or
+        # None), so no further string-keyed lookup is needed here.
+        return self.dtype
 
     # === Aliases ===
 
