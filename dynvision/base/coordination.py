@@ -35,9 +35,13 @@ class DtypeDeviceCoordinator:
             return None
         if isinstance(dtype, torch.dtype):
             return dtype
-        # Normalize string spellings (e.g. "torch.float32", "float32", "32") and
-        # resolve through the central policy.
-        text = dtype.replace("torch.", "").replace("float", "").lower()
+        # Normalize common string spellings (e.g. "torch.float32", "float32",
+        # "32", "bfloat16", "bf16") and resolve through the central policy.
+        text = str(dtype).replace("torch.", "").strip().lower()
+        if text == "bfloat16":
+            text = "bf16"
+        elif text.startswith("float"):
+            text = text.replace("float", "")
         return resolve_dtype(text)
 
     def connect_child_node(self, child: "DtypeDeviceCoordinator") -> None:
