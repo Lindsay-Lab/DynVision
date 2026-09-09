@@ -501,11 +501,29 @@ Components:
 
 ## Project Paths
 
+Path resolution is split across two files (see
+[`docs/development/planning/project-paths-seam.md`](../planning/project-paths-seam.md) for
+the design rationale, issue #14):
+
+- `dynvision/path_layout.py` (shipped, not personal): `Environment` (hostname-based
+  cluster/local detection, via `detect_environment()`) and
+  `PathLayout.for_environment(env, working_dir=None, toolbox_dir=None)` (the local/cluster
+  adapters that resolve `.data.raw`, `.models`, `.figures`, etc.). Neither hostname
+  detection nor `os.environ` mutation happens at import time — `detect_environment()`
+  and `set_wandb_dir(layout)` are explicit calls.
+- `dynvision/project_paths.py` (personal, gitignored — copy from
+  `project_paths_template.py` if missing): a `PersonalPathLayout(PathLayout)` subclass
+  supplying your own `working_dir`, `toolbox_dir`, `project_name`, `toolbox_name`, and
+  `user_name`. `project_paths` is a lazily-constructed proxy over it — the underlying
+  layout (and its one hostname shell-out) is built on first attribute access, not at
+  import.
+
 Edit `dynvision/project_paths.py` to configure:
 
 - `working_dir`: Root for data, models, reports (default: `/home/rgutzen/01_PROJECTS/rhythmic_visual_attention`)
 - `toolbox_dir`: Codebase location (default: auto-detected)
-- Automatically detects cluster environment (checks for SLURM) and redirects large data to scratch partition
+- Cluster environment is auto-detected via hostname (see `detect_environment()` in
+  `path_layout.py`) and redirects large data to scratch partitions
 
 **Important Directories**:
 
@@ -712,7 +730,7 @@ snakemake --forcerun test_model --config experiment=contrast
 - Model architecture: `dynvision/models/<model_name>.py`
 - Experiments: `dynvision/configs/config_experiments.yaml`
 - Workflow: `dynvision/workflow/Snakefile` and `snake_*.smk`
-- Paths: `dynvision/project_paths.py`
+- Paths: `dynvision/project_paths.py` (personal overrides) / `dynvision/path_layout.py` (shared seam)
 - Parameters: `dynvision/configs/config_defaults.yaml`
 
 ---

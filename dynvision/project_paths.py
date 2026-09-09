@@ -1,115 +1,87 @@
-import inspect
-import os
+"""Personal path layout for this checkout, built on the `path_layout` seam.
+
+Historically this module instantiated `project_paths_class()` at import time,
+which shelled out to `hostname` and mutated `os.environ["WANDB_DIR"]` as a
+side effect of the import statement alone (see
+docs/development/planning/project-paths-seam.md, issue #14). The generic
+detection/layout/mutation logic now lives in `dynvision.path_layout`; this
+module only supplies the personal overrides (`project_name`, `user_name`,
+local working-dir fallback) and exposes `project_paths` as a **lazy** proxy —
+the underlying `PathLayout` is constructed on first attribute access, not at
+import.
+
+This file is intentionally personalized (see `.gitignore:12` and
+`project_paths_template.py`, the checked-in template other users copy from).
+"""
+
 from pathlib import Path
-from types import SimpleNamespace
-import logging
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+from dynvision.path_layout import Environment, PathLayout, detect_environment
 
 
-class project_paths_class:
+class PersonalPathLayout(PathLayout):
+    """Personalized `PathLayout`: local/cluster adapters with defaults filled
+    in for this user, matching the pre-refactor `project_paths_class`
+    behavior exactly."""
 
-    this_file = Path(inspect.getfile(lambda: None)).resolve()
     project_name = (
         "DynVision_Working"  # working directory name (separate from toolbox_name)
     )
     toolbox_name = "DynVision"
     user_name = "rg5022"
 
-    def __init__(self, working_dir=None, toolbox_dir=None):
-        if self.iam_on_cluster():
-            working_dir = Path().home() / self.project_name
-            toolbox_dir = Path().home() / self.toolbox_name / self.toolbox_name.lower()
-
+    @classmethod
+    def _local_layout(
+        cls,
+        working_dir: Optional[Path],
+        toolbox_dir: Optional[Path],
+        env: Environment,
+    ) -> "PersonalPathLayout":
         if working_dir is None:
             working_dir = Path("/home/rgutzen/01_PROJECTS/Modeling_Dynamical_Vision")
         if toolbox_dir is None:
-            toolbox_dir = self.this_file.parents[0].resolve()
+            toolbox_dir = Path(__file__).resolve().parent
+        return super()._local_layout(working_dir, toolbox_dir, env)
 
-        self.working_dir = working_dir
-        self.toolbox_dir = toolbox_dir
-
-        self._set_paths(working_dir=working_dir, toolbox_dir=self.toolbox_dir)
-
-        if self.iam_on_cluster():
-            # move large folders to scratch partition
-            self.data.raw = Path("/scratch") / self.user_name / "data" / "raw"
-            self.data.interim = Path("/scratch") / self.user_name / "data" / "interim"
-            self.data.processed = (
-                Path("/scratch") / self.user_name / "data" / "processed"
-            )
-            self.data.external = (
-                Path("/scratch") / self.user_name / "data" / "external"
-            )
-
-            self.models = (
-                Path("/scratch") / self.user_name / self.project_name / "models"
-            )
-
-            self.reports = (
-                Path("/scratch") / self.user_name / self.project_name / "reports"
-            )
-
-            self.large_logs = (
-                Path("/scratch") / self.user_name / self.project_name / "logs"
-            )
-            self.references = Path().home() / self.toolbox_name / "references"
-
-        os.environ["WANDB_DIR"] = str(self.large_logs.resolve())
-        return None
-
-    def _set_paths(self, working_dir, toolbox_dir=None):
+    @classmethod
+    def _cluster_layout(
+        cls,
+        working_dir: Optional[Path],
+        toolbox_dir: Optional[Path],
+        env: Environment,
+    ) -> "PersonalPathLayout":
+        if working_dir is None:
+            working_dir = Path.home() / cls.project_name
         if toolbox_dir is None:
-            toolbox_dir = working_dir
-        elif working_dir is None:
-            working_dir = toolbox_dir
-        elif working_dir is None and toolbox_dir is None:
-            raise ValueError("Either working_dir or toolbox_dir must be provided.")
-        else:
-            pass
-        logging.info(f"Toolbox directory: {self.toolbox_dir}")
-        logging.info(f"Working directory: {self.working_dir}")
-
-        self.data_path = working_dir / "data"
-        self.data = SimpleNamespace(data=self.data_path)
-        self.data.raw = self.data_path / "raw"
-        self.data.external = self.data_path / "external"
-        self.data.interim = self.data_path / "interim"
-        self.data.processed = self.data_path / "processed"
-
-        self.models = working_dir / "models"
-        self.notebooks = working_dir / "notebooks"
-        self.references = working_dir / "references"
-        self.reports = working_dir / "reports"
-        self.figures = working_dir / "figures"
-        self.logs = working_dir / "logs"
-        self.large_logs = working_dir / "logs"
-        self.benchmarks = self.logs / "benchmarks"
-
-        self.scripts_path = toolbox_dir
-        self.scripts = SimpleNamespace(scripts=self.scripts_path)
-        self.scripts.data = self.scripts_path / "data"
-        self.scripts.utils = self.scripts_path / "utils"
-        self.scripts.models = self.scripts_path / "models"
-        self.scripts.losses = self.scripts_path / "losses"
-        self.scripts.configs = self.scripts_path / "configs"
-        self.scripts.workflow = self.scripts_path / "workflow"
-        self.scripts.visualization = self.scripts_path / "visualization"
-        return None
-
-    def iam_on_cluster(self):
-        host_name = os.popen("hostname").read()
-        # look for common cluster names
-        cluster_names = [
-            "hpc",  # Generic HPC systems
-            "log-",  # Login nodes
-            "greene",  # NYU Greene
-            "slurm",  # SLURM-based clusters
-            "compute",  # Common compute node prefix
-            "node",  # Generic compute nodes
-            "cluster",  # Generic cluster systems
-        ]
-        return any(x in host_name for x in cluster_names)
+            toolbox_dir = Path.home() / cls.toolbox_name / cls.toolbox_name.lower()
+        layout = super()._cluster_layout(working_dir, toolbox_dir, env)
+        layout.references = Path.home() / cls.toolbox_name / "references"
+        return layout
 
 
-project_paths = project_paths_class()
+class _LazyPathLayout:
+    """Proxy that defers `PersonalPathLayout` construction (and the hostname
+    detection inside it) to first attribute access.
+
+    Keeps `from dynvision.project_paths import project_paths` and every
+    existing `project_paths.<attr>` call site working unchanged, while
+    removing the import-time side effects (`hostname` shell-out and
+    `WANDB_DIR` mutation) that `project_paths = project_paths_class()` used
+    to have.
+    """
+
+    def __init__(self) -> None:
+        self._layout: Optional[PersonalPathLayout] = None
+
+    def _ensure(self) -> PersonalPathLayout:
+        if self._layout is None:
+            env = detect_environment()
+            self._layout = PersonalPathLayout.for_environment(env)
+        return self._layout
+
+    def __getattr__(self, name: str):
+        return getattr(self._ensure(), name)
+
+
+project_paths = _LazyPathLayout()

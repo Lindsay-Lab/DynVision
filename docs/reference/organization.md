@@ -28,7 +28,8 @@ dynvision/
 ├── utils/               # Shared utilities
 ├── configs/             # Configuration system
 ├── cluster/             # Distributed execution
-└── project_paths.py     # Centralized path handling
+├── path_layout.py       # Environment detection + local/cluster path layout seam
+└── project_paths.py     # Personal path overrides (gitignored; see project_paths_template.py)
 ```
 
 ## Module Structure and Purpose

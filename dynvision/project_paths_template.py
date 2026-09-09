@@ -1,106 +1,69 @@
-import inspect
-import os
+"""Template for `dynvision/project_paths.py`.
+
+Copy this file to `dynvision/project_paths.py` (gitignored) and fill in your
+own `project_name`, `toolbox_name`, `user_name`, and local `working_dir`
+fallback. See `docs/development/planning/project-paths-seam.md` for how the
+underlying `dynvision.path_layout` seam works, and issue #14 for why
+`project_paths` is a lazy proxy rather than an eagerly-constructed singleton.
+"""
+
 from pathlib import Path
-from types import SimpleNamespace
-import logging
+from typing import Optional
 
-logger = logging.getLogger(__name__)
+from dynvision.path_layout import Environment, PathLayout, detect_environment
 
 
-class project_paths_class:
+class PersonalPathLayout(PathLayout):
+    """Personalized `PathLayout`: fill in your own values below."""
 
-    this_file = Path(inspect.getfile(lambda: None)).resolve()
-    project_name = "rhythmic_visual_attention"
+    project_name = "rhythmic_visual_attention"  # working directory name (separate from toolbox_name)
     toolbox_name = "DynVision"
     user_name = "rg5022"
 
-    def __init__(self, working_dir=None, toolbox_dir=None):
-        if self.iam_on_cluster():
-            working_dir = Path().home() / self.project_name
-            toolbox_dir = Path().home() / self.toolbox_name / self.toolbox_name.lower()
-
+    @classmethod
+    def _local_layout(
+        cls,
+        working_dir: Optional[Path],
+        toolbox_dir: Optional[Path],
+        env: Environment,
+    ) -> "PersonalPathLayout":
         if working_dir is None:
             working_dir = Path("/home/rgutzen/01_PROJECTS/rhythmic_visual_attention")
         if toolbox_dir is None:
-            toolbox_dir = self.this_file.parents[0].resolve()
+            toolbox_dir = Path(__file__).resolve().parent
+        return super()._local_layout(working_dir, toolbox_dir, env)
 
-        self.working_dir = working_dir
-        self.toolbox_dir = toolbox_dir
-
-        self._set_paths(working_dir=working_dir, toolbox_dir=self.toolbox_dir)
-
-        if self.iam_on_cluster():
-            # move large folders to scratch partition
-            self.data.raw = Path("/scratch") / self.user_name / "data" / "raw"
-            self.data.processed = (
-                Path("/scratch") / self.user_name / "data" / "processed"
-            )
-            self.models = (
-                Path("/scratch") / self.user_name / self.project_name / "models"
-            )
-            self.reports = (
-                Path("/scratch") / self.user_name / self.project_name / "reports"
-            )
-            self.large_logs = (
-                Path("/scratch") / self.user_name / self.project_name / "logs"
-            )
-
-        os.environ["WANDB_DIR"] = str(self.large_logs.resolve())
-        return None
-
-    def _set_paths(self, working_dir, toolbox_dir=None):
+    @classmethod
+    def _cluster_layout(
+        cls,
+        working_dir: Optional[Path],
+        toolbox_dir: Optional[Path],
+        env: Environment,
+    ) -> "PersonalPathLayout":
+        if working_dir is None:
+            working_dir = Path.home() / cls.project_name
         if toolbox_dir is None:
-            toolbox_dir = working_dir
-        elif working_dir is None:
-            working_dir = toolbox_dir
-        elif working_dir is None and toolbox_dir is None:
-            raise ValueError("Either working_dir or toolbox_dir must be provided.")
-        else:
-            pass
-        logging.info(f"Toolbox directory: {self.toolbox_dir}")
-        logging.info(f"Working directory: {self.working_dir}")
-
-        self.data_path = working_dir / "data"
-        self.data = SimpleNamespace(data=self.data_path)
-        self.data.raw = self.data_path / "raw"
-        self.data.external = self.data_path / "external"
-        self.data.interim = self.data_path / "interim"
-        self.data.processed = self.data_path / "processed"
-
-        self.models = working_dir / "models"
-        self.notebooks = working_dir / "notebooks"
-        self.references = working_dir / "references"
-        self.reports = working_dir / "reports"
-        self.figures = working_dir / "figures"
-        self.logs = working_dir / "logs"
-        self.large_logs = working_dir / "logs"
-        self.benchmarks = self.logs / "benchmarks"
-
-        self.scripts_path = toolbox_dir
-        self.scripts = SimpleNamespace(scripts=self.scripts_path)
-        self.scripts.data = self.scripts_path / "data"
-        self.scripts.utils = self.scripts_path / "utils"
-        self.scripts.models = self.scripts_path / "models"
-        self.scripts.losses = self.scripts_path / "losses"
-        self.scripts.configs = self.scripts_path / "configs"
-        self.scripts.features = self.scripts_path / "features"
-        self.scripts.workflow = self.scripts_path / "workflow"
-        self.scripts.visualization = self.scripts_path / "visualization"
-        return None
-
-    def iam_on_cluster(self):
-        host_name = os.popen("hostname").read()
-        # look for common cluster names
-        cluster_names = [
-            "hpc",  # Generic HPC systems
-            "log-",  # Login nodes
-            "greene",  # NYU Greene
-            "slurm",  # SLURM-based clusters
-            "compute",  # Common compute node prefix
-            "node",  # Generic compute nodes
-            "cluster",  # Generic cluster systems
-        ]
-        return any(x in host_name for x in cluster_names)
+            toolbox_dir = Path.home() / cls.toolbox_name / cls.toolbox_name.lower()
+        return super()._cluster_layout(working_dir, toolbox_dir, env)
 
 
-project_paths = project_paths_class()
+class _LazyPathLayout:
+    """Proxy that defers `PersonalPathLayout` construction (and the hostname
+    detection inside it) to first attribute access. See
+    `dynvision/project_paths.py` for the full explanation.
+    """
+
+    def __init__(self) -> None:
+        self._layout: Optional[PersonalPathLayout] = None
+
+    def _ensure(self) -> PersonalPathLayout:
+        if self._layout is None:
+            env = detect_environment()
+            self._layout = PersonalPathLayout.for_environment(env)
+        return self._layout
+
+    def __getattr__(self, name: str):
+        return getattr(self._ensure(), name)
+
+
+project_paths = _LazyPathLayout()

@@ -39,7 +39,7 @@ Before running workflows on a cluster, ensure:
 
 3. **Data Access**: If you are working with non-standard datasets that cannot be automatically downloaded within the workflow execution, make sure they are available on the cluster.
 
-4. **Path Management**: Review `dynvision/project_paths.py` and set the alternative cluster paths according to your needs (scratch partitions, log directories, etc.).
+4. **Path Management**: Copy `dynvision/project_paths_template.py` to `dynvision/project_paths.py` if you haven't already, and review the cluster-specific paths there (scratch partitions, log directories, etc.). See [Cluster Path Setup](#cluster-path-setup) below.
 
 5. **Main Environment**: Set up an environment with DynVision and all its dependencies installed. Depending on your system, this may involve setting up a Singularity/Apptainer image, a Docker container, or a native conda environment. See the [Installation Guide](installation.md).
 
@@ -267,40 +267,66 @@ These scripts are templates — you **must** fill in your own system-specific va
 
 ## Cluster Path Setup
 
-Before running workflows, set your project paths in `dynvision/project_paths.py`. The file includes an `iam_on_cluster()` check that auto-detects cluster nodes via hostname patterns (`hpc`, `greene`, `slurm`, `compute`). When detected, large data directories (data, models, reports, logs) are redirected to scratch partitions.
+Path resolution is split into two pieces (see
+[`docs/development/planning/project-paths-seam.md`](../development/planning/project-paths-seam.md)
+for the full design rationale):
+
+- **`dynvision/path_layout.py`** (shipped, not personal) owns environment detection and
+  the local/cluster directory-layout logic. `detect_environment()` auto-detects cluster
+  nodes via hostname patterns (`hpc`, `log-`, `greene`, `slurm`, `compute`, `node`,
+  `cluster`); `PathLayout.for_environment(env, ...)` resolves the actual directories,
+  redirecting large data directories (data, models, reports, logs) to scratch partitions
+  when `env.is_cluster` is true.
+- **`dynvision/project_paths.py`** (personal, gitignored — copy it from
+  `project_paths_template.py` first) only supplies your personal overrides
+  (`project_name`, `toolbox_name`, `user_name`, local working-dir fallback) on top of
+  that shared logic, and exposes `project_paths` as a lazily-constructed singleton so
+  every module can keep doing `from dynvision.project_paths import project_paths`.
+
+You generally don't need to touch `path_layout.py` — set `user_name` and the local
+working-dir fallback in your personal `project_paths.py`, and the cluster/local switch
+happens automatically based on hostname.
 
 ## Environment Adaptation
 
 DynVision automatically adapts to cluster environments:
 
-1. **Environment Detection**
+1. **Environment Detection** (`dynvision/path_layout.py`)
    ```python
-   # In project_paths.py
-   def iam_on_cluster(self):
-       host_name = os.popen("hostname").read()
-       cluster_names = ["hpc", "greene", "slurm", "compute"]
-       return any(x in host_name for x in cluster_names)
+   def detect_environment() -> Environment:
+       hostname = os.popen("hostname").read()
+       is_cluster = any(m in hostname for m in _CLUSTER_HOSTNAME_MARKERS)
+       return Environment(is_cluster=is_cluster, hostname=hostname)
    ```
+   This only runs once, lazily, the first time you access an attribute on
+   `project_paths` — not at import time. To bypass hostname detection entirely (e.g. in
+   a container where `hostname` is unreliable), construct a layout explicitly:
+   `PathLayout.for_environment(Environment.cluster(), working_dir=..., toolbox_dir=...)`.
 
-2. **Path Management**
+2. **Path Management** (`dynvision/path_layout.py`, `PathLayout._cluster_layout`)
       - Large data directories move to scratch partitions
       - Logs redirect to appropriate locations
       - Container mounts configured automatically
    ```python
-   # in project_paths.py
-   if self.iam_on_cluster():
-      # move large folders to scratch partition
-      self.data.raw = Path("/scratch") / self.user_name / "data"
-      self.models = (
-            Path("/scratch") / self.user_name / self.project_name / "models"
-      )
-      self.reports = (
-            Path("/scratch") / self.user_name / self.project_name / "reports"
-      )
-      self.large_logs = (
-            Path("/scratch") / self.user_name / self.project_name / "logs"
-      )
+   @classmethod
+   def _cluster_layout(cls, working_dir, toolbox_dir, env):
+       layout = cls(working_dir=working_dir, toolbox_dir=toolbox_dir, environment=env)
+       layout._apply_scratch_overrides()
+       return layout
+
+   def _apply_scratch_overrides(self):
+       # move large folders to scratch partition
+       scratch = Path("/scratch") / self.user_name
+       self.data.raw = scratch / "data" / "raw"
+       self.data.interim = scratch / "data" / "interim"
+       self.data.processed = scratch / "data" / "processed"
+       self.data.external = scratch / "data" / "external"
+       self.models = scratch / self.working_dir.name / "models"
+       self.reports = scratch / self.working_dir.name / "reports"
+       self.large_logs = scratch / self.working_dir.name / "logs"
    ```
+   `user_name` is set on your personal `PersonalPathLayout` subclass in
+   `dynvision/project_paths.py`, not in the shared `path_layout.py`.
 
 3. **Resource Scaling**
       - Batch sizes adjust for development vs. production

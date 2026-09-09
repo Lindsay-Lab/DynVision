@@ -42,7 +42,19 @@ For detailed installation instructions, including OS-specific steps and troubles
 
 ### Configure Project Paths
 
-Edit `dynvision/project_paths.py` to set the proper paths to the toolbox directory (for the codebase) and optionally to a separate working directory (for data, outputs, logs). You may also set specific paths (e.g. for large data directories) that dynamically adapt when you are executing the toolbox on a compute cluster.
+`dynvision/project_paths.py` is personal and gitignored, so it doesn't exist yet on a
+fresh clone. Copy the checked-in template to create it:
+
+```bash
+cp dynvision/project_paths_template.py dynvision/project_paths.py
+```
+
+Then edit `dynvision/project_paths.py` to set the proper paths to the toolbox directory
+(for the codebase) and optionally to a separate working directory (for data, outputs,
+logs). You may also set specific paths (e.g. for large data directories) that
+dynamically adapt when you are executing the toolbox on a compute cluster — see the
+[Cluster Integration Guide](user-guide/cluster-integration.md#cluster-path-setup) for
+details on how local vs. cluster paths are resolved.
 
 ### Data Management
 
