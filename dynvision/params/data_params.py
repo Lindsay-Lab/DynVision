@@ -20,22 +20,11 @@ from dynvision.utils import (
     resolve_signature_defaults,
 )
 
-try:
-    from ffcv.loader import OrderOption
-except ImportError:  # pragma: no cover - ffcv is an optional dependency
-    from enum import IntEnum
-
-    class OrderOption(IntEnum):
-        """Stand-in for ffcv.loader.OrderOption when ffcv is not installed.
-
-        Mirrors ffcv's enum so DataParams can validate/store the `order`
-        field without requiring ffcv unless use_ffcv=True is actually used.
-        """
-
-        SEQUENTIAL = 0
-        RANDOM = 1
-        QUASI_RANDOM = 2
-
+# OrderOption is re-exported (with a non-ffcv stand-in) from the BatchSource
+# seam so DataParams never has to import ffcv directly and there's a single
+# definition of the stand-in enum. See dynvision.data.batch_source and
+# docs/development/planning/ffcv-batch-source-seam.md (issue #16).
+from dynvision.data.batch_source import OrderOption
 
 logger = logging.getLogger(__name__)
 

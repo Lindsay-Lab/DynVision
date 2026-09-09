@@ -27,11 +27,11 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING, Union
 
-import ffcv
 import pytorch_lightning as pl
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from dynvision.data.batch_source import get_batch_source
 from dynvision.data.dataloader import (
     _adjust_data_dimensions,
     _adjust_label_dimensions,
@@ -40,7 +40,6 @@ from dynvision.data.dataloader import (
     get_train_val_loaders,
 )
 from dynvision.data.datasets import get_dataset
-from dynvision.data.ffcv_dataloader import get_ffcv_dataloader
 from dynvision.data import sampler
 from dynvision.params import DynVisionConfigError
 from dynvision.utils import format_value, log_section
@@ -240,15 +239,16 @@ class DataModule(DataInterface, pl.LightningDataModule):
 
     def _create_ffcv_loader(
         self, path: Path, config: Dict[str, Any], *, context: str = "active"
-    ) -> ffcv.loader.Loader:
-        """Create a single FFCV data loader."""
+    ) -> Any:
+        """Create a single FFCV data loader via the FFCV BatchSource adapter."""
+        adapter = get_batch_source(use_ffcv=True)
         logging_kwargs = {"path": path, **config}
         self._log_dataloader_creation(
-            dataloader_class=get_ffcv_dataloader,
+            dataloader_class=adapter.loader_class,
             dataloader_kwargs=logging_kwargs,
             context=context,
         )
-        return get_ffcv_dataloader(path=path, **config)
+        return adapter.create_loader(path, **config)
 
     def _setup_pytorch_loaders(self, config: Dict[str, Any]) -> None:
         """Set up standard PyTorch data loaders."""
