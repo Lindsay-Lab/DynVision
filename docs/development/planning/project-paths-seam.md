@@ -1,6 +1,6 @@
 # Place a Seam Under `project_paths`
 
-**Status:** 🚧 IN PROGRESS
+**Status:** ✅ IMPLEMENTED
 **Created:** 2026-09-09
 **Issue:** [Lindsay-Lab/DynVision#14](https://github.com/Lindsay-Lab/DynVision/issues/14)
 **Branch:** `fix/14-project-paths-seam`
