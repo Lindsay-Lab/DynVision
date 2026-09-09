@@ -405,4 +405,8 @@ enable_progress_bar: False
 - Use `project_paths` for consistent path handling
 - Avoid hardcoded paths
 - Use relative paths when possible
+- `project_paths` (`dynvision/project_paths.py`) is personal/gitignored and holds only
+  your overrides; the shared local/cluster resolution logic lives in
+  `dynvision/path_layout.py` (`PathLayout.for_environment`) — see
+  [Cluster Integration](../user-guide/cluster-integration.md#cluster-path-setup)
 

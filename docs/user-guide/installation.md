@@ -91,6 +91,25 @@ Note that if you want use of the feature that the snakemake workflow can submit 
 
 For more details on cluster execution, see [user-guide/cluster-execution.md].
 
+## Configuring Project Paths
+
+`dynvision/project_paths.py` is personal (gitignored) and does not exist on a fresh
+clone. Create it from the checked-in template before running anything that imports
+`dynvision.models`, `dynvision.data`, or `dynvision.runtime` — including the
+verification command below:
+
+```bash
+cp dynvision/project_paths_template.py dynvision/project_paths.py
+```
+
+Edit the copy to set `project_name`, `toolbox_name`, `user_name`, and the local
+working-directory fallback. `project_paths` itself is a lazily-constructed proxy: it
+doesn't shell out to `hostname` or touch `WANDB_DIR` until the first time you actually
+access an attribute (e.g. `project_paths.data.raw`), so importing `dynvision` alone has
+no side effects. See [`dynvision/path_layout.py`](../reference/organization.md) and the
+[Cluster Integration Guide](cluster-integration.md#cluster-path-setup) for how local vs.
+cluster layouts are resolved.
+
 ## Verifying Installation
 
 After installation, you can verify that DynVision works correctly:
