@@ -1,6 +1,6 @@
 # Collapsing `use_ffcv` Branches Into a `BatchSource` Seam
 
-**Status:** 🚧 IN PROGRESS
+**Status:** ✅ IMPLEMENTED
 **Created:** 2026-09-08
 **Issue:** [Lindsay-Lab/DynVision#16](https://github.com/Lindsay-Lab/DynVision/issues/16)
 **Branch:** `fix/16-ffcv-batch-source-seam`
