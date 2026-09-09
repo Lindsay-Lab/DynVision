@@ -192,10 +192,6 @@ class ModelParams(BaseParams):
     optimizer_configs: Optional[Dict[str, Any]] = Field(
         default=None, description="Optimizer configuration dictionary"
     )
-    target_dtype: Optional[str] = Field(
-        default=None,
-        description="Target data type for model outputs (e.g., 'float32', 'int64')",
-    )
 
     # ===== LEARNING RATE PARAMETER GROUPS =====
     lr_parameter_groups: Optional[Dict[str, Dict[str, Any]]] = Field(

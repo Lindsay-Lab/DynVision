@@ -7,6 +7,7 @@ Tests cover:
 """
 
 import pytest
+import torch
 from dynvision.params.data_params import DataParams
 
 
@@ -260,3 +261,35 @@ class TestTransformScenarios:
         assert params.transform_backend == "torch"
         assert params.transform_context == "train"
         assert params.transform_preset == "custom_augmentation"
+
+
+class TestEffectiveDtype:
+    """Regression tests for DataParams.effective_dtype.
+
+    effective_dtype previously did a string-keyed dict lookup on self.dtype,
+    but validate_dtype already normalizes self.dtype to a torch.dtype, so the
+    lookup always missed and silently fell back to torch.float32 regardless
+    of the configured dtype.
+    """
+
+    def get_minimal_params(self, **overrides):
+        return TestTransformDerivation().get_minimal_params(**overrides)
+
+    @pytest.mark.parametrize(
+        "dtype,expected",
+        [
+            ("float16", torch.float16),
+            ("float32", torch.float32),
+            ("float64", torch.float64),
+            ("bfloat16", torch.bfloat16),
+            ("int8", torch.int8),
+        ],
+    )
+    def test_effective_dtype_matches_configured_dtype(self, dtype, expected):
+        params = self.get_minimal_params(dtype=dtype)
+        assert params.effective_dtype == expected
+
+    def test_effective_dtype_none_when_dtype_unset(self):
+        params = self.get_minimal_params()
+        assert params.dtype is None
+        assert params.effective_dtype is None

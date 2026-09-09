@@ -18,6 +18,18 @@ from dynvision.data.transforms import (
     get_target_transform,
 )
 
+try:
+    import ffcv  # noqa: F401
+
+    HAS_FFCV = True
+except ImportError:
+    HAS_FFCV = False
+
+requires_ffcv = pytest.mark.skipif(
+    not HAS_FFCV,
+    reason="ffcv is an optional dependency not installed in this environment",
+)
+
 
 class TestParseTransformString:
     """Test transform string parsing."""
@@ -28,6 +40,7 @@ class TestParseTransformString:
         assert transform is not None
         assert type(transform).__name__ == "RandomHorizontalFlip"
 
+    @requires_ffcv
     def test_parse_bare_module_name_ffcv(self):
         """Test parsing bare module name for FFCV backend."""
         transform = parse_transform_string("RandomHorizontalFlip", backend="ffcv")
@@ -209,6 +222,7 @@ class TestGetDataTransform:
         # All should be callable
         assert all(callable(t) for t in transforms)
 
+    @requires_ffcv
     def test_get_ffcv_train_transforms(self):
         """Test getting FFCV training transforms."""
         transforms = get_data_transform(
@@ -288,6 +302,7 @@ class TestTransformIntegration:
         assert target_transform is not None
         assert len(target_transform) == 1
 
+    @requires_ffcv
     def test_ffcv_mnist_train_workflow(self):
         """Test complete FFCV MNIST training workflow."""
         transforms = get_data_transform(

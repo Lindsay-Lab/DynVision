@@ -34,7 +34,7 @@ def _build_image_pipeline(
     data_transform: Optional[List[Callable]],
     n_timesteps: int = 0,
     normalize: Optional[Tuple[List, List]] = None,
-    dtype: Optional[torch.dtype] = torch.float16,
+    dtype: Optional[torch.dtype] = torch.float32,
     device: Optional[torch.device] = None,
 ) -> List[Operation]:
     if encoding == "tensor":
@@ -113,7 +113,7 @@ def get_ffcv_dataloader(
     encoding: str = "image",
     resolution: int = 224,
     drop_last: bool = True,
-    dtype: Optional[torch.dtype] = torch.float16,
+    dtype: Optional[torch.dtype] = torch.float32,
     batches_ahead: int = 2,
     train: bool = True,
     verbose: bool = False,

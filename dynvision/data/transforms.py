@@ -19,8 +19,12 @@ from typing import Any, Callable, Dict, List, Literal, Optional, Tuple
 
 import yaml
 import torchvision.transforms.v2 as tv2
-import ffcv.transforms
 from .operations import IndexToLabel
+
+try:
+    import ffcv.transforms
+except ImportError:  # pragma: no cover - ffcv is an optional dependency
+    ffcv = None
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +66,11 @@ def parse_transform_string(
     if backend == "torch":
         module = tv2
     elif backend == "ffcv":
+        if ffcv is None:
+            raise ImportError(
+                "backend='ffcv' requires the optional 'ffcv' package, which is "
+                "not installed. Install it or use backend='torch' instead."
+            )
         module = ffcv.transforms
     else:
         raise ValueError(f"Invalid backend: {backend}. Must be 'torch' or 'ffcv'")

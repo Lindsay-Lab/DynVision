@@ -338,30 +338,19 @@ def apply_parametrization(
         raise TypeError("Parametrization must be a callable, string, or None.")
 
 
-def get_effective_dtype_from_precision(precision: str) -> str:
+def get_effective_dtype_from_precision(
+    precision: Union[str, int, None],
+) -> torch.dtype:
+    """Resolve a Lightning precision value to the stored-parameter torch dtype.
+
+    This is the shared resolution entry point used by the params layer. It
+    delegates to the central :func:`dynvision.utils.dtype_policy.resolve_dtype`
+    so that every consumer derives the same dtype. Unknown precision warns and
+    falls back to float32 (not the previous silent float16 default).
     """
-    Get the actual dtype that PyTorch Lightning will use for a given precision.
+    from dynvision.utils.dtype_policy import resolve_dtype
 
-    This matches Lightning's internal logic to avoid dtype mismatches.
-    """
-    # Lightning's actual behavior for mixed precision
-    if precision in ["16-mixed", "bf16-mixed"]:
-        # Lightning prefers bfloat16 for mixed precision on supported hardware
-        if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
-            return "bfloat16"
-        else:
-            return "float16"
-
-    # Direct mappings for non-mixed precision
-    precision_to_dtype = {
-        "16": "float16",
-        "bf16": "bfloat16",
-        "bfloat16": "bfloat16",
-        "32": "float32",
-        "64": "float64",
-    }
-
-    return precision_to_dtype.get(precision, "float16")
+    return resolve_dtype(precision)
 
 
 def calculate_conv_out_dim(

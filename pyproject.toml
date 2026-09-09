@@ -29,7 +29,7 @@ dependencies = [
     "snakemake-executor-plugin-cluster-generic ~=1.0.0",
     # "pandas ~=1.2.0",
     "scikit-learn >=1.2.0,<2",
-    "scikit-image ~=0.20.0",
+    "scikit-image >=0.24.0",  # bumped for Python 3.12 wheel support
     "torch >=2.2.0",
     "torchvision >=0.16.0",
     "torchsummary ~=1.5.0",
@@ -50,7 +50,7 @@ dependencies = [
     "pillow == 10.0.0",
     # "opencv ~= 4.10.0",
     # "pkg-config ~= 0.29.2",
-    "ffcv ~= 1.0.2",
+    # "ffcv ~= 1.0.2",  # no wheels; needs OpenCV dev files not available on this system
 ]
 
 [tool]

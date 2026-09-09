@@ -5,6 +5,8 @@ import torch.nn as nn
 import logging
 from pytorch_lightning import LightningModule
 
+from dynvision.utils.dtype_policy import resolve_dtype
+
 logger = logging.getLogger(__name__)
 
 
@@ -13,17 +15,6 @@ class DtypeDeviceCoordinator:
     Coordinates dtype and device consistency across Lightning module networks.
     Uses auto-discovery to build coordination networks for modules with persistent state.
     """
-
-    dtype_map = {
-        "bf16": torch.bfloat16,
-        "bf16-mixed": torch.bfloat16,
-        "16": torch.float16,
-        "16-mixed": torch.float16,
-        "32": torch.float32,
-        "32-true": torch.float32,
-        "64": torch.float64,
-        "64-true": torch.float64,
-    }
 
     def __init__(self, target_dtype: Optional[torch.dtype] = None, **kwargs):
         self.is_root_node = False
@@ -39,11 +30,19 @@ class DtypeDeviceCoordinator:
 
         super().__init__()
 
-    def map_dtype(self, dtype: Optional[str]) -> torch.dtype:
+    def map_dtype(self, dtype: Optional[torch.dtype]) -> Optional[torch.dtype]:
         if dtype is None:
             return None
-        dtype = dtype.replace("torch.", "").replace("float", "").lower()
-        return self.dtype_map.get(dtype)
+        if isinstance(dtype, torch.dtype):
+            return dtype
+        # Normalize common string spellings (e.g. "torch.float32", "float32",
+        # "32", "bfloat16", "bf16") and resolve through the central policy.
+        text = str(dtype).replace("torch.", "").strip().lower()
+        if text == "bfloat16":
+            text = "bf16"
+        elif text.startswith("float"):
+            text = text.replace("float", "")
+        return resolve_dtype(text)
 
     def connect_child_node(self, child: "DtypeDeviceCoordinator") -> None:
         """Connect a child node to this coordinator."""
@@ -126,7 +125,7 @@ class DtypeDeviceCoordinator:
         try:
             precision = str(self.trainer.precision)
 
-            target_dtype = self.dtype_map.get(precision, torch.float16)
+            target_dtype = resolve_dtype(precision)
             logger.info(
                 f"Determined target dtype from Lightning trainer: {target_dtype} (precision: {precision})"
             )
@@ -142,10 +141,10 @@ class DtypeDeviceCoordinator:
                 return list(self.parameters())[-1].dtype
             except Exception as e:
                 logger.warning(
-                    f"Error determining dtype from parameters: {e}. Defaulting to torch.float16."
+                    f"Error determining dtype from parameters: {e}. Defaulting to torch.float32."
                 )
                 pass
-        return torch.float16
+        return torch.float32
 
     def create_aligned_tensor(self, *args, **kwargs) -> torch.Tensor:
         """Create tensor with correct dtype and device for this coordination network."""
