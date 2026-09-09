@@ -95,3 +95,43 @@ class TestGetBatchSource:
         message = str(excinfo.value)
         assert "use_ffcv" in message
         assert "ffcv" in message.lower()
+
+    def test_ffcv_adapter_loader_class_raises_clear_error_on_partial_ffcv(
+        self, monkeypatch
+    ):
+        """A partial ffcv install (e.g. only ``ffcv.loader`` present) must
+        surface the same clear error at the point of use, not a bare
+        ModuleNotFoundError from deep inside ffcv_dataloader/ffcv_operations.
+        """
+        import types
+
+        real_import = __import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "ffcv":
+                # "import ffcv" alone succeeds (stub package)...
+                return types.ModuleType("ffcv")
+            if name.startswith("ffcv.") or name.startswith("dynvision.data.ffcv_"):
+                # ...but anything deeper is missing/broken.
+                raise ModuleNotFoundError(f"No module named '{name}'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", fake_import)
+        for mod_name in list(sys.modules):
+            if mod_name == "ffcv" or mod_name.startswith(
+                ("ffcv.", "dynvision.data.ffcv_", "dynvision.data.batch_source")
+            ):
+                monkeypatch.delitem(sys.modules, mod_name, raising=False)
+
+        module = importlib.import_module("dynvision.data.batch_source")
+        adapter = module.FFCVAdapter()  # construction succeeds ("import ffcv" ok)
+
+        with pytest.raises(ImportError) as excinfo:
+            _ = adapter.loader_class
+
+        message = str(excinfo.value)
+        assert "use_ffcv" in message
+        assert "ffcv" in message.lower()
+
+        with pytest.raises(ImportError):
+            adapter.create_loader("/tmp/does-not-matter")

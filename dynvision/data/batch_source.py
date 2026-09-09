@@ -2,11 +2,14 @@
 
 Collapses the ``use_ffcv`` branching that used to be duplicated across
 :class:`dynvision.data.datamodule.DataModule` call sites into one seam, and
-is the *only* place ``ffcv`` may be imported. All ``ffcv`` imports here are
-deferred (inside methods/functions), so importing this module — and anything
-that imports it, such as :mod:`dynvision.data.datamodule` — never requires
-ffcv to be installed. ffcv is only required when :class:`FFCVAdapter` is
-actually instantiated (i.e. when ``use_ffcv=True``).
+is the *only* place ``ffcv`` may be imported. This module may optionally
+import ``ffcv.loader.OrderOption`` at import time to re-export it; when ffcv
+is unavailable it falls back to a local stand-in enum instead. Heavier ffcv
+imports (the loader/pipeline machinery) are deferred inside adapter
+methods/functions, so importing this module — and anything that imports it,
+such as :mod:`dynvision.data.datamodule` — never requires a full ffcv
+install. ffcv is only required when :class:`FFCVAdapter` is actually
+instantiated or used (i.e. when ``use_ffcv=True``).
 
 See ``docs/development/planning/ffcv-batch-source-seam.md`` and
 `Lindsay-Lab/DynVision#16 <https://github.com/Lindsay-Lab/DynVision/issues/16>`_.
@@ -85,12 +88,30 @@ class TorchAdapter(BatchSource):
         return get_data_loader(path, **config)
 
 
+def _import_get_ffcv_dataloader() -> Callable[..., Any]:
+    """Import ``get_ffcv_dataloader``, re-raising with FFCV_INSTALL_HINT.
+
+    A minimal/partial ffcv install can satisfy ``import ffcv`` (e.g. a stub
+    package providing only ``ffcv.loader``) while still failing deeper,
+    e.g. ``ffcv_dataloader`` -> ``ffcv_operations`` -> ``ffcv.pipeline.*``.
+    Centralizing the import here ensures that failure mode also surfaces the
+    same clear, actionable error instead of a bare ModuleNotFoundError.
+    """
+    try:
+        from dynvision.data.ffcv_dataloader import get_ffcv_dataloader
+    except ImportError as exc:
+        raise ImportError(FFCV_INSTALL_HINT) from exc
+    return get_ffcv_dataloader
+
+
 class FFCVAdapter(BatchSource):
     """BatchSource backed by :mod:`dynvision.data.ffcv_dataloader`.
 
-    Raises a clear :class:`ImportError` at construction time if ffcv is not
-    importable, instead of letting an unrelated crash surface deep inside
-    ``ffcv_dataloader``/``ffcv_operations`` when the loader is later used.
+    Raises a clear :class:`ImportError`, at construction time and again at
+    every point ffcv is actually imported, if ffcv is not importable or only
+    partially installed — instead of letting an unrelated crash surface deep
+    inside ``ffcv_dataloader``/``ffcv_operations`` when the loader is later
+    used.
     """
 
     def __init__(self) -> None:
@@ -101,13 +122,10 @@ class FFCVAdapter(BatchSource):
 
     @property
     def loader_class(self) -> Callable[..., Any]:
-        from dynvision.data.ffcv_dataloader import get_ffcv_dataloader
-
-        return get_ffcv_dataloader
+        return _import_get_ffcv_dataloader()
 
     def create_loader(self, path: Union[str, Path], **config: Any) -> Any:
-        from dynvision.data.ffcv_dataloader import get_ffcv_dataloader
-
+        get_ffcv_dataloader = _import_get_ffcv_dataloader()
         return get_ffcv_dataloader(path=path, **config)
 
 
