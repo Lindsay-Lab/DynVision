@@ -68,7 +68,14 @@ def detect_environment() -> Environment:
     use) instead of relying on module import to trigger it.
     """
 
-    hostname = os.popen("hostname").read()
+    stream = os.popen("hostname")
+    try:
+        hostname = stream.read().strip()
+    finally:
+        close = getattr(stream, "close", None)
+        if callable(close):
+            close()
+
     is_cluster = any(marker in hostname for marker in _CLUSTER_HOSTNAME_MARKERS)
     return Environment(is_cluster=is_cluster, hostname=hostname)
 
