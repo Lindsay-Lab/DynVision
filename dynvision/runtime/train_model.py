@@ -31,6 +31,7 @@ from dynvision.data.dataloader import (
     _adjust_label_dimensions,
 )
 from dynvision.data.datamodule import DataModule
+from dynvision.path_layout import set_wandb_dir
 from dynvision.project_paths import project_paths
 from dynvision.utils import (  # noqa: F401
     filter_kwargs,
@@ -593,6 +594,10 @@ class TrainingOrchestrator:
                     model_name = output_path.name.removesuffix(output_path.suffix)
 
                 # Initialize logger
+                # WANDB_DIR is no longer set as an import-time side effect of
+                # `project_paths` (see docs/development/planning/project-paths-seam.md,
+                # issue #14); set it explicitly here before wandb picks it up.
+                set_wandb_dir(project_paths)
                 pl_logger = pl.loggers.WandbLogger(
                     project=project_paths.project_name,
                     save_dir=project_paths.large_logs,

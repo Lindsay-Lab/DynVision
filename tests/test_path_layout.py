@@ -14,7 +14,9 @@ def _forbid_popen(monkeypatch):
     """Fail the test loudly if anything shells out to `hostname`."""
 
     def _raise(*args, **kwargs):
-        raise AssertionError("os.popen was called; environment detection must be explicit")
+        raise AssertionError(
+            "os.popen was called; environment detection must be explicit"
+        )
 
     monkeypatch.setattr(os, "popen", _raise)
 
@@ -76,9 +78,7 @@ class TestEnvironment:
     def test_detect_environment_classifies_local_hostname(self, monkeypatch):
         from dynvision import path_layout
 
-        monkeypatch.setattr(
-            os, "popen", lambda cmd: _FakeHostnameStream("my-laptop")
-        )
+        monkeypatch.setattr(os, "popen", lambda cmd: _FakeHostnameStream("my-laptop"))
 
         env = path_layout.detect_environment()
 
@@ -130,7 +130,9 @@ class TestPathLayoutForEnvironment:
         assert layout.benchmarks == tmp_path / "logs" / "benchmarks"
         assert layout.scripts.configs == tmp_path / "configs"
 
-    def test_local_layout_no_filesystem_or_hostname_dependency(self, monkeypatch, tmp_path):
+    def test_local_layout_no_filesystem_or_hostname_dependency(
+        self, monkeypatch, tmp_path
+    ):
         from dynvision.path_layout import Environment, PathLayout
 
         _forbid_popen(monkeypatch)

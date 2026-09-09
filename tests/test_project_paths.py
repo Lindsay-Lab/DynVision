@@ -48,6 +48,15 @@ class TestImportHasNoSideEffects:
 
         assert "WANDB_DIR" not in os.environ
 
+    def test_attribute_access_does_not_mutate_wandb_dir(self, monkeypatch):
+        monkeypatch.setattr(os, "popen", lambda cmd: _FakeHostnameStream("my-laptop"))
+        monkeypatch.delenv("WANDB_DIR", raising=False)
+
+        module = _fresh_import_project_paths(monkeypatch)
+        _ = module.project_paths.data.raw
+
+        assert "WANDB_DIR" not in os.environ
+
 
 class TestLazyConstruction:
     def test_constructs_exactly_once_across_multiple_attribute_accesses(
@@ -73,9 +82,7 @@ class TestLazyConstruction:
 class TestBackwardCompatibleAttributes:
     @pytest.fixture(autouse=True)
     def _stub_hostname(self, monkeypatch):
-        monkeypatch.setattr(
-            os, "popen", lambda cmd: _FakeHostnameStream("my-laptop")
-        )
+        monkeypatch.setattr(os, "popen", lambda cmd: _FakeHostnameStream("my-laptop"))
 
     def test_exposes_all_previously_public_attributes(self, monkeypatch):
         module = _fresh_import_project_paths(monkeypatch)
