@@ -17,7 +17,7 @@ init_with_pretrained: False
 status: [trained-best] #, trained-epoch=299]
 
 model_args:
-  tsteps: 20
+  tsim: 40  # ms; was tsteps: 20 at dt=2 (existing results: scripts/link_legacy_temporal_paths.py)
   dt: 2
   tau: 5
   tff: 0
@@ -34,8 +34,8 @@ model_args:
 category:
   - activityloss
   # - pattern
-  - tsteps
-  # - idle
+  - tsim
+  # - tidle
   - lossrt
   # - tau
   # - trc

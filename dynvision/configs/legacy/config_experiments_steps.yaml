@@ -1,0 +1,262 @@
+# FROZEN legacy copy of config_experiments.yaml, as it was before the ms migration
+# (commit 8f2c73b). Every temporal value here counts dt steps. Do not edit: the
+# link helper (scripts/link_legacy_temporal_paths.py) recomputes the hashed
+# test identifiers of existing results from these specs. The workflow never loads
+# this file.
+
+experiment_config:
+
+  categories:
+    rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full', 'local', 'localdepthwise', 'none']  # Recurrent connection type
+    rctarget: ['output', 'input', 'middle']  # Target for recurrent connections
+    pattern: ['1', '1011', '1001', '1000']
+    dsteps: [1, 20]
+    tsteps: [4, 8, 14, 20, 26]
+    dt: [1, 2, 3]
+    tau: [3, 5, 9]
+    tff: [0, 10]
+    trc: [2, 6, 10]
+    tsk: [0, 4, 8]
+    # lossrt: [0, 4, 8, 20, 38]  # for pattern=1
+    lossrt: [0, 4, 8, 18, 28]  # for pattern=1011 + shuffle
+    idle: [0, 1, 5, 10, 20]
+    feedback: ['false', 'add', 'mul']
+    skip: ['true', 'false']
+    dloader: ['ffcv', 'torch']
+    ffonly: ['true', 'false']
+    pretrained: ['true', 'false']
+    # activityloss: ['0', '0.0002', '0.002', '0.02', '0.2', '1.0']  # '0.00002',
+    activityloss: ['0', '0.0002', '0.02', '0.2', '1.0'] # '0.002',
+    pretrained: ['true']
+    
+  response:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 60
+      intro: 1
+      stim: 30
+      idle: 20
+
+  responseffonly:
+    parameter: ffonly
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 4
+      intro: 0
+      stim: 2
+      ffonly: ['true', 'false']
+
+  responseintermediate:
+    status: [trained-epoch=49, trained-epoch=99, trained-epoch=149, trained-epoch=199, trained-epoch=249, trained-epoch=299] #, trained-epoch=399, trained-epoch=499]
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 60
+      intro: 1
+      stim: 30
+      idle: 20
+
+  stabilityintermediate:
+    status: [trained-epoch=199, trained-epoch=249, trained-epoch=299, trained-epoch=349]
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 125
+      intro: 1
+      stim: 100
+      idle: 20
+
+  stability:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 125
+      stim: [25, 100]
+      # stim: 100
+      intro: 0
+      idle: 20
+
+  nullcondition:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 200
+      intro: 95
+      stim: 10
+
+  idleresponse:
+    parameter: idle
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 30
+      intro: 5
+      stim: 15
+      idle: [0, 1, 5, 10, 20, 40]
+
+  duration:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 30
+      intro: 1
+      stim: [1, 2, 3, 4, 5, 10, 15, 20]
+      idle: 20
+
+  contrast:
+    parameter: contrast
+    data_loader: StimulusContrast
+    data_args:
+      dsteps: 30
+      intro: 1
+      stim: 20
+      contrast: [0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]
+      idle: 20
+
+  interval:
+    parameter: interval
+    data_loader: StimulusInterval
+    data_args:
+      dsteps: 40
+      intro: 1
+      stim: 5
+      interval: [1, 2, 3, 4, 6, 8, 10]
+      idle: 20
+
+  uniformnoise:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: uniform
+      ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  uniformnoiseffonly:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: uniform
+      ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+      ffonly: 'true'
+
+  saltpeppernoise:
+    parameter: noiselevel
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: saltpepper
+      ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  poissonnoise:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: poisson
+      ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  poissonnoiseffonly:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: poisson
+      ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+      ffonly: 'true'
+
+  gaussiannoise:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: gaussian
+      ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  gaussiancorrnoise:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: gaussian
+      spatialcorr: 'true'
+      ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  phasescramblednoise:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: phasescrambled
+      ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+
+  gaussiannoiseffonly:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: gaussian
+      ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+      ffonly: 'true'
+
+  gaussiancorrnoiseffonly:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: gaussian
+      spatialcorr: 'true'
+      ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+      ffonly: 'true'
+
+  phasescramblednoiseffonly:
+    parameter: ssnr
+    data_loader: StimulusNoise
+    data_args:
+      dsteps: 20
+      noisetype: phasescrambled
+      ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+      tempmode: 'dynamic'
+      idle: 20
+      ffonly: 'true'
+
+  noise:
+    parameter: ssnr
+
+  hundred:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 200
+      stim: 100
+      intro: 0
+      idle: 100
+
+  ten:
+    parameter: stim
+    data_loader: StimulusDuration
+    data_args:
+      dsteps: 10
+      stim: 5
+      intro: 0
+      idle: 0
