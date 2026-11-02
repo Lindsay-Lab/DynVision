@@ -6,7 +6,7 @@ experiment_config:
     pattern: ['1', '1011', '1001', '1000']
     dsteps: [1, 20]
     tsteps: [4, 8, 14, 20, 26]
-    dt: [2]
+    dt: [1, 2, 3]
     tau: [3, 5, 9]
     tff: [0, 10]
     trc: [2, 6, 10]
