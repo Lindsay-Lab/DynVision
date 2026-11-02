@@ -9,6 +9,13 @@ dynamics of neural network layer responses with three flexible dimensions:
 Each dimension can represent: layers, category, parameter, classifier_topk, classifier_top{N}, or any
 column present in the dataframe (e.g. *_index columns) so long as it remains
 categorical (by default, fewer than 60 unique values).
+
+The 'layers' dimension may be assigned to any one of the three roles. It picks
+the wide response column the panel draws from ('{layer}_response_avg'), so it
+subplots, colors, or splits the figure into per-layer panels instead of
+filtering rows. It cannot be combined with 'classifier_topk' in another
+dimension, because that dimension selects an activation column rather than a
+layer response.
 """
 
 import argparse
@@ -149,6 +156,29 @@ def _format_legend_label(key: str, value: str, config: Dict, dt: float = 1.0) ->
     return str(value).capitalize()
 
 
+def _find_layer_dimension(
+    subplot_var: str, hue_var: str, column_var: Optional[str] = None
+) -> Optional[str]:
+    """Return which dimension carries the 'layers' role, if any.
+
+    Args:
+        subplot_var: Vertical subplot dimension
+        hue_var: Hue dimension
+        column_var: Column dimension (optional)
+
+    Returns:
+        'subplot', 'hue', 'column', or None when no dimension is 'layers'
+    """
+    for role, dimension in (
+        ("subplot", subplot_var),
+        ("hue", hue_var),
+        ("column", column_var),
+    ):
+        if dimension == "layers":
+            return role
+    return None
+
+
 def _validate_dimensions(
     subplot_var: str, hue_var: str, column_var: Optional[str]
 ) -> None:
@@ -161,6 +191,41 @@ def _validate_dimensions(
         raise ValueError(
             f"Dimension variables must be unique. Got: subplot={subplot_var}, "
             f"hue={hue_var}, column={column_var}"
+        )
+
+
+def _validate_dimension_roles(
+    subplot_var: str, hue_var: str, column_var: Optional[str]
+) -> None:
+    """Validate which roles the 'layers' dimension may take.
+
+    'layers' selects one of the wide per-layer response columns
+    (``{layer}_response_avg``), whereas 'classifier_topk' selects a classifier
+    activation column. The two describe different quantities, so combining them
+    in one figure is meaningless, and a classifier unit has no column to filter
+    on.
+    """
+    used = [subplot_var, hue_var]
+    if column_var:
+        used.append(column_var)
+
+    layer_role = _find_layer_dimension(subplot_var, hue_var, column_var)
+
+    if layer_role and "classifier_topk" in used:
+        raise ValueError(
+            "Dimensions 'layers' and 'classifier_topk' cannot be combined: "
+            "'layers' selects a per-layer response column while 'classifier_topk' "
+            "selects a classifier activation column, so the two dimensions would "
+            "describe different quantities. "
+            f"Got: subplot={subplot_var}, hue={hue_var}, column={column_var}"
+        )
+
+    if column_var == "classifier_topk":
+        raise ValueError(
+            "Dimension 'classifier_topk' is not supported for columns: classifier "
+            "units are wide activation columns, so there is no column to filter the "
+            "data on and every column would repeat the same panel. Use it as "
+            "subplot or hue instead."
         )
 
 
@@ -177,7 +242,9 @@ def _get_dimension_key(
             raise ValueError("parameter_key required when using 'parameter' dimension")
         return parameter_key
     elif dimension == "layers":
-        return "layers"  # Special handling
+        # Not a dataframe column: the layer selects one of the wide
+        # {layer}_response_avg columns, so it is never used for row filtering.
+        return "layers"
     elif dimension == "classifier_topk":
         return CLASSIFIER_TOP_PREFIX  # Special handling
     elif dimension == "experiment":
@@ -877,6 +944,7 @@ def _plot_response_ridges(
     dt: float,
     time_offset: float = 0.0,
     show_ylabel: bool = True,
+    response_layer: Optional[str] = None,
     config: Dict = None,
     ridge_top: Optional[float] = None,
     normalize: Union[str, bool] = False,
@@ -896,6 +964,10 @@ def _plot_response_ridges(
         hue_key: Column name for hue variable
         hue_values: Ordered list of hue values
         colors: Color mapping for hue values
+        response_layer: Layer whose ``{layer}_response_avg`` column supplies the
+            plotted response when the layer is pinned by the column (or hue)
+            dimension. Overrides the ``focus_layer`` kwarg, which expresses the
+            same thing for the dynamics module.
         dt: Temporal resolution in ms
         show_ylabel: Whether to show y-axis label
         config: Configuration dict
@@ -907,8 +979,9 @@ def _plot_response_ridges(
     layout = {**LAYOUT, **{k: v for k, v in kwargs.items() if k in LAYOUT}}
     fmt = {**FORMATTING, **{k: v for k, v in kwargs.items() if k in FORMATTING}}
 
-    # Check if focus_layer is specified in kwargs (for Panel B case)
-    focus_layer = kwargs.get("focus_layer", None)
+    # A pinned layer supplies the response column for every panel of a column.
+    # The focus_layer kwarg (used by the dynamics module) means the same thing.
+    focus_layer = response_layer or kwargs.get("focus_layer", None)
 
     n_subplots = len(subplot_values)
     if n_subplots == 0:
@@ -1066,8 +1139,9 @@ def _plot_response_ridges(
 
             plotted_any = False
 
-            if focus_layer and hue_var == "category":
-                # Panel B case: plot focus layer response colored by category
+            if focus_layer and not _is_special_dimension(hue_var):
+                # Layer pinned by the hue or column dimension: plot that layer's
+                # response, colored by the remaining categorical dimension.
                 response_col = f"{focus_layer}_response_avg"
                 if response_col in plot_data.columns:
                     norm_data = _normalize_trace(
@@ -1089,7 +1163,8 @@ def _plot_response_ridges(
                     plotted_any = True
                 else:
                     logger.warning(
-                        f"Focus layer response column '{response_col}' not found for parameter '{subplot_value}'"
+                        f"Response column '{response_col}' not found for pinned layer "
+                        f"'{focus_layer}' in subplot '{subplot_value}'"
                     )
             elif hue_var == "layers":
                 # Plot different layers as hues
@@ -1106,6 +1181,7 @@ def _plot_response_ridges(
                             legend=False,
                             linewidth=fmt["linewidth_main"],
                             alpha=fmt["alpha_line"],
+                            **ERRORBAR_CONFIG,
                         )
                         plotted_any = True
                     else:
@@ -1455,11 +1531,15 @@ def plot_temporal_ridge_responses(
         subplot_var: Variable for vertical subplots (ridge plots). Accepts
             'layers', 'category', 'parameter', 'classifier_topk', 'classifier_top{N}',
             or any dataframe column name (e.g., 'first_label_index') with a manageable
-            number of unique values (<= MAX_DIMENSION_VALUES).
+            number of unique values (<= MAX_DIMENSION_VALUES). 'layers' makes every
+            ridge one layer, drawn from its own response column.
         hue_var: Variable for color coding. Accepts the same options as
-            subplot_var and should remain categorical.
+            subplot_var and should remain categorical. 'layers' draws one line per
+            layer, colored with the configured layer palette.
         column_var: Variable for columns (optional). Accepts the same options as
-            subplot_var and should remain categorical.
+            subplot_var and should remain categorical. 'layers' gives every column
+            one layer, drawn from that layer's response column; subplots and hues
+            inside the column keep their own meaning.
         category_key: Column name for category (e.g., 'rctype')
         parameter_key: Column name for parameter (e.g., 'duration', 'contrast')
         confidence_measure: Column name or list of names for confidence metrics
@@ -1511,6 +1591,16 @@ def plot_temporal_ridge_responses(
     _validate_dimensions(
         subplot_var=subplot_var, hue_var=hue_var, column_var=column_var
     )
+    _validate_dimension_roles(
+        subplot_var=subplot_var, hue_var=hue_var, column_var=column_var
+    )
+    layer_role = _find_layer_dimension(subplot_var, hue_var, column_var)
+    if layer_role:
+        logger.info(
+            "Dimension '%s' selects the per-layer response column "
+            "({layer}_response_avg)",
+            layer_role,
+        )
 
     if config is None:
         config = {"palette": {}, "naming": {}, "ordering": {}}
@@ -1674,9 +1764,17 @@ def plot_temporal_ridge_responses(
         column_positions.append(column_left)
 
         # Filter data for this column
-        column_data = _filter_data_for_column(
-            df=df, column_var=column_key, column_value=column_value
-        )
+        if column_var == "layers":
+            # 'layers' is not a dataframe column: the layer selects which
+            # {layer}_response_avg column carries the data, so it is applied as a
+            # per-panel pin instead of a row filter.
+            column_data = df
+            column_layer = column_value
+        else:
+            column_data = _filter_data_for_column(
+                df=df, column_var=column_key, column_value=column_value
+            )
+            column_layer = None
         logger.info(f"Column data: {len(column_data)} rows")
 
         # Add title
@@ -1689,8 +1787,12 @@ def plot_temporal_ridge_responses(
                     layout["title_pad"],
                 ]
             )
-            title_symbol = get_display_name(key=column_key, config=config)
-            title_text = f"{title_symbol} = {column_value}"
+            title_key = "layer" if column_var == "layers" else column_key
+            title_symbol = get_display_name(key=title_key, config=config)
+            title_value = (
+                str(column_value).upper() if column_var == "layers" else column_value
+            )
+            title_text = f"{title_symbol} = {title_value}"
             title_ax.text(
                 0.5,
                 0.5,
@@ -1750,6 +1852,7 @@ def plot_temporal_ridge_responses(
             hue_key=hue_key,
             hue_values=hue_values,
             colors=colors,
+            response_layer=column_layer,
             dt=dt,
             time_offset=time_offset,
             show_ylabel=(col_idx == 0),
@@ -1863,7 +1966,8 @@ def main():
         default=None,
         help=(
             "Variable for columns (optional). Use 'layers', 'category', 'parameter', "
-            "'classifier_topk', 'classifier_top{N}', or any dataframe column name with a manageable number of unique values."
+            "'classifier_topk', 'classifier_top{N}', or any dataframe column name with a manageable number of unique values. "
+            "'layers' gives every column one layer, drawn from that layer's response column."
         ),
     )
     parser.add_argument("--category-key", type=str, help="Category column name")
