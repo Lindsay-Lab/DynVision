@@ -12,6 +12,7 @@ from dynvision.model_components.topographic_recurrence import (
 # from dynvision.base import DtypeDeviceCoordinatorMixin
 from dynvision.model_components.integration_strategy import setup_integration_strategy
 from dynvision.utils import apply_parametrization, str_to_bool, calculate_conv_out_dim
+from dynvision.utils.timing import require_min_steps, to_timesteps
 from dynvision.base.storage import DataBuffer
 from pytorch_lightning import LightningModule
 import logging
@@ -643,7 +644,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         bias: bool = True,
         dim_y: Optional[int] = None,
         dim_x: Optional[int] = None,
-        dt: float = 1,  # ms
+        dt: Optional[float] = None,  # ms, required: delays are converted with it
         recurrence_target: str = "output",
         recurrence_type: str = "self",
         recurrence_kernel_size: Optional[int] = None,  # defaults to kernel_size
@@ -823,8 +824,44 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
         else:
             self.history_length = history_length
 
-        self.n_hidden_states = int(self.history_length / self.dt)  # + 1
-        self.delay_recurrence = int(self.t_recurrence / self.dt)
+        # A layer converts its delays with the model's dt. A default dt here
+        # would size buffers and delays on a different grid than the one the
+        # model integrates on, without any error.
+        if self.dt is None:
+            raise ValueError(
+                f"{type(self).__name__} needs dt (ms) to convert its delays and "
+                "history length to steps; pass the model's dt."
+            )
+        self.n_hidden_states = to_timesteps(
+            self.history_length, self.dt, "history_length"
+        )
+        self.delay_recurrence = to_timesteps(
+            self.t_recurrence, self.dt, "t_recurrence"
+        )
+
+        recurrence_active = (
+            self.recurrence_type is not None
+            and str(self.recurrence_type).lower() != "none"
+            and not self.feedforward_only
+        )
+        if recurrence_active:
+            # The layer reads its own state before storing the current one, so
+            # the shortest representable recurrence is one step.
+            require_min_steps(
+                "t_recurrence",
+                self.t_recurrence,
+                self.dt,
+                min_steps=1,
+                reason="A recurrent connection reads its layer's state from an earlier step.",
+            )
+            # get_hidden_state() returns None beyond the buffer, which would
+            # switch the recurrence off without an error.
+            if self.delay_recurrence > self.n_hidden_states:
+                raise ValueError(
+                    f"t_recurrence={self.t_recurrence:g} ms needs "
+                    f"{self.delay_recurrence} stored steps, but history_length="
+                    f"{self.history_length:g} ms stores {self.n_hidden_states}."
+                )
 
     def _define_architecture(self) -> None:
         # Define feedforward convolution
@@ -1088,7 +1125,7 @@ class RecurrentConnectedConv2d(ForwardRecurrenceBase):
             delay = delay_feedforward
         elif hasattr(self, "t_feedforward"):
             # Use per-layer t_feedforward if defined
-            delay = int(self.t_feedforward / self.dt)
+            delay = to_timesteps(self.t_feedforward, self.dt, "t_feedforward")
         else:
             # Default to no delay if not specified
             delay = 0

@@ -295,6 +295,7 @@ class CordsNet(BaseModel):
             bias=False,
             recurrence_type="none",  # No recurrence for input layer
             t_feedforward=0.0,  # Immediate skip to layer2, no delay (matches original inp_skip)
+            dt=self.dt,
             history_length=self.dt,
             dim_y=self.dim_y,  # Input spatial dimensions
             dim_x=self.dim_x,

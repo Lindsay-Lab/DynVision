@@ -12,6 +12,7 @@ from dynvision.utils import alias_kwargs, str_to_bool
 from dynvision.utils.timing import (
     is_integer_multiple,
     multiple_error_message,
+    require_min_steps,
     to_timesteps,
 )
 from .storage import DataBuffer
@@ -134,7 +135,9 @@ class TemporalBase(nn.Module):
             else list(self.DEFAULT_OPERATIONS_SKIPPED_ON_NULL_INPUT)
         )
 
-        self.delay_feedforward = int(t_feedforward / dt)
+        self.delay_feedforward = to_timesteps(
+            self.t_feedforward, self.dt, "t_feedforward"
+        )
 
         # Optional override applied to every layer's delay() call, regardless
         # of that layer's own t_feedforward. Used by shape-inference forward
@@ -209,6 +212,28 @@ class TemporalBase(nn.Module):
                 continue
             if not is_integer_multiple(value, self.dt):
                 raise ValueError(multiple_error_message(name, value, self.dt))
+
+        # Recurrence and feedback read a source that has not been updated yet
+        # in the current step, so their delay spans at least one step.
+        recurrence_active = (
+            self.recurrence_type != "none" and not self.feedforward_only
+        )
+        if recurrence_active and self.t_recurrence is not None:
+            require_min_steps(
+                "t_recurrence",
+                self.t_recurrence,
+                self.dt,
+                min_steps=1,
+                reason="A recurrent connection reads its layer's state from an earlier step.",
+            )
+        if self.feedback and self.t_feedback is not None:
+            require_min_steps(
+                "t_feedback",
+                self.t_feedback,
+                self.dt,
+                min_steps=1,
+                reason="Feedback reads a later layer that has not been updated yet in this step.",
+            )
 
     # Data processing
     #################

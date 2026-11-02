@@ -23,6 +23,7 @@ from dynvision.utils import (
 from dynvision.utils.timing import (
     is_integer_multiple,
     multiple_error_message,
+    require_min_steps,
     to_timesteps,
 )
 
@@ -619,14 +620,15 @@ class ModelParams(BaseParams):
         if self.t_feedforward is not None and self.t_feedforward < 0:
             raise DynVisionValidationError("t_feedforward must be non-negative")
 
-        if self.t_recurrence is not None and self.t_recurrence < 1:
-            raise DynVisionValidationError("t_recurrence must be at least 1")
+        if self.t_recurrence is not None and self.t_recurrence < 0:
+            raise DynVisionValidationError("t_recurrence must be non-negative")
 
         # Durations must be whole numbers of dt steps. They are converted to
         # integer timestep counts for the delay buffers and the reaction mask,
         # so a non-multiple would silently run with a different delay than the
         # one configured.
         self._validate_dt_multiples()
+        self._validate_min_delays()
 
         # Architecture consistency checks (only if both set)
         if (
@@ -741,6 +743,50 @@ class ModelParams(BaseParams):
                 raise DynVisionValidationError(
                     multiple_error_message(name, value, self.dt)
                 )
+
+    def _validate_min_delays(self) -> None:
+        """Reject recurrent and feedback delays shorter than one ``dt`` step.
+
+        Both connections read a source that has not been updated yet in the
+        current step, so one step is the shortest delay they can represent.
+        The check runs only where the connection is known to be active here;
+        ``TemporalBase`` re-checks the effective values of the built model.
+
+        Raises:
+            DynVisionValidationError: If an active delay is shorter than dt.
+        """
+        if self.dt is None:
+            return
+        recurrence_active = (
+            self.recurrence_type is not None
+            and self.recurrence_type != "none"
+            and not self.feedforward_only
+        )
+        feedback_active = self.feedback is not None and str(
+            self.feedback
+        ).lower() not in ("false", "0", "none")
+        checks = []
+        if recurrence_active and self.t_recurrence is not None:
+            checks.append(
+                (
+                    "t_recurrence",
+                    self.t_recurrence,
+                    "A recurrent connection reads its layer's state from an earlier step.",
+                )
+            )
+        if feedback_active and self.t_feedback is not None:
+            checks.append(
+                (
+                    "t_feedback",
+                    self.t_feedback,
+                    "Feedback reads a later layer that has not been updated yet in this step.",
+                )
+            )
+        for name, value, reason in checks:
+            try:
+                require_min_steps(name, value, self.dt, min_steps=1, reason=reason)
+            except ValueError as error:
+                raise DynVisionValidationError(str(error)) from None
 
     @property
     def delay_feedforward(self) -> Optional[int]:

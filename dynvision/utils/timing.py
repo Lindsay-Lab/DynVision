@@ -156,6 +156,33 @@ def format_ms(value: float) -> str:
     return repr(value)
 
 
+def require_min_steps(
+    name: str, value: float, dt: float, min_steps: int, reason: str
+) -> None:
+    """Reject a duration shorter than ``min_steps`` integration steps.
+
+    A recurrent or feedback connection reads its source's state from an earlier
+    step, because the source has not been updated yet in the current one. Its
+    delay is therefore at least one step; a configured value below that cannot
+    be represented and used to be raised to one step silently.
+
+    Args:
+        name: Parameter name, e.g. ``"t_recurrence"``.
+        value: Duration in milliseconds.
+        dt: Integration step in milliseconds.
+        min_steps: Smallest number of steps the duration may span.
+        reason: Why the minimum holds, appended to the message.
+
+    Raises:
+        ValueError: If ``value`` spans fewer than ``min_steps`` steps.
+    """
+    if value < to_ms(min_steps, dt) and not math.isclose(value, to_ms(min_steps, dt)):
+        raise ValueError(
+            f"{name}={value:g} ms is shorter than {min_steps} step(s) of "
+            f"dt={dt:g} ms. {reason} Use {name} >= {format_ms(to_ms(min_steps, dt))} ms."
+        )
+
+
 def multiple_error_message(name: str, value: float, dt: float) -> str:
     """Build the error message for a duration that is not a multiple of ``dt``.
 

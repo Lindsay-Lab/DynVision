@@ -19,8 +19,9 @@ Two kinds of site are handled separately:
 """
 
 import ast
+import subprocess
 from pathlib import Path
-from typing import Iterator, Set, Tuple
+from typing import Iterator, List, Set, Tuple
 
 PACKAGE = Path(__file__).resolve().parents[2] / "dynvision"
 
@@ -46,14 +47,6 @@ EXEMPT_SITES: frozenset[str] = frozenset(
 #: Conversion sites that predate the rule. Remove entries as they are fixed.
 ALLOWLIST: frozenset[str] = frozenset(
     {
-        "dynvision/base/temporal.py::TemporalBase.__init__",
-        "dynvision/model_components/layer_connections.py::ConnectionBase._set_delay_index",
-        "dynvision/model_components/recurrence.py::RecurrentConnectedConv2d._setup_hidden_state_memory",
-        "dynvision/model_components/recurrence.py::RecurrentConnectedConv2d.delay",
-        "dynvision/model_components/temp_base.py::LightningBase.compute_loss",
-        "dynvision/models/dyrcnn.py::DyRCNNx2._define_architecture",
-        "dynvision/models/dyrcnn.py::DyRCNNx4._define_architecture",
-        "dynvision/models/dyrcnn.py::DyRCNNx8._define_architecture",
         "dynvision/utils/visualization_utils.py::format_parameter_value",
         "dynvision/visualization/plot_dynamics.py::create_panel_a",
         "dynvision/visualization/plot_dynamics.py::create_panel_b",
@@ -112,9 +105,28 @@ class _DtArithmetic(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+def _package_files() -> List[Path]:
+    """The package's Python files as git tracks them.
+
+    Only shipped code is checked: an ignored local scratch file (``temp_*``) is
+    neither run nor reviewed. Without git, every file is scanned.
+    """
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "--", "*.py"],
+            cwd=PACKAGE,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return sorted(PACKAGE.rglob("*.py"))
+    return sorted(PACKAGE / name for name in listed)
+
+
 def _scan() -> Iterator[Tuple[str, int]]:
     """Yield ('path::qualname', line) for every dt arithmetic site."""
-    for path in sorted(PACKAGE.rglob("*.py")):
+    for path in _package_files():
         relative = path.relative_to(PACKAGE.parent).as_posix()
         if relative in EXEMPT_FILES:
             continue

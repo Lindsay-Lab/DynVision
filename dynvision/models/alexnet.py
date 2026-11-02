@@ -91,6 +91,9 @@ class AlexNet(BaseModel):
             padding=2,
             fixed_self_weight=self.fixed_self_weight,
             recurrence_type=self.recurrence_type,
+            dt=self.dt,
+            t_recurrence=self.t_recurrence,
+            t_feedforward=self.t_feedforward,
         )
         self.pool_layer1 = nn.MaxPool2d(kernel_size=3, stride=2)
 
@@ -102,6 +105,9 @@ class AlexNet(BaseModel):
             padding=2,
             fixed_self_weight=self.fixed_self_weight,
             recurrence_type=self.recurrence_type,
+            dt=self.dt,
+            t_recurrence=self.t_recurrence,
+            t_feedforward=self.t_feedforward,
         )
         self.pool_layer2 = nn.MaxPool2d(kernel_size=3, stride=2)
 
@@ -113,6 +119,9 @@ class AlexNet(BaseModel):
             padding=1,
             fixed_self_weight=self.fixed_self_weight,
             recurrence_type=self.recurrence_type,
+            dt=self.dt,
+            t_recurrence=self.t_recurrence,
+            t_feedforward=self.t_feedforward,
         )
 
         # Layer 4
@@ -123,6 +132,9 @@ class AlexNet(BaseModel):
             padding=1,
             fixed_self_weight=self.fixed_self_weight,
             recurrence_type=self.recurrence_type,
+            dt=self.dt,
+            t_recurrence=self.t_recurrence,
+            t_feedforward=self.t_feedforward,
         )
 
         # Layer 5
@@ -133,6 +145,9 @@ class AlexNet(BaseModel):
             padding=1,
             fixed_self_weight=self.fixed_self_weight,
             recurrence_type=self.recurrence_type,
+            dt=self.dt,
+            t_recurrence=self.t_recurrence,
+            t_feedforward=self.t_feedforward,
         )
         self.pool_layer5 = nn.MaxPool2d(kernel_size=3, stride=2)
 
