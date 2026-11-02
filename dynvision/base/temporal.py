@@ -556,11 +556,11 @@ class TemporalBase(nn.Module):
             # Flag for activity loss hooks to skip accumulation
             self._in_idle_period = True
 
-            for t_idle in range(idle_steps):
+            for idle_step in range(idle_steps):
                 # Forward pass with null input - populates hidden states
                 x, _ = self._forward(
                     null_input,
-                    t=t_idle,
+                    t=idle_step,
                     feedforward_only=self.feedforward_only,
                     store_responses=False,  # Don't store responses during idle
                 )

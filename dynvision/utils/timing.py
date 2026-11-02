@@ -27,9 +27,12 @@ A ``t`` prefix on a file-name key always means milliseconds. A legacy key keeps
 its step meaning and is translated with :func:`to_ms`, which is always exact.
 """
 
+import logging
 import math
 from dataclasses import dataclass
-from typing import Any, Dict, Final, Literal, Mapping, Optional, Tuple
+from typing import Any, Dict, Final, Literal, Mapping, Optional, Set, Tuple
+
+logger = logging.getLogger(__name__)
 
 # Tolerance for the multiple test. Durations are milliseconds in the 0.1-100
 # range, so 1e-9 sits far above float64 division error (~1e-16 relative) and far
@@ -327,6 +330,34 @@ def is_legacy_step_key(name: str) -> bool:
     """Return True when ``name`` is a legacy step-valued key (``stim``, ``tsteps``)."""
     quantity = _BY_NAME.get(name)
     return quantity is not None and name in quantity.legacy_keys
+
+
+_WARNED_LEGACY_KEYS: Set[str] = set()
+
+
+def warn_legacy_keys(keys) -> None:
+    """Log a deprecation warning, once per process, for each legacy step key.
+
+    Called where configuration and CLI keys are resolved, so it fires for keys
+    a user wrote, not for the step fields the engine uses internally. Keys may
+    be scoped (``model.tsteps``); only the last component is inspected.
+
+    Args:
+        keys: Iterable of parameter keys as given by the user.
+    """
+    for key in keys:
+        name = str(key).rsplit(".", 1)[-1]
+        if name in _WARNED_LEGACY_KEYS or not is_legacy_step_key(name):
+            continue
+        _WARNED_LEGACY_KEYS.add(name)
+        quantity = _BY_NAME[name]
+        logger.warning(
+            "Legacy step key '%s': its value counts dt steps, so the duration it "
+            "names changes with dt. It keeps its step meaning but is deprecated; "
+            "use '%s' (milliseconds) instead.",
+            name,
+            quantity.key,
+        )
 
 
 def translate_legacy_args(args: Mapping[str, Any], dt: float) -> Dict[str, Any]:

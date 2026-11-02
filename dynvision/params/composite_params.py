@@ -46,6 +46,7 @@ from dynvision.params.resolution import (
     resolve_aliases,
     separate_source,
 )
+from dynvision.utils.timing import warn_legacy_keys
 
 logger = logging.getLogger(__name__)
 
@@ -660,8 +661,18 @@ class CompositeParams(BaseParams):
             ParamsDict of instantiated components plus composite base fields.
         """
         sources = cls._build_config_sources(config_params, cli_params, mode_params)
-        resolved = resolve(sources, cls.build_config_schema())
-        return cls._instantiate_resolved(resolved)
+        return cls._instantiate_resolved(cls._resolve_sources(sources))
+
+    @classmethod
+    def _resolve_sources(cls, sources: List[ConfigSource]) -> ResolvedConfig:
+        """Resolve raw sources against this composite's schema.
+
+        The raw keys are the one place a legacy step key (``tsteps``, ``stim``)
+        is still visible, so the deprecation warning is raised here rather than
+        inside the pure resolution layer.
+        """
+        warn_legacy_keys(key for source in sources for key in source.params)
+        return resolve(sources, cls.build_config_schema())
 
     @classmethod
     def _build_config_sources(
@@ -745,10 +756,7 @@ class CompositeParams(BaseParams):
         unscoped precedence within the single parameter dict. For proper config vs
         CLI precedence, use :meth:`from_cli_and_config` instead.
         """
-        resolved = resolve(
-            [ConfigSource(label="config", params=params)],
-            cls.build_config_schema(),
-        )
+        resolved = cls._resolve_sources([ConfigSource(label="config", params=params)])
         return cls._instantiate_resolved(resolved)
 
     @staticmethod

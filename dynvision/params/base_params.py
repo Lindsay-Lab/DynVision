@@ -41,6 +41,7 @@ from dynvision.utils import (
 # keep every historical import path (`from dynvision.params.base_params import
 # ProvenanceRecord`) working.
 from dynvision.params.provenance import ParamsDict, ProvenanceRecord  # noqa: F401
+from dynvision.utils.timing import warn_legacy_keys
 
 logger = logging.getLogger(__name__)
 
@@ -499,6 +500,9 @@ class BaseParams(BaseModel):
         resolved = {}
         resolved_provenance: Dict[str, ProvenanceRecord] = {}
         provenance = provenance or {}
+
+        # Keys as the user wrote them: the one place a legacy step key is visible.
+        warn_legacy_keys(params)
 
         # First, add all non-alias parameters
         for key, value in params.items():

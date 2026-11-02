@@ -24,6 +24,7 @@ from dynvision.utils.timing import (
     is_integer_multiple,
     multiple_error_message,
     require_min_steps,
+    to_ms,
     to_timesteps,
 )
 
@@ -54,7 +55,15 @@ class ModelParams(BaseParams):
         description="Input dimensions (timesteps, channels, height, width)",
     )
     n_timesteps: Optional[int] = Field(
-        default=None, description="Number of timesteps for model processing"
+        default=None,
+        description=(
+            "Number of simulated steps per sample (engine form of t_simulation; "
+            "the legacy key 'tsteps' sets it in steps)"
+        ),
+    )
+    t_simulation: Optional[float] = Field(
+        default=None,
+        description="Simulated duration per sample (ms); derives n_timesteps",
     )
     data_presentation_pattern: Optional[List[int]] = Field(
         default=None,
@@ -83,7 +92,14 @@ class ModelParams(BaseParams):
     )
     idle_timesteps: Optional[int] = Field(
         default=None,
-        description="Number of idle timesteps for spontaneous activity to converge",
+        description=(
+            "Number of idle steps for spontaneous activity to converge (engine "
+            "form of t_idle; the legacy key 'idle' sets it in steps)"
+        ),
+    )
+    t_idle: Optional[float] = Field(
+        default=None,
+        description="Idle period before the input (ms); derives idle_timesteps",
     )
     feedforward_only: Optional[bool] = Field(
         default=None, description="Use only feedforward connections"
@@ -250,6 +266,13 @@ class ModelParams(BaseParams):
         validate_by_name=True,  # Allow validation using field names and aliases
     )
 
+    #: Windowed quantities owned by the model, as (ms field, step field). The
+    #: step field is what the engine consumes; the ms field is the interface.
+    time_window_fields: ClassVar[Tuple[Tuple[str, str], ...]] = (
+        ("t_simulation", "n_timesteps"),
+        ("t_idle", "idle_timesteps"),
+    )
+
     #: Durations measured in milliseconds that are integrated on the ``dt``
     #: grid and must therefore be whole numbers of ``dt`` steps.
     dt_multiple_fields: ClassVar[Tuple[str, ...]] = (
@@ -266,6 +289,7 @@ class ModelParams(BaseParams):
             SummaryItem("input_dims"),
             SummaryItem("n_classes"),
             SummaryItem("n_timesteps"),
+            SummaryItem("t_simulation"),
             SummaryItem("data_presentation_pattern"),
         ),
         "Temporal": (
@@ -277,6 +301,7 @@ class ModelParams(BaseParams):
             SummaryItem("t_feedback"),
             SummaryItem("t_skip"),
             SummaryItem("idle_timesteps"),
+            SummaryItem("t_idle"),
             SummaryItem("truncated_bptt_timesteps"),
         ),
         "Connectivity": (
@@ -326,6 +351,8 @@ class ModelParams(BaseParams):
                 "steps": "n_timesteps",
                 "tsteps": "n_timesteps",
                 "idle": "idle_timesteps",
+                "tsim": "t_simulation",
+                "tidle": "t_idle",
                 "ffonly": "feedforward_only",
                 "inadapt": "input_adaption_weight",
                 "tbptt": "truncated_bptt_timesteps",
@@ -629,6 +656,7 @@ class ModelParams(BaseParams):
         # one configured.
         self._validate_dt_multiples()
         self._validate_min_delays()
+        self._resolve_time_windows()
 
         # Architecture consistency checks (only if both set)
         if (
@@ -743,6 +771,115 @@ class ModelParams(BaseParams):
                 raise DynVisionValidationError(
                     multiple_error_message(name, value, self.dt)
                 )
+
+    def _resolve_time_windows(self) -> None:
+        """Derive each window's step count from its ms value, or the reverse.
+
+        ``t_simulation``/``n_timesteps`` and ``t_idle``/``idle_timesteps`` name
+        one quantity each, in milliseconds and in steps. Whichever is given
+        derives the other; both given must agree. The step value of a legacy
+        configuration (``tsteps=20``) is translated with ``dt`` and keeps its
+        step meaning.
+
+        Raises:
+            DynVisionValidationError: If an ms value lies off the dt grid, is
+                given without dt, or contradicts a step value given with it.
+        """
+        for ms_field, steps_field in self.time_window_fields:
+            ms_value = getattr(self, ms_field)
+            steps = getattr(self, steps_field)
+            if ms_value is None and steps is None:
+                continue
+            if self.dt is None:
+                if ms_value is not None:
+                    raise DynVisionValidationError(
+                        f"{ms_field}={ms_value:g} ms needs dt to be converted to "
+                        f"{steps_field}; set dt."
+                    )
+                continue
+            try:
+                if ms_value is None:
+                    BaseParams.update_field(
+                        self, ms_field, to_ms(steps, self.dt), mutation_tag="derived"
+                    )
+                    continue
+                expected = to_timesteps(ms_value, self.dt, ms_field)
+            except ValueError as error:
+                raise DynVisionValidationError(str(error)) from None
+            if steps is None:
+                BaseParams.update_field(
+                    self, steps_field, expected, mutation_tag="derived"
+                )
+            elif steps != expected:
+                raise DynVisionValidationError(
+                    f"{ms_field}={ms_value:g} ms and {steps_field}={steps} disagree "
+                    f"at dt={self.dt:g} ms ({ms_value:g} ms = {expected} steps). "
+                    f"Give only one of them."
+                )
+
+    def _time_window_partner(self, name: str) -> Optional[str]:
+        for ms_field, steps_field in self.time_window_fields:
+            if name == ms_field:
+                return steps_field
+            if name == steps_field:
+                return ms_field
+        return None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assigning one side of a time window re-derives the other.
+
+        With ``validate_assignment`` the model validators run on the new state;
+        the stale partner would read as a contradiction, so it is cleared first.
+        Pydantic applies the assignment before an after-validator can reject
+        it, so on failure both sides are restored explicitly.
+        """
+        partner = self._time_window_partner(name)
+        if partner is None:
+            super().__setattr__(name, value)
+            return
+        previous = (getattr(self, name), getattr(self, partner))
+        object.__setattr__(self, partner, None)
+        try:
+            super().__setattr__(name, value)
+        except Exception:
+            object.__setattr__(self, name, previous[0])
+            object.__setattr__(self, partner, previous[1])
+            raise
+
+    def update_field(
+        self,
+        field_name: str,
+        new_value: Any,
+        verbose: bool = False,
+        validate: bool = False,
+        *,
+        mutation_tag: Optional[str] = "runtime",
+    ) -> None:
+        """Update a field; a time-window field also updates its partner.
+
+        Components update ``n_timesteps`` from the data's input dimensions
+        (``update_field(..., mutation_tag="derived")``) without re-running
+        validation. Keeping ``t_simulation`` in step here means every such
+        call site stays consistent without knowing about the ms form.
+        """
+        super().update_field(
+            field_name,
+            new_value,
+            verbose=verbose,
+            validate=validate,
+            mutation_tag=mutation_tag,
+        )
+        partner = self._time_window_partner(field_name)
+        if partner is None or self.dt is None:
+            return
+        value = getattr(self, field_name)
+        if value is None:
+            partner_value = None
+        elif field_name.startswith("t_"):
+            partner_value = to_timesteps(value, self.dt, field_name)
+        else:
+            partner_value = to_ms(value, self.dt)
+        super().update_field(partner, partner_value, mutation_tag="derived")
 
     def _validate_min_delays(self) -> None:
         """Reject recurrent and feedback delays shorter than one ``dt`` step.
