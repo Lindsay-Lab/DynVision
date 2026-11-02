@@ -6,6 +6,8 @@ import logging
 from typing import Dict, List, Tuple, Optional
 from pathlib import Path
 
+from dynvision.utils.string_utils import key_value_pattern
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -19,12 +21,17 @@ def extract_param_value(column_name: str, param_key: str) -> Optional[str]:
     - 'activity_loss_weight: 0.05' -> '0.05'
     """
     # Try colon-space format first (W&B default): "param_key: value"
-    match = re.search(rf"{param_key}:\s*([^-]+?)(?:\s+-|$)", column_name)
+    # W&B keys are snake_case, so '_' belongs to the key here.
+    match = re.search(
+        key_value_pattern(param_key, ":", key_chars="A-Za-z0-9_")
+        + r"\s*([^-]+?)(?:\s+-|$)",
+        column_name,
+    )
     if match:
         return match.group(1).strip()
 
     # Fallback to equals format: "param_key=value"
-    match = re.search(rf"{param_key}=([^+_\s-]+)", column_name)
+    match = re.search(key_value_pattern(param_key) + r"([^+_\s-]+)", column_name)
     return match.group(1) if match else None
 
 

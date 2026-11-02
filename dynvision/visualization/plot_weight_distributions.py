@@ -25,6 +25,7 @@ import pandas as pd
 import seaborn as sns
 import torch
 
+from dynvision.utils.string_utils import key_value_pattern
 from dynvision.utils.visualization_utils import (
     get_display_name,
     get_ordering,
@@ -204,7 +205,7 @@ def _infer_category_value(path: Path, category_key: Optional[str]) -> Optional[s
         return None
 
     path_str = str(path)
-    pattern = re.compile(rf"{re.escape(category_key)}=([^/\\+_]+)")
+    pattern = re.compile(key_value_pattern(category_key) + r"([^/\\+_]+)")
     match = pattern.search(path_str)
     if match:
         return match.group(1)

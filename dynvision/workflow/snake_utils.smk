@@ -31,6 +31,7 @@ package_dir = Path(inspect.getfile(lambda: None)).parents[2].resolve()
 sys.path.insert(0, str(package_dir))
 
 from dynvision.project_paths import project_paths
+from dynvision.utils.string_utils import key_value_pattern
 
 pylogger = logging.getLogger('workflow.utils')
 
@@ -343,22 +344,23 @@ def replace_param_in_string(
         ValueError: If parameter not found or invalid value type
     """
     patterns = {
-        int: rf"{key}=(\d+)",
-        float: rf"{key}=(\d+(\.\d+)?)",
-        str: rf"{key}=([a-z]+)",
-        None: rf"{key}=([\da-z\.]+)"
+        int: r"(\d+)",
+        float: r"(\d+(\.\d+)?)",
+        str: r"([a-z]+)",
+        None: r"([\da-z\.]+)"
     }
 
     if value_type not in patterns:
         raise ValueError(f"Invalid value type: {value_type}")
 
-    pattern = patterns[value_type]
-    match = re.search(pattern, s)
-    
+    # Anchored: 'stim' must not match inside 'tstim=10' (see key_value_pattern).
+    match = re.search(key_value_pattern(key) + patterns[value_type], s)
+
     if not match:
         raise ValueError(f"No {key} value found in string: {s}")
-        
-    return s.replace(match.group(0), f"{key}={new_value}")
+
+    # Replace this occurrence only, not the same text inside another key.
+    return s[: match.start()] + f"{key}={new_value}" + s[match.end() :]
 
 def dict_poped(d: Dict, keys: Union[str, List[str]]) -> Dict:
     """Create new dictionary with specified keys removed.

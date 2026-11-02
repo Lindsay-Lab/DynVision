@@ -15,6 +15,30 @@ from typing import Any, Dict, Optional, Union, List
 from .type_utils import guess_type
 
 
+def key_value_pattern(
+    key: str, assigner: str = "=", key_chars: str = "A-Za-z0-9"
+) -> str:
+    """Return a regex that matches ``{key}{assigner}`` as a whole key.
+
+    Identifiers join ``key=value`` tokens with ``+``, ``:``, ``/`` and ``_``, and
+    keys never contain those characters. A bare ``re.search(f"{key}=")`` also
+    matches inside a longer key: ``stim`` inside ``tstim=10`` (a millisecond
+    value read as steps) and ``pattern`` inside ``shufflepattern=true``. The
+    lookbehind requires that the key is not preceded by a key character.
+
+    Args:
+        key: Parameter key, matched literally.
+        assigner: Character between key and value.
+        key_chars: Regex character-class body of the characters keys consist
+            of. Pass ``"A-Za-z0-9_"`` for snake_case keys such as W&B column
+            names, where ``_`` belongs to the key.
+
+    Returns:
+        The regex source for the key and assigner, without the value group.
+    """
+    return rf"(?<![{key_chars}]){re.escape(key)}{re.escape(assigner)}"
+
+
 def path_to_index(path: Union[str, Path], non_index: int = -1) -> int:
     """Extract index from path filename.
 
@@ -60,13 +84,13 @@ def extract_param_from_string(
         -> 0.5
     """
     if value_type == int:
-        match = re.search(rf"{key}{assigner}(\d+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"(\d+)", s)
     elif value_type == float:
-        match = re.search(rf"{key}{assigner}(\d+(\.\d+)?)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"(\d+(\.\d+)?)", s)
     elif value_type == str:
-        match = re.search(rf"{key}{assigner}([a-z]+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"([a-z]+)", s)
     elif value_type is None:
-        match = re.search(rf"{key}{assigner}([\da-z\.]+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"([\da-z\.]+)", s)
         value_type = guess_type
     else:
         raise ValueError(f"Invalid value type: {value_type}")
@@ -101,17 +125,19 @@ def replace_param_in_string(
         -> "model_contrast=0.8"
     """
     if value_type == int:
-        match = re.search(rf"{key}=(\d+)", s)
+        match = re.search(key_value_pattern(key) + r"(\d+)", s)
     elif value_type == float:
-        match = re.search(rf"{key}=(\d+(\.\d+)?)", s)
+        match = re.search(key_value_pattern(key) + r"(\d+(\.\d+)?)", s)
     elif value_type == str:
-        match = re.search(rf"{key}=([a-z]+)", s)
+        match = re.search(key_value_pattern(key) + r"([a-z]+)", s)
     elif value_type is None:
-        match = re.search(rf"{key}=([\da-z\.]+)", s)
+        match = re.search(key_value_pattern(key) + r"([\da-z\.]+)", s)
     else:
         raise ValueError(f"Invalid value type: {value_type}")
     if match:
-        return s.replace(match.group(0), f"{key}={new_value}")
+        # Replace this occurrence only: str.replace() would also rewrite the
+        # same text inside another key (stim=5 inside tstim=5).
+        return s[: match.start()] + f"{key}={new_value}" + s[match.end() :]
     else:
         raise ValueError(f"No {key} value found in the string!")
 
