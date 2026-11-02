@@ -16,6 +16,7 @@ from dynvision.params import (
     DataParams,
 )
 from dynvision.params.composite_params import CompositeParams
+from dynvision.utils.timing import to_ms
 from dynvision.utils import (
     SummaryItem,
     log_section,
@@ -411,10 +412,22 @@ class TrainingParams(CompositeParams):
             and self.model.n_timesteps != self.data.data_timesteps
         ):
             resolved_timesteps = self.data.data_timesteps
-            logger.info(
+            message = (
                 f"Resolving n_timesteps conflict: model={self.model.n_timesteps}, "
                 f"data={self.data.data_timesteps}, resolved_to={resolved_timesteps}"
             )
+            if self.model.dt is not None and self.model.t_simulation is not None:
+                message += (
+                    f" (simulation window {self.model.t_simulation:g} ms -> "
+                    f"{to_ms(resolved_timesteps, self.model.dt):g} ms at "
+                    f"dt={self.model.dt:g} ms)"
+                )
+            # A window the user configured is replaced by the data's length;
+            # say so loudly. A derived or default window is routine.
+            if self.model.n_timesteps is not None and self.model.n_timesteps > 1:
+                logger.warning(message)
+            else:
+                logger.info(message)
             # Update both to the larger value
             self.model.update_field(
                 "n_timesteps", resolved_timesteps, mutation_tag="derived"

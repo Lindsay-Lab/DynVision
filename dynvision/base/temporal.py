@@ -10,9 +10,11 @@ from dynvision import losses
 from dynvision.data.operations import _adjust_data_dimensions, _adjust_label_dimensions
 from dynvision.utils import alias_kwargs, str_to_bool
 from dynvision.utils.timing import (
+    format_ms,
     is_integer_multiple,
     multiple_error_message,
     require_min_steps,
+    to_ms,
     to_timesteps,
 )
 from .storage import DataBuffer
@@ -882,7 +884,17 @@ class TemporalBase(nn.Module):
         self._cached_presentation_pattern = self._expand_pattern(base_pattern)
 
     def _expand_pattern(self, pattern: torch.Tensor) -> torch.Tensor:
-        """Expand a base pattern tensor to match self.n_timesteps."""
+        """Expand a base pattern tensor to match self.n_timesteps.
+
+        Every pattern entry becomes one chunk of ``n_timesteps / len(pattern)``
+        steps. The window must divide evenly: floor indexing used to stretch
+        ``1011`` over 10 steps into chunks of 3, 2, 3 and 2 steps, so the
+        presentation and blank periods silently differed in duration.
+
+        Raises:
+            ValueError: If ``n_timesteps`` is not a positive multiple of the
+                pattern length.
+        """
         if pattern.numel() == 1:
             return pattern.expand(self.n_timesteps)
 
@@ -891,13 +903,27 @@ class TemporalBase(nn.Module):
                 "n_timesteps must be positive to expand presentation pattern"
             )
 
-        device = pattern.device
+        n_chunks = pattern.numel()
+        if self.n_timesteps % n_chunks != 0:
+            uneven = torch.bincount(
+                torch.arange(self.n_timesteps) * n_chunks // self.n_timesteps,
+                minlength=n_chunks,
+            ).tolist()
+            lower = (self.n_timesteps // n_chunks) * n_chunks
+            raise ValueError(
+                f"data_presentation_pattern {pattern.int().tolist()} has {n_chunks} "
+                f"chunks, which do not divide n_timesteps={self.n_timesteps} "
+                f"({format_ms(to_ms(self.n_timesteps, self.dt))} ms at dt="
+                f"{self.dt:g} ms): the chunks would last {uneven} steps. Use a "
+                f"simulation window of {lower} or {lower + n_chunks} steps "
+                f"({format_ms(to_ms(lower, self.dt))} or "
+                f"{format_ms(to_ms(lower + n_chunks, self.dt))} ms)."
+            )
+
+        steps_per_chunk = self.n_timesteps // n_chunks
         indices = (
-            torch.arange(self.n_timesteps, device=device)
-            * pattern.numel()
-            // self.n_timesteps
+            torch.arange(self.n_timesteps, device=pattern.device) // steps_per_chunk
         )
-        indices = torch.clamp(indices, 0, pattern.numel() - 1)
         return pattern[indices]
 
     def _compute_reaction_mask(self, pattern: torch.Tensor) -> torch.Tensor:
