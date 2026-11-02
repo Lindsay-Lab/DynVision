@@ -24,6 +24,7 @@ from dynvision.utils.timing import (
     is_integer_multiple,
     multiple_error_message,
     require_min_steps,
+    resolve_time_window,
     to_ms,
     to_timesteps,
 )
@@ -786,36 +787,10 @@ class ModelParams(BaseParams):
                 given without dt, or contradicts a step value given with it.
         """
         for ms_field, steps_field in self.time_window_fields:
-            ms_value = getattr(self, ms_field)
-            steps = getattr(self, steps_field)
-            if ms_value is None and steps is None:
-                continue
-            if self.dt is None:
-                if ms_value is not None:
-                    raise DynVisionValidationError(
-                        f"{ms_field}={ms_value:g} ms needs dt to be converted to "
-                        f"{steps_field}; set dt."
-                    )
-                continue
             try:
-                if ms_value is None:
-                    BaseParams.update_field(
-                        self, ms_field, to_ms(steps, self.dt), mutation_tag="derived"
-                    )
-                    continue
-                expected = to_timesteps(ms_value, self.dt, ms_field)
+                resolve_time_window(self, ms_field, steps_field, self.dt)
             except ValueError as error:
                 raise DynVisionValidationError(str(error)) from None
-            if steps is None:
-                BaseParams.update_field(
-                    self, steps_field, expected, mutation_tag="derived"
-                )
-            elif steps != expected:
-                raise DynVisionValidationError(
-                    f"{ms_field}={ms_value:g} ms and {steps_field}={steps} disagree "
-                    f"at dt={self.dt:g} ms ({ms_value:g} ms = {expected} steps). "
-                    f"Give only one of them."
-                )
 
     def _time_window_partner(self, name: str) -> Optional[str]:
         for ms_field, steps_field in self.time_window_fields:

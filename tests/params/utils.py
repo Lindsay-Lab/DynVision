@@ -35,7 +35,7 @@ def create_temp_config(config_data: Dict[str, Any]) -> Path:
         "drop_last": True,
         "train_ratio": 0.9,
         "pixel_range": "0-1",
-        "data_timesteps": 1,
+        # data_timesteps: defaults to 1 in DataParams unless t_sequence or dsteps is given
         "non_input_value": 0,
         "non_label_index": -1,
         "use_distributed": False,

@@ -332,6 +332,78 @@ def is_legacy_step_key(name: str) -> bool:
     return quantity is not None and name in quantity.legacy_keys
 
 
+def resolve_time_window(
+    component: Any, ms_field: str, steps_field: str, dt: Optional[float]
+) -> None:
+    """Derive a window's missing form on ``component``, in place.
+
+    Whichever of the millisecond and step values is given derives the other;
+    both given must agree. A step value without ``dt`` stays as given; an ms
+    value without ``dt`` cannot be converted and is rejected. Derived values
+    are written with ``update_field(..., mutation_tag="derived")`` so the
+    provenance shows they were not configured.
+
+    Args:
+        component: Parameter component holding both fields.
+        ms_field: Name of the millisecond field, e.g. ``"t_sequence"``.
+        steps_field: Name of the step field, e.g. ``"data_timesteps"``.
+        dt: Integration step in milliseconds, or None if unknown.
+
+    Raises:
+        ValueError: If the ms value is off the grid or lacks ``dt``, or the two
+            forms disagree.
+    """
+    ms_value = getattr(component, ms_field, None)
+    steps = getattr(component, steps_field, None)
+    if ms_value is None and steps is None:
+        return
+    if dt is None:
+        if ms_value is not None:
+            raise ValueError(
+                f"{ms_field}={ms_value:g} ms needs dt to be converted to "
+                f"{steps_field}; set dt."
+            )
+        return
+    if ms_value is None:
+        component.update_field(ms_field, to_ms(steps, dt), mutation_tag="derived")
+        return
+    expected = to_timesteps(ms_value, dt, ms_field)
+    if steps is None:
+        component.update_field(steps_field, expected, mutation_tag="derived")
+    elif steps != expected:
+        raise ValueError(
+            f"{ms_field}={ms_value:g} ms and {steps_field}={steps} disagree at "
+            f"dt={dt:g} ms ({ms_value:g} ms = {expected} steps). Give only one "
+            f"of them."
+        )
+
+
+def coordinate_component_timing(config: Any) -> None:
+    """Convert the data component's windows with the model's ``dt``.
+
+    The data component holds the stimulus protocol (``t_sequence``,
+    ``t_stimulus``, ``t_intro``, ``t_interval``) but not ``dt``, which belongs
+    to the model. Shared by ``TrainingParams``, ``TestingParams`` and
+    ``InitParams``, like ``coordinate_component_dtypes``. Afterwards each
+    window holds both forms and the loaders receive step counts.
+
+    Args:
+        config: A composite with ``model`` and ``data`` components.
+
+    Raises:
+        ValueError: As :func:`resolve_time_window`.
+    """
+    model = getattr(config, "model", None)
+    data = getattr(config, "data", None)
+    if model is None or data is None:
+        return
+    for quantity in TEMPORAL_QUANTITIES:
+        if quantity.component == "data" and hasattr(data, quantity.field):
+            resolve_time_window(
+                data, quantity.field, quantity.steps_field, getattr(model, "dt", None)
+            )
+
+
 _WARNED_LEGACY_KEYS: Set[str] = set()
 
 

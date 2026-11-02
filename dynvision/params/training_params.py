@@ -16,7 +16,7 @@ from dynvision.params import (
     DataParams,
 )
 from dynvision.params.composite_params import CompositeParams
-from dynvision.utils.timing import to_ms
+from dynvision.utils.timing import coordinate_component_timing, to_ms
 from dynvision.utils import (
     SummaryItem,
     log_section,
@@ -191,6 +191,18 @@ class TrainingParams(CompositeParams):
         if v is None or v == "":
             return None
         return v
+
+    @model_validator(mode="after")
+    def coordinate_component_timing(self) -> "TrainingParams":
+        """Convert the data component's ms windows with the model's dt.
+
+        Defined before the other validators so that they see step counts.
+        """
+        try:
+            coordinate_component_timing(self)
+        except ValueError as error:
+            raise DynVisionValidationError(str(error)) from None
+        return self
 
     @model_validator(mode="after")
     def validate_training_configuration(self) -> "TrainingParams":
@@ -435,6 +447,12 @@ class TrainingParams(CompositeParams):
             self.data.update_field(
                 "data_timesteps", resolved_timesteps, mutation_tag="derived"
             )
+            if self.model.dt is not None:
+                self.data.update_field(
+                    "t_sequence",
+                    to_ms(resolved_timesteps, self.model.dt),
+                    mutation_tag="derived",
+                )
 
     # === CONFIGURATION EXPORT ===
 
