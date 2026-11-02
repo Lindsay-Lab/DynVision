@@ -100,10 +100,22 @@ class TestToTimesteps:
         assert to_timesteps(0.0, 2.0) == 0
         assert to_timesteps(1.5, 0.1) == 15
 
-    def test_rounds_rather_than_truncating(self):
-        """Truncation is why dt=3 with a 5 ms delay silently became 3 ms."""
-        assert to_timesteps(5.0, 3.0) == 2  # int(5/3) would give 1
-        assert to_timesteps(7.0, 3.0) == 2
+    def test_tolerates_inexact_float_division(self):
+        """0.6 / 0.2 is 2.9999999999999996, which int() truncates to 2."""
+        assert int(0.6 / 0.2) == 2, "precondition: truncation is wrong here"
+        assert to_timesteps(0.6, 0.2) == 3
+        assert to_timesteps(0.3, 0.1) == 3
+
+    def test_rejects_off_grid_values_instead_of_rounding(self):
+        """Rounding dt=3 with a 5 ms delay to 2 steps would run 6 ms silently."""
+        with pytest.raises(ValueError, match="t_recurrence=5 ms"):
+            to_timesteps(5.0, 3.0, name="t_recurrence")
+        with pytest.raises(ValueError, match="Use 6 ms \\(2 step\\(s\\)\\) or 9 ms"):
+            to_timesteps(7.0, 3.0)
+
+    def test_rejects_negative_value(self):
+        with pytest.raises(ValueError, match="t_skip must be non-negative"):
+            to_timesteps(-2.0, 2.0, name="t_skip")
 
     def test_rejects_non_positive_dt(self):
         with pytest.raises(ValueError, match="dt must be positive"):
