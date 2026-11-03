@@ -71,12 +71,15 @@ from dynvision.utils.timing import (  # noqa: E402
     format_ms,
     is_legacy_step_key,
     is_ms_name,
-    translate_legacy_args,
+    quantity_for,
+    to_ms,
 )
 from dynvision.workflow.snake_utils import args_product, test_spec_hash
 
 REPO = Path(__file__).resolve().parents[1]
-DEFAULT_LEGACY_CONFIG = REPO / "dynvision" / "configs" / "legacy" / "config_experiments_steps.yaml"
+DEFAULT_LEGACY_CONFIG = (
+    REPO / "dynvision" / "configs" / "legacy" / "config_experiments_steps.yaml"
+)
 MANIFEST_NAME = ".legacy_temporal_links.tsv"
 
 #: {name}{sep}{args}_{seed}: DyRCNNx8:tsteps=20+dt=2+..._7000 (older dirs use '_' as sep).
@@ -111,8 +114,15 @@ def _dt_of(tokens: List[Tuple[str, str]]) -> Optional[str]:
 def translate_args(args: str, dt: Optional[str]) -> str:
     """Translate the legacy keys of a ``k=v+k=v`` string, keeping order.
 
+    Every token is rewritten in place and kept verbatim otherwise, including
+    repeated keys: a model directory named ``...dloader=torch+dloader=ffcv...``
+    keeps both tokens, because dropping one would give two different models the
+    same new name. Going through a dict (as ``translate_legacy_args`` does)
+    silently keeps only the last of a repeated key.
+
     Raises:
-        Unmappable: If a legacy key is present but ``dt`` is not a number.
+        Unmappable: If a legacy key is present but ``dt`` is not a number, or
+            if the same quantity is named twice (``tsteps=20+tsim=40``).
     """
     tokens = _tokens(args)
     if not any(is_legacy_step_key(key) for key, _ in tokens):
@@ -122,14 +132,28 @@ def translate_args(args: str, dt: Optional[str]) -> str:
         dt_value = float(dt)
     except (TypeError, ValueError):
         raise Unmappable(f"legacy keys next to dt={dt!r}") from None
-    try:
-        translated = translate_legacy_args(dict(tokens), dt_value)
-    except ValueError as error:
-        raise Unmappable(str(error)) from None
-    return "+".join(
-        f"{key}={format_ms(value) if is_ms_name(key) else value}"
-        for key, value in translated.items()
-    )
+
+    translated: List[Tuple[str, str]] = []
+    named: Dict[str, str] = {}  # canonical quantity -> the token that named it
+    for key, value in tokens:
+        if not is_legacy_step_key(key):
+            candidate = key
+            token = f"{key}={value}"
+        else:
+            quantity = quantity_for(key)
+            candidate = quantity.key
+            try:
+                token = f"{candidate}={format_ms(to_ms(int(value), dt_value))}"
+            except (TypeError, ValueError) as error:
+                raise Unmappable(str(error)) from None
+        if is_ms_name(candidate) or is_legacy_step_key(key):
+            if candidate in named:
+                raise Unmappable(
+                    f"{candidate} is named twice ({named[candidate]} and {key})"
+                )
+            named[candidate] = key
+        translated.append((candidate, token.split("=", 1)[1]))
+    return "+".join(f"{key}={value}" for key, value in translated)
 
 
 def translate_model_identifier(component: str) -> Tuple[str, Optional[str]]:
@@ -160,11 +184,15 @@ class LegacySpecs:
                     continue
                 loader = entry["data_loader"]
                 for spec in args_product(entry.get("data_args", {})):
-                    specs.by_hash.setdefault(test_spec_hash(loader, spec), (loader, spec))
+                    specs.by_hash.setdefault(
+                        test_spec_hash(loader, spec), (loader, spec)
+                    )
         return specs
 
 
-def translate_test_identifier(component: str, dt: Optional[str], legacy: LegacySpecs) -> str:
+def translate_test_identifier(
+    component: str, dt: Optional[str], legacy: LegacySpecs
+) -> str:
     """Translate a hashed or a full-spec test directory name."""
     if HASH.match(component):
         if component not in legacy.by_hash:
@@ -231,7 +259,9 @@ def incomplete_paths(snakemake_dir: Path) -> Set[str]:
         if marker.is_dir():
             continue
         # Long ids are split into '@'-prefixed directory chunks (persistence.py).
-        b64 = "".join(part.lstrip("@") for part in marker.relative_to(marker_dir).parts)
+        b64 = "".join(
+            part.lstrip("@") for part in marker.relative_to(marker_dir).parts
+        )
         try:
             decoded = base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode()
         except (ValueError, UnicodeDecodeError):
@@ -266,8 +296,15 @@ def plan(
     """Classify every file under models/ and reports/."""
     incomplete = incomplete_paths(snakemake_dir or root)
     outcome: Dict[str, List] = {
-        "link": [], "linked": [], "conflict": [], "unmappable": [],
-        "incomplete": [], "aggregate": [], "misplaced": [], "broken": [],
+        "link": [],
+        "linked": [],
+        "conflict": [],
+        "unmappable": [],
+        "incomplete": [],
+        "aggregate": [],
+        "misplaced": [],
+        "broken": [],
+        "collision": [],
     }
     own_links = {line.split("\t")[0] for line in read_manifest(root)}
     for relative in iter_files(root):
@@ -300,6 +337,19 @@ def plan(
             outcome["conflict"].append(mapping)
         else:
             outcome["link"].append(mapping)
+
+    # Two legacy names can translate to one new name (a repeated key that one
+    # of them drops, or two spellings of the same quantity). Linking both would
+    # silently pick one, so neither is linked and the pair is reported.
+    targets: Dict[str, List[Mapping]] = {}
+    for mapping in outcome["link"]:
+        targets.setdefault(str(mapping.new), []).append(mapping)
+    duplicates = {new: items for new, items in targets.items() if len(items) > 1}
+    if duplicates:
+        outcome["link"] = [m for m in outcome["link"] if str(m.new) not in duplicates]
+        for new, items in sorted(duplicates.items()):
+            for mapping in items:
+                outcome["collision"].append((mapping, new))
     return outcome
 
 
@@ -316,7 +366,16 @@ def apply(root: Path, outcome) -> int:
         for mapping in outcome["link"]:
             new_path = root / mapping.new
             new_path.parent.mkdir(parents=True, exist_ok=True)
-            os.symlink(os.path.relpath(root / mapping.old, new_path.parent), new_path)
+            try:
+                os.symlink(
+                    os.path.relpath(root / mapping.old, new_path.parent), new_path
+                )
+            except FileExistsError:
+                # Created after the plan, or by a run that stopped earlier:
+                # leave it alone and report, so one stale path cannot stop a
+                # run that has thousands of links to create.
+                print(f"skipped (exists): {mapping.new}")
+                continue
             try:
                 mirror_mtime(new_path)
             except OSError:
@@ -349,7 +408,9 @@ def undo(root: Path) -> Tuple[int, int]:
         else:
             kept += 1
     for directory in sorted(directories, key=lambda p: len(p.parts), reverse=True):
-        while directory != root and directory.is_dir() and not any(directory.iterdir()):
+        while (
+            directory != root and directory.is_dir() and not any(directory.iterdir())
+        ):
             directory.rmdir()
             directory = directory.parent
     (root / MANIFEST_NAME).unlink(missing_ok=True)
@@ -359,20 +420,41 @@ def undo(root: Path) -> Tuple[int, int]:
 def summarize(outcome, applied: Optional[int], limit: int) -> None:
     counts = Counter({key: len(value) for key, value in outcome.items()})
     action = "would create" if applied is None else "created"
-    print(f"links {action}:        {applied if applied is not None else counts['link']}")
+    print(
+        f"links {action}:        {applied if applied is not None else counts['link']}"
+    )
     print(f"already linked:        {counts['linked']}")
     print(f"conflicts (skipped):   {counts['conflict']}")
-    print(f"aggregates (skipped):  {counts['aggregate']}  (--include-aggregates to link)")
+    print(
+        f"aggregates (skipped):  {counts['aggregate']}  (--include-aggregates to link)"
+    )
     print(f"incomplete (skipped):  {counts['incomplete']}")
     print(f"unmappable (skipped):  {counts['unmappable']}")
-    print(f"misplaced (skipped):   {counts['misplaced']}  (a directory nested in another one)")
+    print(
+        f"misplaced (skipped):   {counts['misplaced']}  (a directory nested in another one)"
+    )
     print(f"broken links (skipped):{counts['broken']}  (source does not resolve)")
-    for key in ("link", "conflict", "unmappable", "incomplete", "misplaced", "broken"):
+    print(
+        f"name collisions:       {counts['collision']}  (two old names, one new name)"
+    )
+    for key in (
+        "link",
+        "conflict",
+        "unmappable",
+        "incomplete",
+        "misplaced",
+        "broken",
+        "collision",
+    ):
         for item in outcome[key][:limit]:
             if isinstance(item, Mapping):
                 print(f"  [{key}] {item.old}\n      -> {item.new}")
             elif key in ("misplaced", "broken"):
                 print(f"  [{key}] {item[0]}")
+            elif key == "collision":
+                print(
+                    f"  [collision] {item[0].old}\n      and another name -> {item[1]}"
+                )
             else:
                 print(f"  [{key}] {item[0]}: {item[1]}")
 
@@ -382,7 +464,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         description=__doc__.split("\n\n")[0],
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("root", type=Path, help="project directory with models/ and reports/")
+    parser.add_argument(
+        "root", type=Path, help="project directory with models/ and reports/"
+    )
     parser.add_argument(
         "--legacy-config",
         type=Path,
@@ -392,7 +476,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     )
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--apply", action="store_true", help="create the links")
-    mode.add_argument("--undo", action="store_true", help="remove the links in the manifest")
+    mode.add_argument(
+        "--undo", action="store_true", help="remove the links in the manifest"
+    )
     parser.add_argument(
         "--include-aggregates",
         action="store_true",
@@ -403,7 +489,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         type=Path,
         help="directory Snakemake runs from, holding .snakemake/ (default: ROOT)",
     )
-    parser.add_argument("--show", type=int, default=5, help="examples listed per category")
+    parser.add_argument(
+        "--show", type=int, default=5, help="examples listed per category"
+    )
     args = parser.parse_args(argv)
 
     root = args.root.resolve()
@@ -419,7 +507,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
     if args.undo:
         removed, kept = undo(root)
-        print(f"removed {removed} link(s); left {kept} manifest entr(y/ies) that no longer matched")
+        print(
+            f"removed {removed} link(s); left {kept} manifest entr(y/ies) that no longer matched"
+        )
         return 0
 
     legacy = LegacySpecs.from_configs(args.legacy_config or [DEFAULT_LEGACY_CONFIG])

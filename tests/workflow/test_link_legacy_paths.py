@@ -58,14 +58,35 @@ def root(tmp_path):
     legacy_hash = test_spec_hash("StimulusInterval", LEGACY_SPEC)
     for dt in ("2", "0.5"):
         model = _model(f"tsteps=20+dt={dt}")
-        _write(tmp_path / "models" / "DyRCNNx8" / model / "imagenette" / "trained-best.pt")
-        test_dir = tmp_path / "reports" / "interval" / model / "imagenette:all_trained-best" / legacy_hash
+        _write(
+            tmp_path / "models" / "DyRCNNx8" / model / "imagenette" / "trained-best.pt"
+        )
+        test_dir = (
+            tmp_path
+            / "reports"
+            / "interval"
+            / model
+            / "imagenette:all_trained-best"
+            / legacy_hash
+        )
         _write(test_dir / "test_outputs.csv", f"outputs dt={dt}")
         _write(test_dir / "test_data.csv", f"data dt={dt}")
-    group = tmp_path / "reports" / "interval" / _model("tsteps=20+dt=2") / "imagenette:all_trained-best"
+    group = (
+        tmp_path
+        / "reports"
+        / "interval"
+        / _model("tsteps=20+dt=2")
+        / "imagenette:all_trained-best"
+    )
     _write(group / "test_data.csv", "aggregate")
     _write(group / "deadbee" / "test_outputs.csv", "unknown hash")
-    sweep = tmp_path / "reports" / "interval" / _model("tsteps=20+dt=*") / "imagenette:all_trained-best"
+    sweep = (
+        tmp_path
+        / "reports"
+        / "interval"
+        / _model("tsteps=20+dt=*")
+        / "imagenette:all_trained-best"
+    )
     _write(sweep / "test_data.csv", "dt sweep aggregate")
     return tmp_path
 
@@ -77,7 +98,9 @@ def _plan(root, include_aggregates=False):
 
 def _new_interval_hash(dt_key: str) -> str:
     """Hash the migrated config requests for interval=4 steps at dt=2 (8 ms)."""
-    entry = yaml.safe_load((CONFIGS / "config_experiments.yaml").read_text())["experiment_config"]["interval"]
+    entry = yaml.safe_load((CONFIGS / "config_experiments.yaml").read_text())[
+        "experiment_config"
+    ]["interval"]
     spec = next(s for s in args_product(entry["data_args"]) if "tinterval=8+" in s)
     return test_spec_hash(entry["data_loader"], spec)
 
@@ -86,6 +109,20 @@ class TestNameTranslation:
     def test_model_identifier(self):
         new, dt = helper.translate_model_identifier(_model("tsteps=20+dt=0.5"))
         assert (new, dt) == ("DyRCNNx8:tsim=10+dt=0.5+tau=5_7000", "0.5")
+
+    def test_repeated_keys_survive_translation(self):
+        """Two models that differ only in a repeated token stay distinct.
+
+        ``dloader=torch+dloader=ffcv`` is a real directory name; translating
+        through a dict keeps only the last token and would give this model the
+        same new name as the one without ``dloader=torch``.
+        """
+        new = helper.translate_args("tsteps=20+dt=2+dloader=torch+dloader=ffcv", None)
+        assert new == "tsim=40+dt=2+dloader=torch+dloader=ffcv"
+
+    def test_two_spellings_of_one_quantity_are_rejected(self):
+        with pytest.raises(helper.Unmappable, match="named twice"):
+            helper.translate_args("tsteps=20+tsim=40+dt=2", None)
 
     def test_identifier_without_legacy_keys_is_unchanged(self):
         name = "DyRCNNx8:tsim=40+dt=2+tau=5_7000"
@@ -98,7 +135,9 @@ class TestNameTranslation:
     def test_hashed_test_identifier_at_dt_2_matches_the_migrated_config(self):
         legacy = helper.LegacySpecs.from_configs([helper.DEFAULT_LEGACY_CONFIG])
         old = test_spec_hash("StimulusInterval", LEGACY_SPEC)
-        assert helper.translate_test_identifier(old, "2", legacy) == _new_interval_hash("2")
+        assert helper.translate_test_identifier(
+            old, "2", legacy
+        ) == _new_interval_hash("2")
 
     def test_hashed_test_identifier_keeps_the_steps_at_other_dt(self):
         legacy = helper.LegacySpecs.from_configs([helper.DEFAULT_LEGACY_CONFIG])
@@ -118,6 +157,50 @@ class TestNameTranslation:
 
     def test_spec_dt_overrides_model_dt(self):
         assert helper.translate_args("dsteps=40+dt=1", "2") == "tseq=40+dt=1"
+
+
+def _two_names_one_target(root: Path) -> None:
+    """`tsteps` and `steps` both mean the simulation window: one new name."""
+    for key in ("tsteps", "steps"):
+        model = f"DyRCNNx8:{key}=20+dt=2_7000"
+        _write(
+            root / "models" / "DyRCNNx8" / model / "imagenette" / "trained-best.pt",
+            key,
+        )
+    (root / ".snakemake").mkdir(exist_ok=True)
+
+
+class TestCollisions:
+    def test_two_old_names_for_one_new_name_are_reported_and_skipped(self, tmp_path):
+        _two_names_one_target(tmp_path)
+        outcome = _plan(tmp_path)
+        assert len(outcome["collision"]) == 2
+        assert outcome["link"] == []
+        assert helper.apply(tmp_path, outcome) == 0
+        assert not (
+            tmp_path / "models" / "DyRCNNx8" / "DyRCNNx8:tsim=40+dt=2_7000"
+        ).exists()
+
+    def test_an_existing_path_does_not_abort_the_run(self, tmp_path):
+        """A leftover from an interrupted --apply is skipped, not fatal."""
+        for dt in ("2", "0.5"):
+            _write(
+                tmp_path
+                / "models"
+                / "DyRCNNx8"
+                / _model(f"tsteps=20+dt={dt}")
+                / "imagenette"
+                / "trained-best.pt"
+            )
+        (tmp_path / ".snakemake").mkdir()
+        outcome = _plan(tmp_path)
+        assert len(outcome["link"]) == 2
+        # created after planning: exactly what a second run of a crashed apply sees
+        taken = tmp_path / outcome["link"][0].new
+        taken.parent.mkdir(parents=True)
+        taken.write_text("stale")
+        assert helper.apply(tmp_path, outcome) == 1
+        assert taken.read_text() == "stale"
 
 
 class TestPlanAndApply:
@@ -147,13 +230,20 @@ class TestPlanAndApply:
     def test_dt_2_result_lands_where_the_migrated_config_looks(self, root):
         helper.apply(root, _plan(root))
         expected = (
-            root / "reports" / "interval" / "DyRCNNx8:tsim=40+dt=2+tau=5_7000"
-            / "imagenette:all_trained-best" / _new_interval_hash("2") / "test_outputs.csv"
+            root
+            / "reports"
+            / "interval"
+            / "DyRCNNx8:tsim=40+dt=2+tau=5_7000"
+            / "imagenette:all_trained-best"
+            / _new_interval_hash("2")
+            / "test_outputs.csv"
         )
         assert expected.read_text() == "outputs dt=2"
 
     def test_originals_are_untouched(self, root):
-        originals = {p: (p.read_text(), p.stat().st_ino) for p in root.rglob("*") if p.is_file()}
+        originals = {
+            p: (p.read_text(), p.stat().st_ino) for p in root.rglob("*") if p.is_file()
+        }
         helper.apply(root, _plan(root))
         for path, (text, inode) in originals.items():
             assert path.read_text() == text and path.stat().st_ino == inode
@@ -183,7 +273,9 @@ class TestPlanAndApply:
         assert mapping.old in {m.old for m in outcome["incomplete"]}
 
     @pytest.mark.parametrize("absolute", [True, False])
-    def test_incomplete_markers_in_a_separate_snakemake_dir(self, root, tmp_path_factory, absolute):
+    def test_incomplete_markers_in_a_separate_snakemake_dir(
+        self, root, tmp_path_factory, absolute
+    ):
         workdir = tmp_path_factory.mktemp("workflow")
         mapping = _plan(root)["link"][0]
         target = root / mapping.old
@@ -197,7 +289,9 @@ class TestPlanAndApply:
 
     def test_missing_snakemake_dir_is_an_error(self, root, tmp_path_factory):
         with pytest.raises(SystemExit):
-            helper.main([str(root), "--snakemake-dir", str(tmp_path_factory.mktemp("empty"))])
+            helper.main(
+                [str(root), "--snakemake-dir", str(tmp_path_factory.mktemp("empty"))]
+            )
 
     def test_undo_removes_exactly_the_links(self, root):
         before = sorted(str(p) for p in root.rglob("*"))
@@ -256,7 +350,9 @@ def test_snakemake_plans_nothing_for_linked_results(tmp_path):
     os.utime(tmp_path, None)
 
     before = run("-n", new_target).stdout
-    assert re.search(r"rule (train|test|process)", before), "control: new names need a run"
+    assert re.search(
+        r"rule (train|test|process)", before
+    ), "control: new names need a run"
 
     # Outputs before inputs: with plain links (creation-time mtimes) this order
     # makes every input look updated, so only mirrored mtimes pass.
@@ -264,8 +360,9 @@ def test_snakemake_plans_nothing_for_linked_results(tmp_path):
     outcome["link"].sort(key=lambda mapping: str(mapping.new), reverse=True)
     helper.apply(tmp_path, outcome)
     after = run("-n", new_target)
-    assert "Nothing to be done" in after.stdout + after.stderr, after.stdout + after.stderr
-
+    assert "Nothing to be done" in after.stdout + after.stderr, (
+        after.stdout + after.stderr
+    )
 
 
 @SKIP_WITHOUT_SNAKEMAKE
@@ -288,7 +385,10 @@ def test_rerunning_a_test_never_retrains_the_model(tmp_path):
     assert run(f"{old_test}/test_outputs.csv").returncode == 0
     os.utime(tmp_path, None)
     helper.apply(tmp_path, _plan(tmp_path))
-    assert (tmp_path / "models/DyRCNNx8/DyRCNNx8:tsim=40+dt=2_7000/imagenette/trained-best.pt").is_symlink()
+    assert (
+        tmp_path
+        / "models/DyRCNNx8/DyRCNNx8:tsim=40+dt=2_7000/imagenette/trained-best.pt"
+    ).is_symlink()
 
     new_test = (
         "reports/interval/DyRCNNx8:tsim=40+dt=2_7000/imagenette:all_trained-best/"
@@ -311,14 +411,21 @@ def test_spec_hash_equals_the_workflow_pipeline():
     compute_hash = namespace["compute_hash"]
 
     specs = []
-    for path in (CONFIGS / "config_experiments.yaml", CONFIGS / "legacy" / "config_experiments_steps.yaml"):
+    for path in (
+        CONFIGS / "config_experiments.yaml",
+        CONFIGS / "legacy" / "config_experiments_steps.yaml",
+    ):
         experiments = yaml.safe_load(path.read_text())["experiment_config"]
         for entry in experiments.values():
             if isinstance(entry, dict) and "data_loader" in entry:
-                specs += [(entry["data_loader"], s) for s in args_product(entry["data_args"])]
+                specs += [
+                    (entry["data_loader"], s) for s in args_product(entry["data_args"])
+                ]
     assert len(specs) > 200
     for loader, spec in specs:
-        assert test_spec_hash(loader, spec) == compute_hash(loader, spec).lstrip(":hash=")
+        assert test_spec_hash(loader, spec) == compute_hash(loader, spec).lstrip(
+            ":hash="
+        )
 
 
 def test_lstrip_quirk_is_kept():
@@ -326,6 +433,9 @@ def test_lstrip_quirk_is_kept():
     loader, spec = next(
         (loader, spec)
         for loader, spec in (("StimulusDuration", f":tstim={n}") for n in range(1000))
-        if __import__("hashlib").md5(f"{loader}_{spec.lstrip(':')}".encode()).hexdigest().startswith("a")
+        if __import__("hashlib")
+        .md5(f"{loader}_{spec.lstrip(':')}".encode())
+        .hexdigest()
+        .startswith("a")
     )
     assert len(test_spec_hash(loader, spec)) < 8
