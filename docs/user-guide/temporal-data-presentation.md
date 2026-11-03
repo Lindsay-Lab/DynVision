@@ -2,6 +2,13 @@
 
 This guide explains how DynVision handles temporal data presentation across different components of the system, from data loading to model processing.
 
+!!! note "Durations are specified in milliseconds"
+    The step-valued parameters below (`n_timesteps`/`tsteps`, `data_timesteps`/`dsteps`,
+    `stimulus_duration`/`stim`, `intro_duration`/`intro`, `interval_duration`/`interval`)
+    are the engine's step fields and legacy keys. Specify durations with their
+    millisecond keys (`tsim`, `tseq`, `tstim`, `tintro`, `tinterval`); see
+    [Temporal Units](temporal-units.md).
+
 ## Overview
 
 DynVision provides multiple mechanisms for creating and managing temporal sequences:

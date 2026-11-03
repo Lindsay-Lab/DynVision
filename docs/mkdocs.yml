@@ -187,6 +187,7 @@ nav:
     - Installation: user-guide/installation.md
     - Custom Models: user-guide/custom-models.md
     - Data Processing: user-guide/data-processing.md
+    - Temporal Units (ms and steps): user-guide/temporal-units.md
     - Temporal Data Presentation: user-guide/temporal-data-presentation.md
     - Workflow Management: user-guide/workflows.md
     - Custom Experiments: user-guide/custom-experiments.md

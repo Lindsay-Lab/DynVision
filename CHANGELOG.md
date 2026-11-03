@@ -5,6 +5,41 @@ All notable changes to DynVision will be documented in this file.
 ## [Unreleased]
 
 ### Changed
+- **Temporal quantities are specified in milliseconds (breaking for new
+  configs, legacy keys still accepted)**: the simulation window, idle period,
+  data sequence and stimulus protocol were counted in steps and never saw `dt`,
+  so changing `dt` changed the experiment, not its resolution (`tsteps=20,
+  stim=5` was a 10 ms window with a 2.5 ms stimulus at `dt=0.5` and 40 ms with
+  10 ms at `dt=2`). They are now `t_simulation`/`tsim`, `t_idle`/`tidle`,
+  `t_sequence`/`tseq`, `t_stimulus`/`tstim`, `t_intro`/`tintro` and
+  `t_interval`/`tinterval` (alias `tisi`), declared on `ModelParams` and
+  `DataParams` and converted to steps during validation
+  (`utils/timing.coordinate_component_timing`). Legacy step keys keep their
+  meaning, are translated with `ms = steps * dt`, and log a deprecation
+  warning. Experiment and workflow configs use the ms keys; the dt sweep
+  category is `[0.5, 1, 2]`; the previous experiment config is frozen in
+  `configs/legacy/config_experiments_steps.yaml`. Guide:
+  `docs/user-guide/temporal-units.md`.
+- **Strict ms -> step conversion**: `utils/timing.to_timesteps` raises on an
+  off-grid value instead of rounding (reverses the rounding fallback of
+  `942795a`). All model delay conversions go through it; on-grid models keep
+  identical delay indices and forward outputs (`tests/models/test_dt_golden.py`).
+  `t_recurrence` must be at least `dt` (was compared with the step count 1).
+- **Presentation patterns stretch over whole chunks**: a pattern whose length
+  does not divide the window raises instead of producing uneven chunks
+  (`1011` over 10 steps gave chunks of 3, 2, 5).
+- **Results carry their time base**: processed test data record `dt`,
+  `idle_steps` and `time_ms = (times_index + 1) * dt` (`t = 0` at the end of
+  the idle period; the engine records each step's state at its end), plus ms
+  columns for swept legacy step parameters. `processing/time_base.ensure_time_base`
+  adds them to results written before.
+- **Plots read time from the data**: the `--dt` / `--idle-timesteps` arguments
+  and workflow fallbacks (default `dt=2`) are gone. Ridge plots with
+  `normalize='max'` scale once per model across parameter values (per-trace
+  normalization made the first-pulse height depend on later stimuli); the
+  stimulus indicator is drawn per distinct protocol; dynamics Panel A uses a
+  parameter value every model was run with.
+
 - **Delay validation now rejects off-grid durations (breaking)**: `t_feedforward`,
   `t_recurrence`, `t_feedback`, `t_skip` and `loss_reaction_time` are measured in
   milliseconds but integrated on a fixed `dt` grid, so each must be a whole
@@ -31,6 +66,18 @@ All notable changes to DynVision will be documented in this file.
   it through every composite that contains it.
 
 ### Added
+- **`scripts/link_legacy_temporal_paths.py`**: exposes models and test
+  results stored under legacy step-key paths under their ms-key names, as
+  file-level symlinks carrying their target's mtime, so Snakemake plans no
+  reruns for existing results (dry run by default, `--apply`, `--undo`).
+- **Anchored path readers**: `extract_param_from_string` and its siblings match
+  a key only at a token boundary (`stim` no longer matches inside `tstim=10`).
+- **Sample-selection warning** (`processing/sample_selection.py`): aggregating
+  test runs or loading them for a plot logs a warning when the runs evaluated
+  different samples or recorded layer responses for different samples.
+- **Guard test** `tests/utils/test_dt_arithmetic_guard.py`: fails on `dt`
+  arithmetic outside `utils/timing.py` (two exempt sites: the integration step
+  and the `dt/tau` diagnostics).
 - **`ModelParams.recurrence_target` and `DataParams.data_loader` are declared
   fields.** Both were previously reachable only as aliases
   (`rctarget`, `data_loader`) whose target was not a declared field, so the value
