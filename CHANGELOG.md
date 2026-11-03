@@ -102,6 +102,16 @@ All notable changes to DynVision will be documented in this file.
 - **`tests/base/test_recurrence_target_middle.py`**: the `'middle'` target guard.
 
 ### Fixed
+- **The legacy-path link helper aborted on a misplaced model directory**:
+  an `rsync` that copies a directory into a directory leaves
+  `models/<class>/<idA>/<idB>/...`, and such a copy can hold a relative symlink
+  that no longer resolves at its new depth. The helper planned a link to it and
+  `os.stat` raised `FileNotFoundError` from `mirror_mtime`, stopping `--apply`
+  halfway through its manifest. Nested model/test directories are now reported
+  as `misplaced` and unresolvable sources as `broken`, both skipped; a link
+  that would dangle is removed instead of keeping a run alive.
+- **`scripts/prune_misplaced_model_dirs.py`** removes those misplaced copies,
+  reporting the files that have no counterpart at the model's normal path.
 - **A capped response buffer stopped the test run early, silently**: an
   unlimited records buffer (`-1`) is never full, but `len(records) >= -1` read
   as full, so `early_test_stop` fired as soon as the response cap was reached

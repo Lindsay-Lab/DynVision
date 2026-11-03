@@ -106,7 +106,24 @@ python scripts/link_legacy_temporal_paths.py . --undo     # remove exactly those
 
 It creates a file-level symlink at the new path for every file in a
 legacy-named model or test directory, and gives each link its target's mtime,
-so Snakemake sees the old graph's time relations under the new names. It skips
+so Snakemake sees the old graph's time relations under the new names. A model
+checkpoint is linked the same way, so a rerun of a test takes the existing
+weights and never trains: after the helper, deleting a test result and running
+`snakemake -n` plans the evaluation only.
+
+Two situations stop it instead of linking: a model or test directory **nested
+inside another one** (an `rsync` that copied a directory into a directory) and
+a **file that does not resolve** (a relative symlink copied one level deeper
+than it was created). Both are reported as `misplaced` and `broken` and left
+alone. Delete the misplaced copies with
+
+```bash
+python scripts/prune_misplaced_model_dirs.py .          # report
+python scripts/prune_misplaced_model_dirs.py . --apply  # delete
+```
+
+which names, for every directory it deletes, the files that have no copy at the
+model's normal path (`--keep-unique` keeps those instead). It skips
 and reports what has no single ms name: a legacy step key next to `dt=*` (a dt
 sweep at a fixed step count), unknown hashes, and incomplete outputs.
 

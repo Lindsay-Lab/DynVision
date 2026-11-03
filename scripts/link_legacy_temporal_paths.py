@@ -86,6 +86,11 @@ MODEL_IDENTIFIER = re.compile(
 HASH = re.compile(r"^[0-9a-f]{1,8}$")
 
 
+class Misplaced(Exception):
+    """A model or test directory nested inside another one: an rsync that
+    copied a directory into a directory instead of merging with it."""
+
+
 class Unmappable(Exception):
     """A legacy name that has no single ms name."""
 
@@ -188,10 +193,14 @@ def map_path(relative: Path, legacy: LegacySpecs) -> Optional[Mapping]:
     """
     parts = list(relative.parts)
     if parts[0] == "models" and len(parts) >= 4:
+        if MODEL_IDENTIFIER.match(parts[3]):
+            raise Misplaced(str(Path(*parts[:4])))
         parts[2], _ = translate_model_identifier(parts[2])
         kind = "model"
     elif parts[0] == "reports" and len(parts) >= 5:
         parts[2], dt = translate_model_identifier(parts[2])
+        if MODEL_IDENTIFIER.match(parts[3]):
+            raise Misplaced(str(Path(*parts[:4])))
         if len(parts) >= 6:
             parts[4] = translate_test_identifier(parts[4], dt, legacy)
             kind = "test"
@@ -258,7 +267,7 @@ def plan(
     incomplete = incomplete_paths(snakemake_dir or root)
     outcome: Dict[str, List] = {
         "link": [], "linked": [], "conflict": [], "unmappable": [],
-        "incomplete": [], "aggregate": [],
+        "incomplete": [], "aggregate": [], "misplaced": [], "broken": [],
     }
     own_links = {line.split("\t")[0] for line in read_manifest(root)}
     for relative in iter_files(root):
@@ -266,10 +275,17 @@ def plan(
             continue  # a link this script made earlier
         try:
             mapping = map_path(relative, legacy)
+        except Misplaced as directory:
+            if str(directory) not in {str(item[0]) for item in outcome["misplaced"]}:
+                outcome["misplaced"].append((directory, "nested inside another one"))
+            continue
         except Unmappable as reason:
             outcome["unmappable"].append((relative, str(reason)))
             continue
         if mapping is None:
+            continue
+        if not (root / relative).exists():
+            outcome["broken"].append(mapping)
             continue
         if str(root / relative) in incomplete:
             outcome["incomplete"].append(mapping)
@@ -301,7 +317,17 @@ def apply(root: Path, outcome) -> int:
             new_path = root / mapping.new
             new_path.parent.mkdir(parents=True, exist_ok=True)
             os.symlink(os.path.relpath(root / mapping.old, new_path.parent), new_path)
-            mirror_mtime(new_path)
+            try:
+                mirror_mtime(new_path)
+            except OSError:
+                # The source vanished or does not resolve: a dangling link would
+                # make Snakemake treat a missing output as present.
+                new_path.unlink()
+                raise SystemExit(
+                    f"error: {mapping.old} does not resolve; nothing linked for it. "
+                    "Remove the misplaced directory first "
+                    "(scripts/prune_misplaced_model_dirs.py)."
+                ) from None
             manifest.write(f"{mapping.new}\t{mapping.old}\n")
             created += 1
     for mapping in outcome["linked"]:
@@ -339,10 +365,14 @@ def summarize(outcome, applied: Optional[int], limit: int) -> None:
     print(f"aggregates (skipped):  {counts['aggregate']}  (--include-aggregates to link)")
     print(f"incomplete (skipped):  {counts['incomplete']}")
     print(f"unmappable (skipped):  {counts['unmappable']}")
-    for key in ("link", "conflict", "unmappable", "incomplete"):
+    print(f"misplaced (skipped):   {counts['misplaced']}  (a directory nested in another one)")
+    print(f"broken links (skipped):{counts['broken']}  (source does not resolve)")
+    for key in ("link", "conflict", "unmappable", "incomplete", "misplaced", "broken"):
         for item in outcome[key][:limit]:
             if isinstance(item, Mapping):
                 print(f"  [{key}] {item.old}\n      -> {item.new}")
+            elif key in ("misplaced", "broken"):
+                print(f"  [{key}] {item[0]}")
             else:
                 print(f"  [{key}] {item[0]}: {item[1]}")
 
