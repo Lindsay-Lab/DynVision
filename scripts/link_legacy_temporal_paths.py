@@ -42,6 +42,9 @@ Usage::
     python scripts/link_legacy_temporal_paths.py ROOT --undo     # remove them
 
 ``ROOT`` is the project working directory holding ``models/`` and ``reports/``.
+When Snakemake runs from another directory (on the cluster, ``models/`` and
+``reports/`` sit on scratch), ``--snakemake-dir`` names the one holding
+``.snakemake/``, so outputs it marked incomplete are skipped.
 Afterwards, ``snakemake -n`` on the new targets should plan no test_model job
 for results that existed; see the summary for what was skipped.
 """
@@ -205,9 +208,13 @@ def map_path(relative: Path, legacy: LegacySpecs) -> Optional[Mapping]:
 # --------------------------------------------------------------------------
 
 
-def incomplete_paths(root: Path) -> Set[str]:
-    """Paths Snakemake marked incomplete, decoded from .snakemake/incomplete."""
-    marker_dir = root / ".snakemake" / "incomplete"
+def incomplete_paths(snakemake_dir: Path) -> Set[str]:
+    """Absolute paths Snakemake marked incomplete, decoded from .snakemake/incomplete.
+
+    ``snakemake_dir`` is the directory Snakemake runs from; a relative marker
+    path is relative to it.
+    """
+    marker_dir = snakemake_dir / ".snakemake" / "incomplete"
     paths: Set[str] = set()
     if not marker_dir.is_dir():
         return paths
@@ -217,9 +224,11 @@ def incomplete_paths(root: Path) -> Set[str]:
         # Long ids are split into '@'-prefixed directory chunks (persistence.py).
         b64 = "".join(part.lstrip("@") for part in marker.relative_to(marker_dir).parts)
         try:
-            paths.add(base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode())
+            decoded = base64.urlsafe_b64decode(b64 + "=" * (-len(b64) % 4)).decode()
         except (ValueError, UnicodeDecodeError):
             continue
+        path = snakemake_dir / decoded  # an absolute marker path stays as is
+        paths.update({os.path.normpath(path), os.path.realpath(path)})
     return paths
 
 
@@ -239,9 +248,14 @@ def mirror_mtime(link: Path) -> None:
     os.utime(link, ns=(target.st_atime_ns, target.st_mtime_ns), follow_symlinks=False)
 
 
-def plan(root: Path, legacy: LegacySpecs, include_aggregates: bool):
+def plan(
+    root: Path,
+    legacy: LegacySpecs,
+    include_aggregates: bool,
+    snakemake_dir: Optional[Path] = None,
+):
     """Classify every file under models/ and reports/."""
-    incomplete = incomplete_paths(root)
+    incomplete = incomplete_paths(snakemake_dir or root)
     outcome: Dict[str, List] = {
         "link": [], "linked": [], "conflict": [], "unmappable": [],
         "incomplete": [], "aggregate": [],
@@ -257,7 +271,7 @@ def plan(root: Path, legacy: LegacySpecs, include_aggregates: bool):
             continue
         if mapping is None:
             continue
-        if {str(relative), str(root / relative)} & incomplete:
+        if str(root / relative) in incomplete:
             outcome["incomplete"].append(mapping)
             continue
         if mapping.kind == "aggregate" and not include_aggregates:
@@ -354,17 +368,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="also link stage-2 test_data.csv aggregates",
     )
+    parser.add_argument(
+        "--snakemake-dir",
+        type=Path,
+        help="directory Snakemake runs from, holding .snakemake/ (default: ROOT)",
+    )
     parser.add_argument("--show", type=int, default=5, help="examples listed per category")
     args = parser.parse_args(argv)
 
     root = args.root.resolve()
+    snakemake_dir = (args.snakemake_dir or root).resolve()
+    if not (snakemake_dir / ".snakemake").is_dir():
+        # Without it, files Snakemake left incomplete would be linked as results.
+        if args.snakemake_dir is not None:
+            parser.error(f"{snakemake_dir / '.snakemake'} is not a directory")
+        print(
+            f"warning: no .snakemake/ in {root}; incomplete outputs cannot be detected "
+            "(--snakemake-dir names the directory Snakemake runs from)",
+            file=sys.stderr,
+        )
     if args.undo:
         removed, kept = undo(root)
         print(f"removed {removed} link(s); left {kept} manifest entr(y/ies) that no longer matched")
         return 0
 
     legacy = LegacySpecs.from_configs(args.legacy_config or [DEFAULT_LEGACY_CONFIG])
-    outcome = plan(root, legacy, args.include_aggregates)
+    outcome = plan(root, legacy, args.include_aggregates, snakemake_dir)
     applied = apply(root, outcome) if args.apply else None
     summarize(outcome, applied, args.show)
     if not args.apply:

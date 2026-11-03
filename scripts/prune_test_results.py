@@ -28,17 +28,26 @@ Usage::
     python scripts/prune_test_results.py ROOT                 # report only
     python scripts/prune_test_results.py ROOT --apply         # delete and rerun
     python scripts/prune_test_results.py ROOT --apply --include-empty
+    python scripts/prune_test_results.py ROOT --experiment interval \
+        --model 'DyRCNNx8:*tsteps=20*' --seed 7000 --seed 7001
 
 ``ROOT`` is the project working directory holding ``reports/``. The evaluation
 that produced a deleted result is rerun by Snakemake; nothing is retrained.
+
+``--experiment``, ``--model`` and ``--seed`` restrict the scan to matching
+directories (shell-style patterns, each repeatable). An experiment's target
+selection is then taken from the scanned runs only, so a narrow scope can pick
+a different target than the whole experiment would.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -48,6 +57,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 import pandas as pd  # noqa: E402
+from tqdm import tqdm  # noqa: E402
 
 from dynvision.processing.sample_selection import (  # noqa: E402
     RESPONSE_SUFFIX,
@@ -82,9 +92,50 @@ class Deviation:
         return self.model_dir / TEST_DATA
 
 
-def find_test_files(reports: Path) -> List[Path]:
-    """Stage-1 results: ``<reports>/<experiment>/<model>/<data>/<test>/test_data.csv``."""
-    return sorted(reports.glob("*/*/*/*/" + TEST_DATA))
+def _subdirs(path: Path) -> List[Path]:
+    with os.scandir(path) as entries:
+        return sorted(Path(e.path) for e in entries if e.is_dir())
+
+
+def _matches(name: str, patterns: Optional[Sequence[str]]) -> bool:
+    return not patterns or any(fnmatchcase(name, p) for p in patterns)
+
+
+def find_test_files(
+    reports: Path,
+    experiments: Optional[Sequence[str]] = None,
+    models: Optional[Sequence[str]] = None,
+    seeds: Optional[Sequence[str]] = None,
+    progress: bool = False,
+) -> List[Path]:
+    """Stage-1 results: ``<reports>/<experiment>/<model>/<data>/<test>/test_data.csv``.
+
+    Args:
+        reports: The ``reports/`` directory.
+        experiments: Patterns an experiment directory must match (default: all).
+        models: Patterns a model directory ``{model_name}{model_args}_{seed}``
+            must match (default: all).
+        seeds: Patterns the seed, the part after the last ``_``, must match.
+        progress: Show a progress bar over the model directories.
+    """
+    model_dirs = [
+        model_dir
+        for experiment_dir in _subdirs(reports)
+        if _matches(experiment_dir.name, experiments)
+        for model_dir in _subdirs(experiment_dir)
+        if _matches(model_dir.name, models)
+        and _matches(model_dir.name.rpartition("_")[2], seeds)
+    ]
+    files = []
+    for model_dir in tqdm(
+        model_dirs, desc="scanning", unit="model", disable=not progress
+    ):
+        for data_dir in _subdirs(model_dir):
+            for test_dir in _subdirs(data_dir):
+                path = test_dir / TEST_DATA
+                if path.is_file():
+                    files.append(path)
+    return sorted(files)
 
 
 def read_selection(path: Path) -> Optional[SampleSelection]:
@@ -198,19 +249,51 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="also delete runs that stored no responses at all",
     )
+    parser.add_argument(
+        "--experiment",
+        action="append",
+        metavar="PATTERN",
+        help="only experiments matching this pattern (repeatable)",
+    )
+    parser.add_argument(
+        "--model",
+        action="append",
+        metavar="PATTERN",
+        help="only model directories matching this pattern (repeatable)",
+    )
+    parser.add_argument(
+        "--seed",
+        action="append",
+        metavar="PATTERN",
+        help="only models with a matching seed (repeatable)",
+    )
     parser.add_argument("--show", type=int, default=10, help="examples per experiment")
+    parser.add_argument(
+        "--no-progress", action="store_true", help="hide the progress bars"
+    )
     args = parser.parse_args(argv)
 
     reports = args.root / "reports"
     if not reports.is_dir():
         parser.error(f"{reports} is not a directory")
 
-    files = find_test_files(reports)
+    progress = not args.no_progress
+    files = find_test_files(
+        reports, args.experiment, args.model, args.seed, progress=progress
+    )
     if not files:
-        print(f"No stage-1 test results under {reports}")
+        print(f"No stage-1 test results under {reports} in the given scope")
         return 0
+    if args.model or args.seed:
+        print(
+            "Scoped by model/seed: each experiment's target comes from the "
+            "scanned runs only."
+        )
 
-    selections = {path: read_selection(path) for path in files}
+    selections = {
+        path: read_selection(path)
+        for path in tqdm(files, desc="reading", unit="file", disable=not progress)
+    }
     targets, deviations = plan(selections, include_empty=args.include_empty)
     print(report(selections, targets, deviations))
 

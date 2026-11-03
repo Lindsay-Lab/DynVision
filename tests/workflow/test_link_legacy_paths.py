@@ -182,6 +182,23 @@ class TestPlanAndApply:
         outcome = _plan(root)
         assert mapping.old in {m.old for m in outcome["incomplete"]}
 
+    @pytest.mark.parametrize("absolute", [True, False])
+    def test_incomplete_markers_in_a_separate_snakemake_dir(self, root, tmp_path_factory, absolute):
+        workdir = tmp_path_factory.mktemp("workflow")
+        mapping = _plan(root)["link"][0]
+        target = root / mapping.old
+        recorded = str(target) if absolute else os.path.relpath(target, workdir)
+        marker = base64.urlsafe_b64encode(recorded.encode()).decode()
+        _write(workdir / ".snakemake" / "incomplete" / marker, "")
+        assert not _plan(root)["incomplete"]  # ROOT holds no .snakemake/
+        legacy = helper.LegacySpecs.from_configs([helper.DEFAULT_LEGACY_CONFIG])
+        outcome = helper.plan(root, legacy, False, snakemake_dir=workdir)
+        assert [m.old for m in outcome["incomplete"]] == [mapping.old]
+
+    def test_missing_snakemake_dir_is_an_error(self, root, tmp_path_factory):
+        with pytest.raises(SystemExit):
+            helper.main([str(root), "--snakemake-dir", str(tmp_path_factory.mktemp("empty"))])
+
     def test_undo_removes_exactly_the_links(self, root):
         before = sorted(str(p) for p in root.rglob("*"))
         helper.apply(root, _plan(root))

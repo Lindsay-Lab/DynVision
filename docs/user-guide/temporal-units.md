@@ -189,13 +189,32 @@ model directory; the next Snakemake run re-evaluates those tests and
 re-aggregates. Nothing is retrained. `--include-empty` also removes runs that
 stored no responses at all (noise experiments that only measure accuracy).
 
-**Store every evaluated sample** unless there is a reason not to: set
-`store_test_responses: -1` (unlimited) and `store_test_records: -1`. Stored
-responses are reduced to one value per layer, sample and step
-(`response_resolution: layer`), so a full run of 1280 samples over 40 steps is
-under a megabyte. A positive cap stores the *first* n batches of
+**Store every evaluated sample** unless there is a reason not to:
+
+```yaml
+store_test_responses: -1   # all batches (-1 = unlimited)
+store_test_records: -1     # a cap here truncates the evaluated set itself
+response_resolution: layer # keep: "unit" stores full tensors (~10^4 x larger)
+```
+
+With `store_test_responses` unlimited, `early_test_stop` never triggers (it
+needs a finite buffer). A positive cap stores the *first* n batches of
 `test_batch_size`, so a capped run rests on a fixed prefix of the data, and a
 cap that changed between runs makes the runs of one experiment incomparable.
+
+Measured cost of storing every sample (interval dt sweep, 1280 samples,
+`response_resolution: layer`):
+
+| Artifact | Per run, capped at 12 batches | Per run, all samples |
+|---|---|---|
+| `test_responses.pt` (transient) | 0.25–1 MB | 0.8–3.3 MB |
+| stage-1 `test_data.csv` | ~6 MB | ~10 MB |
+| `test_outputs.csv` (records) | ~3 MB | unchanged (records are already complete) |
+| stage-2 aggregate | 1x | ~1.9x |
+
+The three manuscript experiments hold 20.5 GB of aggregates today; storing all
+samples moves that to about 39 GB. Check `df -h` on the results partition
+before switching; the aggregates are CSV, so they are the bulk of the cost.
 
 ## What this does not achieve
 

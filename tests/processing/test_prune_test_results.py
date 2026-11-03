@@ -68,6 +68,31 @@ def test_finds_stage_one_results_only(prune, tmp_path):
     assert prune.find_test_files(tmp_path / "reports") == sorted(files.values())
 
 
+def test_scope_selects_experiments_models_and_seeds(prune, tmp_path):
+    _, a = _tree(tmp_path, "interval", "DyRCNNx8:tsteps=20", {"t": 8})
+    _, b = _tree(tmp_path, "interval", "DyRCNNx8:tsteps=40", {"t": 8})
+    _, c = _tree(tmp_path, "duration", "DyRCNNx8:tsteps=20", {"t": 8})
+    other_seed = _test_data(
+        tmp_path
+        / "reports"
+        / "interval"
+        / "DyRCNNx8:tsteps=20_7001"
+        / "imagenette:all_trained-best"
+        / "t"
+        / "test_data.csv",
+        8,
+    )
+    reports = tmp_path / "reports"
+    assert len(prune.find_test_files(reports)) == 4
+    assert prune.find_test_files(reports, experiments=["interval"]) == sorted(
+        [a["t"], b["t"], other_seed]
+    )
+    assert prune.find_test_files(
+        reports, models=["*tsteps=20*"], seeds=["7000"]
+    ) == sorted([a["t"], c["t"]])
+    assert prune.find_test_files(reports, experiments=["dur*"], seeds=["7001"]) == []
+
+
 def test_consistent_experiment_has_no_deviations(prune, tmp_path):
     _tree(tmp_path, "interval", "m", {"a": 8, "b": 8, "c": 8})
     files = prune.find_test_files(tmp_path / "reports")
