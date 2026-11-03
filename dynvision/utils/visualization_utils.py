@@ -23,7 +23,7 @@ import torch
 
 # Module import, not names: dynvision.processing.time_base imports this
 # package, so its names are read at call time.
-from dynvision.processing import time_base
+from dynvision.processing import sample_selection, time_base
 
 from .data_utils import load_df
 from .string_utils import extract_param_from_string
@@ -109,7 +109,10 @@ def load_result_data(
         frames.append(time_base.ensure_time_base(read(path), path, t_idle=t_idle))
     if not frames:
         raise ValueError("No result files given.")
-    return pd.concat(frames, ignore_index=True)
+    combined = pd.concat(frames, ignore_index=True)
+    # A plot compares these runs: they should rest on the same samples
+    sample_selection.warn_on_sample_mismatch(combined, context="plotting")
+    return combined
 
 
 def require_time_ms(df: pd.DataFrame) -> None:

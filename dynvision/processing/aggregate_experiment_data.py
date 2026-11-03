@@ -34,6 +34,10 @@ from dynvision.processing.process_test_data import (
     FileMetadata,
 )
 from dynvision.processing.time_base import DT, ensure_time_base
+from dynvision.processing.sample_selection import (
+    sample_selection,
+    warn_if_selections_differ,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -276,6 +280,12 @@ def aggregate_test_data(
         raise RuntimeError("No test data files loaded successfully")
 
     logger.info(f"\nSuccessfully loaded {len(dfs)}/{len(test_data_files)} files")
+
+    # Runs compared in one table should rest on the same samples
+    warn_if_selections_differ(
+        {str(path): sample_selection(df) for path, df in zip(successful_files, dfs)},
+        context=f"aggregating '{data_arg_key}'",
+    )
 
     # Concatenate all dataframes
     logger.info("Concatenating dataframes...")
