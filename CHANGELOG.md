@@ -75,6 +75,12 @@ All notable changes to DynVision will be documented in this file.
 - **Sample-selection warning** (`processing/sample_selection.py`): aggregating
   test runs or loading them for a plot logs a warning when the runs evaluated
   different samples or recorded layer responses for different samples.
+- **`scripts/prune_test_results.py`**: reports the test results whose stored
+  samples differ from the rest of their experiment (per layer and in total)
+  and, with `--apply`, deletes them for a rerun, so all runs of an experiment
+  can rest on the same, largest sample set. `scripts/link_legacy_temporal_paths.py`
+  now imports `dynvision` from its own checkout, so it runs without
+  `PYTHONPATH` or an install.
 - **Guard test** `tests/utils/test_dt_arithmetic_guard.py`: fails on `dt`
   arithmetic outside `utils/timing.py` (two exempt sites: the integration step
   and the `dt/tau` diagnostics).

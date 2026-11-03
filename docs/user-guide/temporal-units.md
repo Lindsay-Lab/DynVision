@@ -174,8 +174,28 @@ Compared test runs rest on different samples (plotting): 2 selections among 63 r
   - 2560 samples, responses recorded for IT 512, V1 32, V2 512, V4 512: 16 run(s), e.g. ...
 ```
 
-Rerun the deviating tests with the same data group and `store_test_responses`
-to remove the mismatch.
+Within one experiment every test must rest on the same number of responses, per
+layer, and that number must be large enough for the comparisons drawn from it.
+To find the runs that violate this and delete them for a rerun:
+
+```bash
+python scripts/prune_test_results.py .            # report per experiment
+python scripts/prune_test_results.py . --apply    # delete those results
+```
+
+`--apply` removes the deviating stage-1 results (`test_data.csv`,
+`test_outputs.csv`, `test_responses.pt`) and the stage-2 aggregate of their
+model directory; the next Snakemake run re-evaluates those tests and
+re-aggregates. Nothing is retrained. `--include-empty` also removes runs that
+stored no responses at all (noise experiments that only measure accuracy).
+
+**Store every evaluated sample** unless there is a reason not to: set
+`store_test_responses: -1` (unlimited) and `store_test_records: -1`. Stored
+responses are reduced to one value per layer, sample and step
+(`response_resolution: layer`), so a full run of 1280 samples over 40 steps is
+under a megabyte. A positive cap stores the *first* n batches of
+`test_batch_size`, so a capped run rests on a fixed prefix of the data, and a
+cap that changed between runs makes the runs of one experiment incomparable.
 
 ## What this does not achieve
 

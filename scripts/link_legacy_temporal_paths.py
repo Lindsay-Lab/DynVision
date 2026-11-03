@@ -60,7 +60,11 @@ from typing import Dict, Iterator, List, Optional, Set, Tuple
 
 import yaml
 
-from dynvision.utils.timing import (
+# Run from a checkout without installing it: this script's imports resolve
+# against the repository root, wherever the script is called from.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from dynvision.utils.timing import (  # noqa: E402
     format_ms,
     is_legacy_step_key,
     is_ms_name,
