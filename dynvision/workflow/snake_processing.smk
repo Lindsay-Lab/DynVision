@@ -22,6 +22,8 @@ rule process_single_test:
         - Calculate layer metrics (response_avg, response_std, etc.)
         - Calculate classifier metrics (confidence, top-k accuracy)
         - Process test performance (add first_label_index, accuracy)
+        - Add the run's time base (dt, idle_steps, time_ms) from
+          test_outputs.csv.config.yaml, which test_model writes beside test_outputs.csv
         - Save sample-level CSV (metadata added in Stage 2)
         - Optionally delete test_responses.pt to free disk space
 
@@ -41,7 +43,10 @@ rule process_single_test:
             / '{model_name}{model_identifier}' \
             / '{data_name}:{data_group}_{status}' \
             / '{test_identifier}' / 'test_outputs.csv',
-        script = SCRIPTS / 'processing' / 'process_single_test.py'
+        # ancient: once test_responses.pt is removed, a rerun needs the GPU
+        # test again, so a newer script must not outdate existing test_data.csv.
+        # Stage 2 adds the time base to Stage 1 files written before it existed.
+        script = ancient(SCRIPTS / 'processing' / 'process_single_test.py')
     params:
         measures = ['response_avg', 'response_std', 'guess_confidence', 'first_label_confidence', 'accuracy_top3', 'accuracy_top5'],
         memory_limit_gb = 68.0,
@@ -88,6 +93,8 @@ rule aggregate_experiment_data:
         - Extract metadata from .config.yaml files (parameter, category, additional_parameters)
         - If 'status' in additional_parameters: extract status from file paths (with auto-epoch extraction)
         - Add metadata columns to each dataframe
+        - Add each run's time base (dt, idle_steps, time_ms = (times_index + 1) * dt)
+          and ms columns for legacy step parameters (stim -> tstim, ...)
         - Concatenate into single dataframe
         - Optionally apply class-level aggregation
         - Sort and save
@@ -121,7 +128,7 @@ rule aggregate_experiment_data:
         script = SCRIPTS / 'processing' / 'aggregate_experiment_data.py'
     params:
         parameter = lambda w: config.experiment_config[w.experiment]['parameter'],
-        additional_parameters = ['seed', 'status', 'epoch', 'activityloss', 'idle_timesteps'],  # config keys ('status' and 'epoch' are extracted from file path)
+        additional_parameters = ['seed', 'status', 'epoch', 'activityloss'],  # config keys ('status' and 'epoch' are extracted from file path); the time base (dt, idle_steps, time_ms) is always added
         sample_resolution = 'sample',  # 'sample' or 'class'
         fail_on_missing_inputs = False,
         execution_cmd = lambda w, input: build_execution_command(

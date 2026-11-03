@@ -36,6 +36,11 @@ from dynvision.processing.process_test_data import (
     process_test_performance,
     calculate_confidence_and_topk_from_classifier,
 )
+from dynvision.processing.time_base import (
+    add_time_base,
+    config_time_base,
+    load_resolved_config,
+)
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -434,6 +439,7 @@ def process_single_test(
     test_output_file: Path,
     measure_config: MeasureConfig,
     memory_monitor: MemoryMonitor,
+    config_file: Optional[Path] = None,
 ) -> pd.DataFrame:
     """Process a single test's outputs to compute all metrics.
 
@@ -442,9 +448,12 @@ def process_single_test(
         test_output_file: Path to test_outputs.csv
         measure_config: Configuration for which measures to compute
         memory_monitor: Memory monitoring instance
+        config_file: The run's resolved config; defaults to
+            ``{test_output_file}.config.yaml``, which test_model writes
 
     Returns:
-        DataFrame at sample-level with all computed metrics (no metadata)
+        DataFrame at sample-level with all computed metrics and the run's time
+        base (dt, idle_steps, time_ms), but no other metadata
     """
     logger.info(f"Processing: {response_file.name} + {test_output_file.name}")
 
@@ -477,6 +486,18 @@ def process_single_test(
         test_df_with_first_label=test_df_with_first_label,
         response_resolution=response_resolution,
     )
+
+    # Time base of the run, so the file is readable without its config
+    if config_file is None:
+        config_file = Path(f"{test_output_file}.config.yaml")
+    if config_file.exists():
+        dt, idle_steps = config_time_base(load_resolved_config(config_file), config_file)
+        add_time_base(sample_level_df, dt, idle_steps)
+        logger.info(f"  Time base: dt={dt:g} ms, idle_steps={idle_steps}")
+    else:
+        logger.warning(
+            f"  No resolved config at {config_file}; the time base is added in Stage 2"
+        )
 
     logger.info(
         f"  Final shape: {sample_level_df.shape} with {len(sample_level_df.columns)} columns"

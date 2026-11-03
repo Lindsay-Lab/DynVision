@@ -32,6 +32,8 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, Final, Literal, Mapping, Optional, Set, Tuple
 
+import numpy as np
+
 logger = logging.getLogger(__name__)
 
 # Tolerance for the multiple test. Durations are milliseconds in the 0.1-100
@@ -136,6 +138,41 @@ def to_ms(steps: int, dt: float) -> float:
     if steps < 0 or not float(steps).is_integer():
         raise ValueError(f"steps must be a non-negative integer, got steps={steps}")
     return round(int(steps) * float(dt), _MS_DECIMALS)
+
+
+def step_end_ms(times_index: Any, dt: Any) -> Any:
+    """Return the time in ms at which the state of recorded step ``times_index`` is taken.
+
+    The engine integrates step ``k`` (0-based, counted after the idle period)
+    over ``[k*dt, (k+1)*dt)`` and records the state at its end, so the state of
+    step ``k`` belongs to ``(k + 1) * dt``. ``t = 0`` is the end of the idle
+    period, when the first input arrives.
+
+    Args:
+        times_index: Recorded step index, a scalar or an array-like (numpy
+            array, pandas Series). Must be non-negative.
+        dt: Integration step in milliseconds, a scalar or an array-like of
+            the same length (one ``dt`` per row). Must be positive.
+
+    Returns:
+        The time in milliseconds, of the same shape as the inputs, free of
+        binary rounding noise.
+
+    Raises:
+        ValueError: If a ``dt`` is not positive or an index is negative.
+    """
+    index = np.asarray(times_index, dtype=float)
+    step = np.asarray(dt, dtype=float)
+    if np.any(step <= 0) or np.any(np.isnan(step)):
+        raise ValueError(f"dt must be positive to convert steps to ms, got dt={dt}")
+    if np.any(index < 0):
+        raise ValueError("times_index must be non-negative")
+    result = np.round((index + 1) * step, _MS_DECIMALS)
+    if hasattr(times_index, "index") and hasattr(times_index, "to_numpy"):
+        return type(times_index)(result, index=times_index.index)
+    if result.ndim == 0:
+        return float(result)
+    return result
 
 
 def format_ms(value: float) -> str:

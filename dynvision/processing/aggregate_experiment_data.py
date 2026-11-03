@@ -5,7 +5,8 @@ STAGE 2 of two-stage experiment processing pipeline.
 This script:
 1. Loads all test_data.csv files from individual tests (Stage 1 outputs)
 2. Extracts metadata from corresponding .config.yaml files (parameter, category, additional_parameters)
-3. Adds metadata columns to each dataframe
+3. Adds metadata columns to each dataframe, and each run's time base
+   (dt, idle_steps, time_ms) with ms columns for legacy step parameters
 4. Concatenates into single dataframe
 5. Optionally applies class-level resolution (sample → class aggregation)
 6. Handles missing measures gracefully
@@ -27,10 +28,12 @@ from dynvision.utils.data_utils import load_df
 
 # Import metadata extraction and resolution functions from process_test_data
 from dynvision.processing.process_test_data import (
+    add_run_time_base,
     compress_to_presentation_level,
     _extract_metadata,
     FileMetadata,
 )
+from dynvision.processing.time_base import DT, ensure_time_base
 
 # Configure logger
 logger = logging.getLogger(__name__)
@@ -180,6 +183,21 @@ def load_test_data_with_metadata(
 
         df[param_name] = param_value
         used_columns.add(param_name)
+
+    # Time base of the run. The config's dt is the one the run used; a dt
+    # category column holds the model's trained dt, which a test spec can
+    # override, so the run's value takes the column.
+    if metadata.dt is not None:
+        if category == DT and metadata.category_value is not None:
+            if float(metadata.category_value) != metadata.dt:
+                logger.warning(
+                    f"    {test_data_file}: the model was trained at dt="
+                    f"{metadata.category_value}, the test ran at dt={metadata.dt}; "
+                    f"column '{DT}' holds the test's value."
+                )
+        df = add_run_time_base(df, metadata)
+    else:
+        df = ensure_time_base(df, test_data_file)
 
     return df
 
