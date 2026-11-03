@@ -15,6 +15,7 @@ import numpy as np  # noqa: E402
 import pandas as pd  # noqa: E402
 import pytest  # noqa: E402
 
+from dynvision.processing.time_base import ensure_time_base  # noqa: E402
 from dynvision.visualization import plot_responses as pr  # noqa: E402
 
 LAYERS = ["V1", "V2", "V4", "IT"]
@@ -47,7 +48,7 @@ def make_df() -> pd.DataFrame:
                         # plotted mean trace is exactly reprovable.
                         row[f"{layer}_response_avg"] = LAYER_OFFSETS[layer] + t
                     rows.append(row)
-    return pd.DataFrame(rows)
+    return ensure_time_base(pd.DataFrame(rows), dt=1.0)
 
 
 @pytest.fixture(autouse=True)
@@ -104,7 +105,6 @@ def test_pinned_layer_fixes_the_response_column():
             hue_values=CATEGORIES,
             colors={"full": "#111111", "self": "#222222"},
             response_layer=layer,
-            dt=1.0,
             config={"palette": {}, "naming": {}, "ordering": {}},
         )
         assert len(axes) == len(PARAMETERS)
@@ -137,7 +137,6 @@ def test_layers_as_column_pins_each_column_to_its_layer(monkeypatch, tmp_path):
         column_var="layers",
         category_key="rctype",
         parameter_key="contrast",
-        dt=1.0,
         config=config,
     )
 
@@ -159,7 +158,6 @@ def test_layers_as_column_renders(tmp_path):
         column_var="layers",
         category_key="rctype",
         parameter_key="contrast",
-        dt=1.0,
         config={"palette": {}, "naming": {"layer": "Layer"}, "ordering": {}},
     )
     titles = [
@@ -181,7 +179,6 @@ def test_layers_as_hue_renders(tmp_path):
         hue_var="layers",
         category_key="rctype",
         parameter_key="contrast",
-        dt=1.0,
         config={"palette": {}, "naming": {}, "ordering": {}},
     )
     assert fig is not None
@@ -198,7 +195,6 @@ def test_layers_as_subplot_renders(tmp_path):
         column_var="parameter",
         category_key="rctype",
         parameter_key="contrast",
-        dt=1.0,
         config={"palette": {}, "naming": {}, "ordering": {}},
     )
     assert fig is not None
@@ -216,6 +212,5 @@ def test_plot_rejects_incompatible_classifier_dimension(tmp_path):
             column_var="classifier_topk",
             category_key="rctype",
             parameter_key="contrast",
-            dt=1.0,
             config={"palette": {}, "naming": {}, "ordering": {}},
         )

@@ -10,8 +10,11 @@ This script creates a 4-panel visualization of neural network layer responses:
 Example:
     ```bash
     python plot_dynamics.py --data responses.csv --output dynamics_plot.png --parameter tau \
-        --category interval --focus-layer V1 --dt 1.0
+        --category tinterval --focus-layer V1
     ```
+
+Time comes from the data: every file gets ``dt`` and ``time_ms`` from
+``ensure_time_base``, and ``t = 0`` is the end of the idle period.
 """
 
 import argparse
@@ -20,7 +23,6 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import seaborn as sns
 import torch
 
@@ -33,8 +35,12 @@ from dynvision.utils.visualization_utils import (  # noqa: F401
     peak_time,
     peak_height,
     format_parameter_value,
-    DT_CONVERT_PARAMS,
+    is_ms_parameter,
+    load_result_data,
+    ms_parameter_key,
+    require_time_ms,
 )
+from dynvision.processing.time_base import TIME_MS
 
 # Import functions from plot_responses.py
 from dynvision.visualization.plot_responses import (  # noqa: F401
@@ -193,7 +199,7 @@ def add_panel_labels(fig):
     )
 
 
-def calculate_metrics(df, focus_layer, parameter, category, metric, dt=None):
+def calculate_metrics(df, focus_layer, parameter, category, metric):
     """Calculate metrics for summary plot.
 
     Each metric is calculated independently for each (category, sample_index, seed)
@@ -204,7 +210,10 @@ def calculate_metrics(df, focus_layer, parameter, category, metric, dt=None):
 
     For 'summed_response', normalization (divide by max) and baseline subtraction
     (subtract min) are applied after calculation to each group independently.
+
+    'peak_time' is the ``time_ms`` of the peak, read from the data.
     """
+    require_time_ms(df)
     df = df.copy()
     metric_col = f"{focus_layer}_{metric}"
 
@@ -271,12 +280,10 @@ def calculate_metrics(df, focus_layer, parameter, category, metric, dt=None):
                 continue
 
             try:
-                time_series_grouped = param_group.groupby("times_index")[
-                    response_col
-                ].mean()
-
-                # Get values in sorted order by times_index
-                time_series = time_series_grouped.sort_index().values
+                time_series_grouped = (
+                    param_group.groupby(TIME_MS)[response_col].mean().sort_index()
+                )
+                time_series = time_series_grouped.values
 
                 if len(time_series) == 0 or np.isnan(time_series).all():
                     continue
@@ -304,9 +311,8 @@ def calculate_metrics(df, focus_layer, parameter, category, metric, dt=None):
                             f"Possible causes: (1) <2 positive peaks, or (2) peaks <5 timesteps apart"
                         )
                 elif metric == "peak_time":
-                    metric_value = peak_time(response_tensor)[0].item()
-                    if dt is not None:
-                        metric_value *= dt
+                    peak_index = int(peak_time(response_tensor)[0].item())
+                    metric_value = float(time_series_grouped.index[peak_index])
                 elif metric == "peak_height":
                     metric_value = peak_height(response_tensor)[0].item()
                 elif metric == "summed_response":
@@ -368,9 +374,7 @@ def create_panel_a(
     param_value,
     hue_values,
     colors,
-    dt,
     config,
-    time_offset: float = 0.0,
 ):
     """Create Panel A: Ridge plot for layers at middle parameter value."""
     plots_start = DYNAMICS_LAYOUT["plots_start"]
@@ -380,8 +384,6 @@ def create_panel_a(
 
     # Filter data for middle parameter value
     panel_data = _filter_data_for_column(df, parameter, param_value)
-    if dt is not None:
-        panel_data["time_ms"] = panel_data["times_index"] * dt + time_offset
 
     # Calculate layout parameters for ridge plots compatible with plot_responses
     panel_height = upper_top - upper_bottom
@@ -399,8 +401,6 @@ def create_panel_a(
         hue_key=category,
         hue_values=hue_values,
         colors=colors,
-        dt=dt or 1.0,
-        time_offset=time_offset,
         show_ylabel=False,  # We'll add custom y-label
         config=config,
         # Override layout parameters to position correctly in Panel A
@@ -421,12 +421,12 @@ def create_panel_a(
         if hasattr(ax, "get_xlim"):
             xlim = ax.get_xlim()
             # Set xlim to data range with no margins
-            ax.set_xlim(left=time_offset, right=xlim[1])
+            ax.set_xlim(left=0, right=xlim[1])
             # ax.margins(x=0)
 
     # Add custom Y-axis label for the panel
     exp_info = determine_experiment_info(parameter, config)
-    param_display = format_parameter_value(param_value, parameter, dt)
+    param_display = format_parameter_value(param_value, parameter)
     fig.text(
         x=DYNAMICS_LAYOUT["y_label_x_position"],
         y=(upper_top + upper_bottom) / 2,
@@ -449,21 +449,20 @@ def create_panel_b(
     param_values,
     hue_values,
     colors,
-    dt,
     config,
     normalize=False,
-    time_offset: float = 0.0,
 ):
-    """Create Panel B: Ridge plot for focus layer across all parameter values."""
+    """Create Panel B: Ridge plot for focus layer across all parameter values.
+
+    With ``normalize='max'``, each model (hue) is scaled by one factor across
+    all parameter values, so ridges stay comparable within a model.
+    """
     plots_start = DYNAMICS_LAYOUT["plots_start"]
     left_width = DYNAMICS_LAYOUT["left_plots_width"]
     lower_top = DYNAMICS_LAYOUT["lower_top"]
     lower_bottom = DYNAMICS_LAYOUT["lower_bottom"]
 
-    # Prepare data with time conversion and ensure we have the focus layer response
     panel_data = df.copy()
-    if dt is not None:
-        panel_data["time_ms"] = panel_data["times_index"] * dt + time_offset
 
     # Add focus layer response as the y-variable for each parameter subplot
     focus_response_col = f"{focus_layer}_response_avg"
@@ -490,8 +489,6 @@ def create_panel_b(
         hue_key=category,
         hue_values=hue_values,
         colors=colors,
-        dt=dt or 1.0,
-        time_offset=time_offset,
         show_ylabel=False,  # We'll add custom y-label
         config=config,
         # Override layout parameters to position correctly in Panel B
@@ -515,7 +512,7 @@ def create_panel_b(
         if hasattr(ax, "get_xlim"):
             xlim = ax.get_xlim()
             # Set xlim to data range with no margins
-            ax.set_xlim(left=time_offset, right=xlim[1])
+            ax.set_xlim(left=0, right=xlim[1])
 
     # Add custom Y-axis label
     layer_display = get_display_name(focus_layer, config) or focus_layer.upper()
@@ -565,7 +562,7 @@ def create_panel_c(fig):
 
 
 def create_panel_d(
-    fig, df, focus_layer, parameter, category, exp_info, hue_values, colors, dt, config
+    fig, df, focus_layer, parameter, category, exp_info, hue_values, colors, config
 ):
     """Create Panel D: Summary plot showing parameter effect on metrics."""
     plots_start = DYNAMICS_LAYOUT["plots_start"]
@@ -611,7 +608,6 @@ def create_panel_d(
             parameter=parameter,
             category=category,
             metric=metric,
-            dt=dt,
         )
 
     df[category] = df[category].astype(str)
@@ -647,10 +643,6 @@ def create_panel_d(
             summary_ax.set_xlim(min(param_values_sorted), max(param_values_sorted))
         summary_ax.margins(y=0)
 
-        # Convert tick labels to ms if parameter needs dt conversion
-        if dt is not None and parameter.lower() in DT_CONVERT_PARAMS:
-            summary_ax.set_xticklabels([f"{int(x * dt)}" for x in param_values_sorted])
-
         summary_ax.grid(True, which="major", linestyle=":", alpha=0.3)
 
         if exp_info["metric"] == "peak_ratio":
@@ -683,9 +675,8 @@ def create_panel_d(
             alpha=0.7,
         )
 
-    # Add unit to x-axis label if parameter was dt-converted
     xlabel = exp_info["full_label"]
-    if dt is not None and parameter.lower() in DT_CONVERT_PARAMS:
+    if is_ms_parameter(parameter):
         xlabel = f"{xlabel} (ms)"
     summary_ax.set_xlabel(xlabel, fontsize=RESPONSES_FORMATTING["fontsize_label"])
     summary_ax.set_ylabel(
@@ -709,16 +700,18 @@ def plot_unified_dynamics(
     category="interval",
     experiment=None,
     save_path=None,
-    dt=None,
-    time_offset: float = 0.0,
     config=None,
 ):
-    """Create unified 4-panel dynamics visualization."""
+    """Create unified 4-panel dynamics visualization.
+
+    ``df`` must carry ``time_ms`` (see ``load_result_data``).
+    """
     logger.info("=" * 60)
     logger.info("Starting unified dynamics plotting")
     logger.info("=" * 60)
 
     # Validate inputs
+    require_time_ms(df)
     if parameter not in df.columns:
         raise ValueError(f"Parameter column '{parameter}' not found")
     if category not in df.columns:
@@ -749,11 +742,6 @@ def plot_unified_dynamics(
     middle_param_value = param_values[middle_idx]
     logger.info(f"Using middle parameter value: {middle_param_value}")
 
-    # Convert time if needed
-    if dt is not None:
-        df = df.copy()
-        df["time_ms"] = df["times_index"] * dt + time_offset
-
     # Create figure
     fig = plt.figure(
         figsize=(DYNAMICS_LAYOUT["figure_width"], DYNAMICS_LAYOUT["figure_height"])
@@ -775,9 +763,7 @@ def plot_unified_dynamics(
         middle_param_value,
         hue_values,
         colors,
-        dt,
         config,
-        time_offset=time_offset,
     )
 
     logger.info("Creating Panel B: Parameter variation")
@@ -790,9 +776,7 @@ def plot_unified_dynamics(
         param_values,
         hue_values,
         colors,
-        dt,
         config,
-        time_offset=time_offset,
     )
 
     logger.info("Creating Panel C: Empty panel")
@@ -808,7 +792,6 @@ def plot_unified_dynamics(
         exp_info,
         hue_values,
         colors,
-        dt,
         config,
     )
 
@@ -827,7 +810,6 @@ def plot_unified_dynamics(
         hue_values=hue_values,
         colors=colors,
         config=config,
-        dt=dt or 1.0,
         legend_bot=legend_bottom,
         # Override legend positioning for dynamics layout
         **(
@@ -878,31 +860,15 @@ def main():
     parser.add_argument(
         "--focus-layer", type=str, default="V1", help="Layer to focus on"
     )
-    parser.add_argument("--dt", type=float, help="Time step in milliseconds")
-    parser.add_argument(
-        "--idle-timesteps",
-        type=int,
-        default=0,
-        help="Number of idle timesteps before recorded data (shifts time axis)",
-    )
     parser.add_argument("--palette", type=str, help="JSON color palette")
     parser.add_argument("--naming", type=str, help="JSON naming dict")
     parser.add_argument("--ordering", type=str, help="JSON ordering dict")
 
     args = parser.parse_args()
 
-    # Load and concatenate data
-    if len(args.data) > 1:
-        logger.info(f"Loading and concatenating data from {len(args.data)} files")
-        dfs = []
-        for i, path in enumerate(args.data):
-            logger.info(f"  Loading file {i+1}/{len(args.data)}: {path}")
-            dfs.append(pd.read_csv(path))
-        df = pd.concat(dfs, ignore_index=True)
-        logger.info(f"Concatenated total: {len(df)} rows")
-    else:
-        logger.info(f"Loading data from: {args.data[0]}")
-        df = pd.read_csv(args.data[0])
+    # Load data; every file gets its time base (dt, time_ms) from itself
+    df = load_result_data(args.data)
+    logger.info(f"Loaded {len(df)} rows from {len(args.data)} file(s)")
 
     # Load config
     config = load_config_from_args(
@@ -911,19 +877,14 @@ def main():
         ordering_str=args.ordering,
     )
 
-    # Compute time offset from idle timesteps
-    time_offset = args.idle_timesteps * (args.dt if args.dt is not None else 1.0)
-
-    # Create plot
+    # Create plot; legacy step parameters are plotted by their ms columns
     plot_unified_dynamics(
         df=df,
         focus_layer=args.focus_layer,
-        parameter=args.parameter,
-        category=args.category,
+        parameter=ms_parameter_key(df, args.parameter),
+        category=ms_parameter_key(df, args.category),
         experiment=args.experiment,
         save_path=args.output,
-        dt=args.dt,
-        time_offset=time_offset,
         config=config,
     )
 

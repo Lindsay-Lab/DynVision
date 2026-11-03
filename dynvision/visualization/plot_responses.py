@@ -39,7 +39,13 @@ from dynvision.utils.visualization_utils import (
     order_layers,
     save_plot,
     format_parameter_value,
+    is_ms_parameter,
+    load_result_data,
+    ms_parameter_key,
+    require_time_ms,
 )
+from dynvision.processing.time_base import TIME_MS, ensure_time_base
+from dynvision.utils.timing import is_legacy_step_key
 
 # Configure logging - simplified to prevent duplicate output
 logger = logging.getLogger(__name__)
@@ -109,14 +115,17 @@ MAX_DIMENSION_VALUES = 15
 CLASSIFIER_UNIT_ID_MAP: Dict[str, Optional[int]] = {}
 
 
-def _format_legend_label(key: str, value: str, config: Dict, dt: float = 1.0) -> str:
+def _format_legend_label(key: str, value: str, config: Dict) -> str:
     """Format legend label based on key type and config.
+
+    Millisecond parameters get the unit ``ms``. Values are never converted with
+    a ``dt``; a legacy step parameter is plotted by its millisecond column
+    (:func:`ms_parameter_key`), and one that has none is labeled in steps.
 
     Args:
         key: The parameter/category key
         value: The value to format
         config: Configuration dict with naming mappings
-        dt: Temporal resolution in ms per timestep (for converting timestep values)
 
     Returns:
         Formatted label string
@@ -129,24 +138,13 @@ def _format_legend_label(key: str, value: str, config: Dict, dt: float = 1.0) ->
             if translated_name and translated_name != check_val:
                 return translated_name
 
-    # Timestep parameters that should be converted to ms
-    timestep_params = ["tsteps", "idle"]
-    # Numerical parameters that are already in ms
-    ms_params = ["tau", "trc", "tsk", "lossrt"]
-
-    if key.lower() in timestep_params:
+    if is_ms_parameter(key):
+        return format_parameter_value(value, key)
+    if is_legacy_step_key(key.lower()):
         try:
-            timestep_value = int(float(value))
-            ms_value = timestep_value * dt
-            return f"{ms_value:.0f} ms"
+            return f"{int(float(value))} steps"
         except (ValueError, TypeError):
-            return f"{value} ms"
-    elif key.lower() in ms_params:
-        try:
-            numeric_value = int(float(value))
-            return f"{numeric_value} ms"
-        except (ValueError, TypeError):
-            return f"{value} ms"
+            return f"{value} steps"
 
     # For other parameters, check if boolean
     if str(value).lower() in ["true", "false"]:
@@ -578,8 +576,6 @@ def _plot_accuracy_panel(
     hue_key: str,
     hue_values: List[str],
     colors: Dict[str, str],
-    dt: float,
-    time_offset: float = 0.0,
     show_ylabel: bool = True,
     show_legend: bool = True,
     accuracy_cols: List[str] = None,
@@ -595,7 +591,6 @@ def _plot_accuracy_panel(
         hue_key: Column name for hue variable
         hue_values: Ordered list of hue values
         colors: Color mapping for hue values
-        dt: Temporal resolution in ms
         show_ylabel: Whether to show y-axis label
         show_legend: Whether to show line style legend
         accuracy_cols: Column names for accuracy metrics
@@ -610,9 +605,8 @@ def _plot_accuracy_panel(
     confidence_linestyles = [":", (0, (3, 2)), (0, (1, 2))]
     greyscale_color = fmt.get("greyscale_color", "#5a5a5a")
 
-    # Create time in ms
+    require_time_ms(data)
     data_plot = data.copy()
-    data_plot["time_ms"] = data_plot["times_index"] * dt + time_offset
 
     # Ensure hue column is standardized to match hue_values
     has_hue_column = hue_key in data_plot.columns
@@ -835,9 +829,8 @@ def _plot_accuracy_panel(
             ax.get_ylim(),
             0.17,
         )
-        indicator_time = label_indicator_df["times_index"] * dt + time_offset
         ax.plot(
-            indicator_time,
+            label_indicator_df[TIME_MS],
             label_indicator_df["label_indicator"],
             color="dimgray",
             linewidth=fmt["linewidth_indicator"],
@@ -886,46 +879,60 @@ def _normalize_trace(
     response_col: str,
     normalize: Union[str, bool],
     group_col: Optional[str] = None,
+    reference: Optional[pd.DataFrame] = None,
+    trace_cols: Tuple[str, ...] = (),
 ) -> pd.DataFrame:
-    """Normalize a response column per trace (group).
+    """Scale a response column by one factor per group (model).
+
+    With ``normalize='max'``, every group of ``group_col`` (the hue, i.e. the
+    model) is divided by the largest value its plotted mean trace reaches in
+    ``reference``. Passing all ridges of a figure as ``reference`` gives one
+    scale per model across all parameter values. Dividing each ridge by its own
+    maximum instead made the height of the first pulse depend on what followed
+    it: an interval ridge whose second pulse peaks higher shrank its first.
 
     Args:
         data: DataFrame with response data
         response_col: Column name to normalize
-        normalize: Normalization mode. Use 'max' to divide each trace by its
-            maximum value. False or None disables normalization.
-        group_col: Column to group by so each group is normalized independently.
-            When None, the entire column is normalized as one trace.
+        normalize: Normalization mode. Use 'max' to divide by the maximum of
+            the mean trace. False or None disables normalization.
+        group_col: Column to group by so each group gets its own scale. When
+            None, the entire column shares one scale.
+        reference: Rows the scale is taken from; defaults to ``data``.
+        trace_cols: Columns that separate the traces within a group in
+            ``reference`` (e.g. the ridge's parameter). The mean is taken per
+            trace and time before the maximum.
 
     Returns:
         DataFrame with normalized response column (copy).
     """
     if not normalize or response_col not in data.columns:
         return data
+    if normalize != "max":
+        logger.warning("Unknown normalization mode '%s'; skipping", normalize)
+        return data
+
+    reference = data if reference is None else reference
+    time_col = TIME_MS if TIME_MS in reference.columns else "times_index"
+    use_group = bool(group_col) and group_col in data.columns
+    keys = [c for c in trace_cols if c in reference.columns and c != group_col]
+    if use_group:
+        keys = [group_col] + keys
+    # Normalize by the max of the per-time mean so the plotted (mean) trace
+    # peaks at 1. Dividing by the raw max would yield peaks well below 1
+    # because individual trial values exceed the mean.
+    means = reference.groupby(keys + [time_col], observed=True)[response_col].mean()
+    if use_group:
+        scales = means.groupby(level=0, observed=True).max()
+    else:
+        scales = pd.Series({None: means.max()})
 
     result = data.copy()
-
-    if normalize == "max":
-        # Normalize by the max of the per-timestep mean so the plotted
-        # (mean) trace peaks at 1. Dividing by the raw max would yield
-        # peaks well below 1 because individual trial values exceed the mean.
-        if group_col and group_col in result.columns:
-            for group_val in result[group_col].unique():
-                mask = result[group_col] == group_val
-                group_mean_max = (
-                    result.loc[mask].groupby("times_index")[response_col].mean().max()
-                )
-                if pd.notna(group_mean_max) and group_mean_max != 0:
-                    result.loc[mask, response_col] = (
-                        result.loc[mask, response_col] / group_mean_max
-                    )
-        else:
-            col_mean_max = result.groupby("times_index")[response_col].mean().max()
-            if pd.notna(col_mean_max) and col_mean_max != 0:
-                result[response_col] = result[response_col] / col_mean_max
-    else:
-        logger.warning("Unknown normalization mode '%s'; skipping", normalize)
-
+    for group_val, scale in scales.items():
+        if pd.isna(scale) or scale == 0:
+            continue
+        mask = result[group_col] == group_val if use_group else slice(None)
+        result.loc[mask, response_col] = result.loc[mask, response_col] / scale
     return result
 
 
@@ -941,8 +948,6 @@ def _plot_response_ridges(
     hue_key: str,
     hue_values: List[str],
     colors: Dict[str, str],
-    dt: float,
-    time_offset: float = 0.0,
     show_ylabel: bool = True,
     response_layer: Optional[str] = None,
     config: Dict = None,
@@ -968,9 +973,10 @@ def _plot_response_ridges(
             plotted response when the layer is pinned by the column (or hue)
             dimension. Overrides the ``focus_layer`` kwarg, which expresses the
             same thing for the dynamics module.
-        dt: Temporal resolution in ms
         show_ylabel: Whether to show y-axis label
         config: Configuration dict
+        normalize: 'max' scales each hue (model) by one factor across all
+            ridges, see :func:`_normalize_trace`.
         **kwargs: Override FORMATTING and LAYOUT defaults
 
     Returns:
@@ -994,8 +1000,8 @@ def _plot_response_ridges(
     plot_height = layout["ridge_height"] / n_subplots * 1.4
 
     # Prepare data
+    require_time_ms(data)
     data_plot = data.copy()
-    data_plot["time_ms"] = data_plot["times_index"] * dt + time_offset
 
     # Ensure categorical columns are standardized to match dimension values
     if hue_key in data_plot.columns and hue_key != "layers":
@@ -1067,6 +1073,7 @@ def _plot_response_ridges(
                 response_col,
                 normalize,
                 hue_key if hue_var != "layers" else None,
+                reference=data_plot,
             )
             sns.lineplot(
                 data=plot_data,
@@ -1100,6 +1107,7 @@ def _plot_response_ridges(
                 response_col,
                 normalize,
                 hue_key if not _is_special_dimension(hue_var) else None,
+                reference=data_plot,
             )
             sns.lineplot(
                 data=plot_data,
@@ -1145,7 +1153,12 @@ def _plot_response_ridges(
                 response_col = f"{focus_layer}_response_avg"
                 if response_col in plot_data.columns:
                     norm_data = _normalize_trace(
-                        plot_data, response_col, normalize, hue_key
+                        plot_data,
+                        response_col,
+                        normalize,
+                        hue_key,
+                        reference=data_plot,
+                        trace_cols=(subplot_key,),
                     )
                     sns.lineplot(
                         data=norm_data,
@@ -1171,7 +1184,13 @@ def _plot_response_ridges(
                 for hue_val in hue_values:
                     response_col = f"{hue_val}_response_avg"
                     if response_col in plot_data.columns:
-                        hue_data = _normalize_trace(plot_data, response_col, normalize)
+                        hue_data = _normalize_trace(
+                            plot_data,
+                            response_col,
+                            normalize,
+                            reference=data_plot,
+                            trace_cols=(subplot_key,),
+                        )
                         sns.lineplot(
                             data=hue_data,
                             x="time_ms",
@@ -1192,7 +1211,13 @@ def _plot_response_ridges(
                 for hue_val in hue_values:
                     response_col = hue_val
                     if response_col in plot_data.columns:
-                        hue_data = _normalize_trace(plot_data, response_col, normalize)
+                        hue_data = _normalize_trace(
+                            plot_data,
+                            response_col,
+                            normalize,
+                            reference=data_plot,
+                            trace_cols=(subplot_key,),
+                        )
                         sns.lineplot(
                             data=hue_data,
                             x="time_ms",
@@ -1216,7 +1241,7 @@ def _plot_response_ridges(
 
             # Add parameter label with unit formatting
             display_name = get_display_name(subplot_key, config)
-            formatted_value = format_parameter_value(subplot_value, subplot_key, dt)
+            formatted_value = format_parameter_value(subplot_value, subplot_key)
             label_text = f"{display_name}={formatted_value}"
             ax.text(
                 0.95,
@@ -1254,9 +1279,8 @@ def _plot_response_ridges(
                 (0, global_ymax),
                 0.15,
             )
-            indicator_time = label_indicator_df["times_index"] * dt + time_offset
             ax.plot(
-                indicator_time,
+                label_indicator_df[TIME_MS],
                 label_indicator_df["label_indicator"],
                 color="dimgray",
                 linewidth=fmt["linewidth_indicator"],
@@ -1336,7 +1360,6 @@ def _add_horizontal_legend(
     colors: Dict[str, str],
     config: Dict,
     legend_bot: float = None,
-    dt: float = 2.0,
     max_elements: int = 7,
     **kwargs,
 ) -> None:
@@ -1351,7 +1374,6 @@ def _add_horizontal_legend(
         hue_values: Ordered list of hue values (already ordered by config if available)
         colors: Color mapping for hue values
         config: Configuration dict with naming mappings
-        dt: Temporal resolution in ms per timestep
         **kwargs: Override FORMATTING and LAYOUT defaults
     """
     layout = {**LAYOUT, **{k: v for k, v in kwargs.items() if k in LAYOUT}}
@@ -1397,7 +1419,7 @@ def _add_horizontal_legend(
             elif hue_var == "classifier_topk":
                 label = _format_classifier_label(val)
             else:
-                label = _format_legend_label(hue_key, val, config, dt)
+                label = _format_legend_label(hue_key, val, config)
             legend_labels.append(label)
 
     if legend_elements:
@@ -1517,8 +1539,6 @@ def plot_temporal_ridge_responses(
     experiment: Optional[str] = None,
     confidence_measure: Optional[Union[str, List[str]]] = "first_label_confidence",
     accuracy_measure: Optional[Union[str, List[str]]] = "accuracy",
-    dt: float = 2.0,
-    time_offset: float = 0.0,
     config: Optional[Dict] = None,
     panel_labels: bool = False,
     **kwargs,
@@ -1526,7 +1546,10 @@ def plot_temporal_ridge_responses(
     """Plot temporal ridge responses with flexible dimension mapping.
 
     Args:
-        data: Path to test_data.csv, list of paths to multiple test_data.csv files, or DataFrame
+        data: Path to test_data.csv, list of paths to multiple test_data.csv
+            files, or DataFrame. Time comes from the data: each file gets its
+            ``dt`` and ``time_ms`` from ``ensure_time_base`` (t = 0 is the end
+            of the idle period).
         output: Path to save figure
         subplot_var: Variable for vertical subplots (ridge plots). Accepts
             'layers', 'category', 'parameter', 'classifier_topk', 'classifier_top{N}',
@@ -1544,7 +1567,6 @@ def plot_temporal_ridge_responses(
         parameter_key: Column name for parameter (e.g., 'duration', 'contrast')
         confidence_measure: Column name or list of names for confidence metrics
         accuracy_measure: Column name or list of names for accuracy metrics
-        dt: Temporal resolution in ms per timestep
         config: Configuration dict with palette, naming, ordering
         panel_labels: If True, add panel labels (A/B for rows, I/II/III for columns)
         **kwargs: Override LAYOUT and FORMATTING defaults
@@ -1620,30 +1642,20 @@ def plot_temporal_ridge_responses(
         confidence_measures if confidence_measures else "[none]",
     )
 
-    # Load data
-    if isinstance(data, list):
-        logger.info(f"Loading and concatenating data from {len(data)} files")
-        dfs = []
-        for i, path in enumerate(data):
-            logger.info(f"  Loading file {i+1}/{len(data)}: {path}")
-            df_temp = pd.read_csv(path)
-            logger.debug(
-                f"  Loaded {len(df_temp)} rows, {len(df_temp.columns)} columns"
-            )
-            dfs.append(df_temp)
-        df = pd.concat(dfs, ignore_index=True)
-        logger.info(f"Concatenated total: {len(df)} rows, {len(df.columns)} columns")
-        logger.debug(f"Columns: {list(df.columns)}")
-    elif isinstance(data, Path):
-        logger.info(f"Loading data from: {data}")
-        df = pd.read_csv(data)
-        logger.info(f"Loaded {len(df)} rows, {len(df.columns)} columns")
-        logger.debug(f"Columns: {list(df.columns)}")
-    else:
-        df = data.copy()
+    # Load data; every table gets its time base (dt, time_ms) on the way in
+    if isinstance(data, pd.DataFrame):
+        df = data if TIME_MS in data.columns else ensure_time_base(data)
         logger.info(
             f"Using provided DataFrame with {len(df)} rows, {len(df.columns)} columns"
         )
+    else:
+        df = load_result_data(data)
+        logger.info(f"Loaded {len(df)} rows, {len(df.columns)} columns")
+    logger.debug(f"Columns: {list(df.columns)}")
+
+    # Legacy step parameters are plotted by their millisecond columns
+    category_key = ms_parameter_key(df, category_key)
+    parameter_key = ms_parameter_key(df, parameter_key)
 
     # Get dimension keys
     logger.info("Determining dimension keys...")
@@ -1829,8 +1841,6 @@ def plot_temporal_ridge_responses(
             hue_key=hue_key,
             hue_values=hue_values,
             colors=colors,
-            dt=dt,
-            time_offset=time_offset,
             show_ylabel=(col_idx == 0),
             show_legend=(col_idx == 0),
             accuracy_cols=accuracy_measures,
@@ -1853,8 +1863,6 @@ def plot_temporal_ridge_responses(
             hue_values=hue_values,
             colors=colors,
             response_layer=column_layer,
-            dt=dt,
-            time_offset=time_offset,
             show_ylabel=(col_idx == 0),
             config=config,
             **kwargs,
@@ -1872,7 +1880,6 @@ def plot_temporal_ridge_responses(
             hue_values=hue_values,
             colors=colors,
             config=config,
-            dt=dt,
             **kwargs,
         )
 
@@ -1991,13 +1998,6 @@ def main():
             "Accuracy measure column name or list (comma-separated or Python literal list)"
         ),
     )
-    parser.add_argument("--dt", type=float, default=2.0, help="Time resolution (ms)")
-    parser.add_argument(
-        "--idle-timesteps",
-        type=int,
-        default=0,
-        help="Number of idle timesteps before recorded data (shifts time axis)",
-    )
     parser.add_argument("--palette", type=str, help="JSON color palette")
     parser.add_argument("--naming", type=str, help="JSON naming dict")
     parser.add_argument("--ordering", type=str, help="JSON ordering dict")
@@ -2038,7 +2038,6 @@ def main():
     data_input = args.data if len(args.data) > 1 else args.data[0]
 
     # Plot
-    time_offset = args.idle_timesteps * args.dt
     plot_temporal_ridge_responses(
         data=data_input,
         output=args.output,
@@ -2050,8 +2049,6 @@ def main():
         experiment=args.experiment,
         confidence_measure=args.confidence_measure,
         accuracy_measure=args.accuracy_measure,
-        dt=args.dt,
-        time_offset=time_offset,
         config=config,
         panel_labels=args.panel_labels,
     )

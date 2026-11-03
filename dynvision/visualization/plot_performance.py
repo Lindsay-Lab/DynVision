@@ -42,10 +42,14 @@ from dynvision.utils.visualization_utils import (  # noqa: F401
     get_display_name,
     get_ordering,
     load_config_from_args,
+    load_result_data,
+    ms_parameter_key,
     order_layers,
+    require_time_ms,
     resolve_measure_columns,
     save_plot,
 )
+from dynvision.processing.time_base import TIME_MS
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -173,8 +177,6 @@ def _plot_accuracy_panel_with_ffonly(
     hue_key: str,
     hue_values: List[str],
     colors: Dict[str, str],
-    dt: float,
-    time_offset: float = 0.0,
     show_ylabel: bool = True,
     show_legend: bool = True,
     accuracy_cols: Optional[List[str]] = None,
@@ -199,12 +201,8 @@ def _plot_accuracy_panel_with_ffonly(
 
     ax.patch.set_alpha(0)
 
-    # Create time in ms
+    require_time_ms(data)
     data_plot = data.copy()
-    if "times_index" not in data_plot.columns:
-        logger.warning("Missing 'times_index' column; cannot plot performance panel")
-        return
-    data_plot["time_ms"] = data_plot["times_index"] * dt + time_offset
 
     if hue_key in data_plot.columns:
         data_plot[hue_key] = data_plot[hue_key].apply(_standardize_category_value)
@@ -626,7 +624,6 @@ def _plot_peak_height_panel(
     hue_values: List[str],
     colors: Dict[str, str],
     config: Dict,
-    dt: float,
     show_ylabel: bool = False,
     show_legend: bool = True,
     accuracy_cols: Optional[List[str]] = None,
@@ -1097,7 +1094,7 @@ def _plot_peak_height_panel(
     except (ValueError, TypeError):
         ax.set_xticks(range(len(subplot_values)))
         ax.set_xticklabels(
-            [_format_legend_label(subplot_key, v, config, dt) for v in subplot_values],
+            [_format_legend_label(subplot_key, v, config) for v in subplot_values],
             rotation=45,
             ha="right",
         )
@@ -1178,7 +1175,6 @@ def _plot_peak_time_panel(
     hue_values: List[str],
     colors: Dict[str, str],
     config: Dict,
-    dt: float,
     show_ylabel: bool = False,
     show_legend: bool = True,
     accuracy_cols: Optional[List[str]] = None,
@@ -1265,18 +1261,18 @@ def _plot_peak_time_panel(
     confidence_plot_data: List[Dict[str, Union[float, str]]] = []
 
     def _compute_peak_time(subset: pd.DataFrame, column: str) -> Optional[float]:
-        if column not in subset.columns or "times_index" not in subset.columns:
+        if column not in subset.columns or TIME_MS not in subset.columns:
             return None
-        valid_subset = subset.dropna(subset=[column, "times_index"])
+        valid_subset = subset.dropna(subset=[column, TIME_MS])
         if valid_subset.empty:
             return None
-        grouped = valid_subset.groupby("times_index")[column].mean()
+        grouped = valid_subset.groupby(TIME_MS)[column].mean()
         if grouped.empty or grouped.isna().all():
             return None
-        peak_index = grouped.idxmax()
-        if peak_index is None or not np.isfinite(peak_index):
+        peak_ms = grouped.idxmax()
+        if peak_ms is None or not np.isfinite(peak_ms):
             return None
-        return float(peak_index) * dt
+        return float(peak_ms)
 
     accuracy_label = (
         _format_measure_label(primary_accuracy, "Accuracy")
@@ -1399,7 +1395,7 @@ def _plot_peak_time_panel(
     except (ValueError, TypeError):
         ax.set_xticks(range(len(subplot_values)))
         ax.set_xticklabels(
-            [_format_legend_label(subplot_key, v, config, dt) for v in subplot_values],
+            [_format_legend_label(subplot_key, v, config) for v in subplot_values],
             rotation=45,
             ha="right",
         )
@@ -1513,7 +1509,6 @@ def _add_hue_legend(
     hue_values: List[str],
     colors: Dict[str, str],
     config: Dict,
-    dt: float,
     show_without_recurrence: bool = False,
 ) -> None:
     """Add hue legend to the right of accuracy/confidence legend.
@@ -1534,7 +1529,7 @@ def _add_hue_legend(
     legend_elements = []
     for hue_val in hue_values:
         color = colors.get(hue_val, "#000000")
-        label = _format_legend_label(hue_key, hue_val, config, dt)
+        label = _format_legend_label(hue_key, hue_val, config)
         legend_elements.append(
             plt.Line2D(
                 [0],
@@ -1593,8 +1588,6 @@ def plot_performance_grid(
     data_ffonly_paths: Optional[List[Path]] = None,
     confidence_measure: Optional[Union[str, List[str]]] = "first_label_confidence",
     accuracy_measure: Optional[Union[str, List[str]]] = "accuracy",
-    dt: float = 2.0,
-    time_offset: float = 0.0,
     config: Optional[Dict] = None,
     subplot_filter: Optional[List[str]] = None,
     plot_individual_seeds: bool = False,
@@ -1692,7 +1685,7 @@ def plot_performance_grid(
 
     for i, data_path in enumerate(data_paths):
         logger.info(f"Loading full model file {i+1}/{len(data_paths)}: {data_path}")
-        df = pd.read_csv(data_path)
+        df = load_result_data(data_path)
 
         # Add experiment identifier
         if use_experiment_dimension:
@@ -1755,7 +1748,7 @@ def plot_performance_grid(
                     len(valid_ffonly_paths),
                     data_path,
                 )
-                df = pd.read_csv(data_path)
+                df = load_result_data(data_path)
 
                 df["experiment"] = experiment_name
                 df["model_type"] = "ffonly"  # Mark as feedforward-only model
@@ -1779,6 +1772,10 @@ def plot_performance_grid(
     # Combine all data
     df = pd.concat(combined_data, ignore_index=True)
     logger.info(f"Combined data: {len(df)} rows, {len(df.columns)} columns")
+
+    # Legacy step parameters are plotted by their millisecond columns
+    category_key = ms_parameter_key(df, category_key)
+    parameter_key = ms_parameter_key(df, parameter_key)
 
     # Get dimension keys
     subplot_key = _get_dimension_key(
@@ -2018,8 +2015,6 @@ def plot_performance_grid(
                 hue_key=hue_key,
                 hue_values=hue_values,
                 colors=colors,
-                dt=dt,
-                time_offset=time_offset,
                 show_ylabel=(col_idx == 0),
                 show_legend=(
                     row_idx == 0 and col_idx == 0
@@ -2035,7 +2030,7 @@ def plot_performance_grid(
             if row_idx == 0:
                 title_text = get_display_name(subplot_key, config)
                 title_text += " = " + _format_legend_label(
-                    subplot_key, subplot_value, config, dt
+                    subplot_key, subplot_value, config
                 )
                 ax.set_title(title_text, fontsize=FORMATTING["fontsize_axis"], pad=10)
 
@@ -2084,7 +2079,6 @@ def plot_performance_grid(
             hue_values=hue_values,
             colors=colors,
             config=config,
-            dt=dt,
             show_ylabel=(row_idx == 0),  # Only show ylabel on first row
             show_legend=(row_idx == 0),
             accuracy_cols=accuracy_measures,
@@ -2110,7 +2104,6 @@ def plot_performance_grid(
             hue_values=hue_values,
             colors=colors,
             config=config,
-            dt=dt,
             show_ylabel=(row_idx == 0),  # Only show ylabel on first row
             show_legend=(row_idx == 0),
             accuracy_cols=accuracy_measures,
@@ -2184,7 +2177,6 @@ def plot_performance_grid(
         hue_values=hue_values,
         colors=colors,
         config=config,
-        dt=dt,
     )
 
     # Add panel letters after all plotting is complete but before saving
@@ -2269,13 +2261,6 @@ def main():
         default="accuracy",
         help="Accuracy measure column name or list (comma-separated or Python literal list)",
     )
-    parser.add_argument("--dt", type=float, default=2.0, help="Time resolution (ms)")
-    parser.add_argument(
-        "--idle-timesteps",
-        type=int,
-        default=0,
-        help="Number of idle timesteps before recorded data (shifts time axis)",
-    )
     parser.add_argument("--palette", type=str, help="JSON color palette")
     parser.add_argument("--naming", type=str, help="JSON naming dict")
     parser.add_argument("--ordering", type=str, help="JSON ordering dict")
@@ -2292,9 +2277,6 @@ def main():
     )
 
     args = parser.parse_args()
-
-    # Compute time offset from idle timesteps
-    time_offset = args.idle_timesteps * args.dt
 
     # Load config
     config = load_config_from_args(
@@ -2316,8 +2298,6 @@ def main():
         data_ffonly_paths=args.data_ffonly,
         confidence_measure=args.confidence_measure,
         accuracy_measure=args.accuracy_measure,
-        dt=args.dt,
-        time_offset=time_offset,
         config=config,
         subplot_filter=args.subplot_filter,
         plot_individual_seeds=args.plot_individual_seeds,

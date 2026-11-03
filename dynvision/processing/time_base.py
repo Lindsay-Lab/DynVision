@@ -230,11 +230,14 @@ def add_ms_columns(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _dt_from_path(source_path: Optional[Union[str, Path]]) -> Optional[float]:
+def dt_from_path(source_path: Optional[Union[str, Path]]) -> Optional[float]:
+    """Return the ``dt`` named by a ``dt=`` key in a path, or None."""
     if source_path is None:
         return None
     try:
-        return float(extract_param_from_string(str(source_path), key=DT, value_type=float))
+        return float(
+            extract_param_from_string(str(source_path), key=DT, value_type=float)
+        )
     except ValueError:
         return None
 
@@ -301,7 +304,7 @@ def ensure_time_base(
     elif dt is not None:
         dt_values = float(dt)
     else:
-        dt_values = _dt_from_path(source_path)
+        dt_values = dt_from_path(source_path)
         if dt_values is None:
             raise ValueError(
                 f"Cannot determine dt for {source_path or 'the result table'}: no "
@@ -341,6 +344,7 @@ __all__ = [
     "add_time_base",
     "config_parameter",
     "config_time_base",
+    "dt_from_path",
     "ensure_time_base",
     "load_resolved_config",
 ]

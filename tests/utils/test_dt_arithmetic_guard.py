@@ -45,27 +45,7 @@ EXEMPT_SITES: frozenset[str] = frozenset(
 )
 
 #: Conversion sites that predate the rule. Remove entries as they are fixed.
-ALLOWLIST: frozenset[str] = frozenset(
-    {
-        "dynvision/utils/visualization_utils.py::format_parameter_value",
-        "dynvision/visualization/plot_dynamics.py::create_panel_a",
-        "dynvision/visualization/plot_dynamics.py::create_panel_b",
-        "dynvision/visualization/plot_dynamics.py::create_panel_d",
-        "dynvision/visualization/plot_dynamics.py::plot_unified_dynamics",
-        "dynvision/visualization/plot_performance.py::_plot_accuracy_panel_with_ffonly",
-        "dynvision/visualization/plot_performance.py::_plot_peak_time_panel._compute_peak_time",
-        "dynvision/visualization/plot_performance.py::main",
-        "dynvision/visualization/plot_response_tripytch.py::main",
-        "dynvision/visualization/plot_responses.py::_format_legend_label",
-        "dynvision/visualization/plot_responses.py::_plot_accuracy_panel",
-        "dynvision/visualization/plot_responses.py::_plot_response_ridges",
-        "dynvision/visualization/plot_responses.py::main",
-        "dynvision/visualization/plot_training.py::main",
-        "dynvision/visualization/plot_training.py::plot_training_overview",
-        "dynvision/visualization/plot_unrolling.py::<module>",
-        "dynvision/visualization/plot_unrolling.py::plot_unrolling",
-    }
-)
+ALLOWLIST: frozenset[str] = frozenset()
 
 _ARITHMETIC = (ast.Div, ast.Mult, ast.FloorDiv, ast.Mod)
 

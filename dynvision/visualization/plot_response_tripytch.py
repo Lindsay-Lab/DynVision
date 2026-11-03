@@ -16,7 +16,9 @@ import seaborn as sns
 from dynvision.utils.visualization_utils import (
     save_plot,
     load_config_from_args,
+    load_result_data,
     get_display_name,
+    ms_parameter_key,
 )
 from dynvision.visualization.plot_responses import (  # noqa: F401
     plot_temporal_ridge_responses,
@@ -103,7 +105,10 @@ def _get_title_and_symbol(
         "rctype": "Recurrence Type",
         "lossrt": "Loss Reaction Time",
         "tsteps": "Training Timesteps",
+        "tsim": "Training Window",
         "idle": "Initial Idle Time",
+        "tidle": "Initial Idle Time",
+        "dt": "Integration Step",
         "feedback": "Feedback Connections",
         "skip": "Skip Connections",
         "seed": "Random Seed",
@@ -117,7 +122,10 @@ def _get_title_and_symbol(
         "tsk": r"$\Delta_{SK}$",
         "lossrt": r"$t_{loss}$",
         "tsteps": r"$T$",
+        "tsim": r"$T$",
         "idle": r"$t_{idle}$",
+        "tidle": r"$t_{idle}$",
+        "dt": r"$\Delta t$",
     }
 
     # Get descriptive name
@@ -446,7 +454,6 @@ def create_triptych_plot(
     data_paths: List[Path],
     category_list: List[str],
     parameter_key: str,
-    dt: float,
     accuracy_paths: Optional[List[Path]] = None,
     experiment: Optional[str] = None,
     config: Optional[Dict] = None,
@@ -454,7 +461,6 @@ def create_triptych_plot(
     confidence_measure: str = "first_label_confidence",
     max_epoch: Optional[float] = None,
     default_category_values: Optional[List[str]] = None,
-    time_offset: float = 0.0,
 ) -> plt.Figure:
     """Create a triptych plot using plot_responses.py functionality.
 
@@ -462,7 +468,6 @@ def create_triptych_plot(
         data_paths: List of paths to response data files (one per column)
         category_list: List of category keys (one per column)
         parameter_key: Parameter name for ridge subplots
-        dt: Temporal resolution in ms per timestep
         accuracy_paths: Optional list of paths to training accuracy files
         experiment: Optional experiment name for panel labels
         config: Optional configuration dict with palette, naming, ordering
@@ -471,7 +476,9 @@ def create_triptych_plot(
         max_epoch: Maximum epoch to display in accuracy panels (None for no limit)
         default_category_values: Default values for each category (matching category_list order).
             Legend entries matching these values will be marked with an asterisk (*).
-        time_offset: Time offset in ms to shift the time axis (default: 0.0).
+
+    Time comes from the data: every file gets ``dt`` and ``time_ms`` from
+    ``ensure_time_base`` (t = 0 is the end of the idle period).
     """
 
     logger.info("=" * 60)
@@ -510,24 +517,22 @@ def create_triptych_plot(
                 if isinstance(data_path, list):
                     # Load and concatenate multiple files
                     logger.info(f"Loading and concatenating {len(data_path)} files")
-                    dfs = []
-                    for i, path in enumerate(data_path):
-                        if path and path.exists():
-                            logger.info(
-                                f"  Loading file {i+1}/{len(data_path)}: {path}"
-                            )
-                            dfs.append(pd.read_csv(path))
-                    if dfs:
-                        df = pd.concat(dfs, ignore_index=True)
+                    existing = [path for path in data_path if path and path.exists()]
+                    if existing:
+                        df = load_result_data(existing)
                         logger.info(f"Concatenated total: {len(df)} rows")
                 elif data_path.exists():
                     # Single file
-                    df = pd.read_csv(data_path)
+                    df = load_result_data(data_path)
                     logger.info(f"Loaded {len(df)} rows from {data_path}")
 
                 if df is not None:
+                    # Legacy step parameters are plotted by their ms columns
+                    category_key = ms_parameter_key(df, category_key)
                     # Filter to first parameter value only
-                    df = _filter_first_parameter_value(df, parameter_key)
+                    df = _filter_first_parameter_value(
+                        df, ms_parameter_key(df, parameter_key)
+                    )
 
                     # Standardize category values in the dataframe to match dimension extraction
                     # Use special standardization for seed to avoid float conversion
@@ -708,12 +713,10 @@ def create_triptych_plot(
             hue_key=category_key,
             hue_values=hue_values,
             colors=colors,
-            dt=dt,
             show_ylabel=(col_idx == 0),
             show_legend=(col_idx == 0),
             accuracy_cols=[accuracy_measure],
             confidence_cols=[confidence_measure],
-            time_offset=time_offset,
         )
         performance_ax.set_ylim(-0.005, 1)
 
@@ -747,7 +750,7 @@ def create_triptych_plot(
                     formatted_label = _format_seed_value(val)
                 else:
                     formatted_label = _format_legend_label(
-                        category_key, val, config or {}, dt
+                        category_key, val, config or {}
                     )
                 # Add asterisk if this value matches the default
                 # Both val and default_val are standardized, so compare directly
@@ -828,7 +831,6 @@ def create_triptych_plot(
                     hue_key=category_key,
                     hue_values=hue_values,
                     colors=colors,
-                    dt=dt,
                     show_ylabel=(col_idx == 0),
                     config=config or {},
                     # Override LAYOUT values for our custom positioning
@@ -839,7 +841,6 @@ def create_triptych_plot(
                     accuracy_pad=0,
                     legend_height=0,  # No legend in ridge section
                     legend_pad=0,
-                    time_offset=time_offset,
                 )
 
                 all_ridge_axes.extend(ridge_axes)
@@ -929,18 +930,6 @@ def main():
         type=str,
         required=True,
         help="Categories to plot (space-separated)",
-    )
-    parser.add_argument(
-        "--dt",
-        type=float,
-        required=True,
-        help="Temporal resolution in ms per timestep",
-    )
-    parser.add_argument(
-        "--idle-timesteps",
-        type=int,
-        default=0,
-        help="Number of idle timesteps before recorded data (shifts time axis)",
     )
     parser.add_argument("--experiment", type=str, help="Experiment name for title")
     parser.add_argument(
@@ -1038,17 +1027,9 @@ def main():
     if not valid_data_paths:
         raise ValueError("No valid data files found")
 
-    # Compute time offset from idle timesteps
-    time_offset = args.idle_timesteps * args.dt
-
     logger.info(f"Processing {len(valid_data_paths)} data file groups")
     logger.info(f"Categories: {category_list}")
     logger.info(f"Parameter: {args.parameter}")
-    logger.info(f"Temporal resolution: {args.dt} ms")
-    if time_offset != 0.0:
-        logger.info(
-            f"Time offset: {time_offset} ms ({args.idle_timesteps} idle timesteps)"
-        )
 
     try:
         # Create the triptych plot
@@ -1056,7 +1037,6 @@ def main():
             data_paths=data_paths,
             category_list=category_list,
             parameter_key=args.parameter,
-            dt=args.dt,
             accuracy_paths=accuracy_paths,
             experiment=args.experiment,
             config=config,
@@ -1068,7 +1048,6 @@ def main():
                 if args.default_category_values
                 else None
             ),
-            time_offset=time_offset,
         )
 
         # Save the plot
