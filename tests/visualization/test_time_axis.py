@@ -23,6 +23,7 @@ from dynvision.processing.time_base import ensure_time_base  # noqa: E402
 from dynvision.utils.visualization_utils import (  # noqa: E402
     calculate_label_indicator,
     format_parameter_value,
+    stimulus_indicators,
     load_result_data,
     ms_parameter_key,
     require_time_ms,
@@ -137,6 +138,53 @@ def test_label_indicator_runs_on_time_ms():
     indicator = calculate_label_indicator(df, "rctype", (0.0, 1.0), 0.25)
     assert list(indicator.columns) == ["time_ms", "label_indicator"]
     assert indicator["time_ms"].tolist() == [2.0 * (k + 1) for k in range(8)]
+
+
+def _stimulus_table(dt: float, stim_ms: float, n_steps: int) -> pd.DataFrame:
+    """One model at ``dt``: stimulus on for the first ``stim_ms``."""
+    table = _legacy_table(n_steps)
+    table["label_valid"] = (table["times_index"] + 1) * dt <= stim_ms
+    table["dt_model"] = str(dt)
+    return ensure_time_base(table, dt=dt)
+
+
+def test_stimulus_indicator_shared_by_models_of_one_protocol():
+    """dt 1 and 2 with a 10 ms stimulus: one indicator on the 1 ms grid from t = 0."""
+    df = pd.concat([_stimulus_table(1.0, 10, 40), _stimulus_table(2.0, 10, 20)])
+    indicators = stimulus_indicators(df, "dt_model", (0.0, 1.0), 0.25)
+    assert len(indicators) == 1
+    hue, indicator = indicators[0]
+    assert hue is None
+    assert indicator["time_ms"].tolist() == [0.0] + [float(t) for t in range(1, 41)]
+    on = indicator.loc[indicator["label_indicator"] > 0, "time_ms"]
+    assert (on.min(), on.max()) == (0.0, 10.0)
+
+
+def test_stimulus_indicator_per_model_when_protocols_differ():
+    """A legacy 5-step stimulus is 5 ms at dt=1 and 10 ms at dt=2: two indicators."""
+    df = pd.concat([_stimulus_table(1.0, 5, 40), _stimulus_table(2.0, 10, 20)])
+    indicators = dict(stimulus_indicators(df, "dt_model", (0.0, 1.0), 0.25))
+    assert set(indicators) == {"1.0", "2.0"}
+    assert indicators["2.0"]["time_ms"].tolist() == [0.0] + [
+        2.0 * (k + 1) for k in range(20)
+    ]
+
+
+def test_panel_a_value_is_one_every_model_has():
+    """Intervals of 1-10 steps are 0.5-5 ms at dt=0.5 and 2-20 ms at dt=2."""
+    rows = [
+        {"dt": dt, "tinterval": steps * dt}
+        for dt in (0.5, 1.0, 2.0)
+        for steps in (1, 2, 3, 4, 6, 8, 10)
+    ]
+    df = pd.DataFrame(rows)
+    values = pr._extract_dimension_values(df, "parameter", "tinterval", CONFIG)
+    assert pr.shared_middle_value(df, "tinterval", "dt", values) in {"2.0", "4.0"}
+    # Without a category column, the middle of all values
+    assert (
+        pr.shared_middle_value(df, "tinterval", None, values)
+        == values[len(values) // 2]
+    )
 
 
 # --- metrics -----------------------------------------------------------------

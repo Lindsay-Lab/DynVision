@@ -31,7 +31,7 @@ import pandas as pd
 import seaborn as sns
 
 from dynvision.utils.visualization_utils import (
-    calculate_label_indicator,
+    draw_stimulus_indicators,
     get_color,
     get_display_name,
     get_ordering,
@@ -536,6 +536,31 @@ def _extract_dimension_values(
         return values
 
 
+def shared_middle_value(
+    df: pd.DataFrame,
+    parameter: str,
+    category: Optional[str],
+    param_values: List[str],
+) -> str:
+    """Middle of the parameter values that every category value was run with.
+
+    A parameter in ms takes different values per ``dt`` (an interval of 1-10
+    steps is 0.5-5 ms at dt=0.5 and 2-20 ms at dt=2), so the middle of all
+    values may exist for one model only. Falls back to the middle of
+    ``param_values`` when no value is shared or ``category`` is not a column.
+    """
+    shared = list(param_values)
+    if category and category in df.columns and parameter in df.columns:
+        runs = df[[category, parameter]].drop_duplicates()
+        runs = runs.assign(
+            **{parameter: runs[parameter].map(_standardize_category_value)}
+        )
+        per_category = runs.groupby(category, observed=True)[parameter].agg(set)
+        common = set.intersection(*per_category) if len(per_category) else set()
+        shared = [value for value in param_values if value in common] or shared
+    return shared[len(shared) // 2]
+
+
 def _get_colors_for_dimension(
     values: List[str], dimension_key: str, config: Dict
 ) -> Dict[str, str]:
@@ -821,20 +846,16 @@ def _plot_accuracy_panel(
                 fontsize=fmt["fontsize_legend"] - 2,
             )
 
-    # Add label indicator
+    # Add label indicator (one per distinct stimulus protocol among the hues)
     try:
-        label_indicator_df = calculate_label_indicator(
+        draw_stimulus_indicators(
+            ax,
             data,
             hue_key,
             ax.get_ylim(),
             0.17,
-        )
-        ax.plot(
-            label_indicator_df[TIME_MS],
-            label_indicator_df["label_indicator"],
-            color="dimgray",
+            colors=colors,
             linewidth=fmt["linewidth_indicator"],
-            drawstyle="steps-mid",
             alpha=fmt["alpha_indicator"],
         )
     except Exception as e:
@@ -1271,21 +1292,18 @@ def _plot_response_ridges(
         global_xmin = min(global_xmin, xmin)
         global_xmax = max(global_xmax, xmax)
 
-        # Add label indicator
+        # Add label indicator (one per distinct stimulus protocol among the hues)
         try:
-            label_indicator_df = calculate_label_indicator(
+            draw_stimulus_indicators(
+                ax,
                 plot_data,
-                subplot_key if subplot_var != "layers" else hue_key,
+                hue_key,
                 (0, global_ymax),
                 0.15,
-            )
-            ax.plot(
-                label_indicator_df[TIME_MS],
-                label_indicator_df["label_indicator"],
-                color="dimgray",
+                colors=colors,
                 linewidth=fmt["linewidth_indicator"],
-                drawstyle="steps-mid",
                 alpha=fmt["alpha_indicator"],
+                category=subplot_key if subplot_var != "layers" else hue_key,
             )
         except Exception as e:
             logger.debug(

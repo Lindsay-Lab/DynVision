@@ -806,6 +806,104 @@ def calculate_label_indicator(
     return pd.DataFrame(indicator_data)
 
 
+def _on_intervals(indicator: pd.DataFrame, dt: float, y_min: float) -> tuple:
+    """Merged (start, end] intervals in ms during which the indicator is on."""
+    intervals = []
+    for t, value in zip(indicator[time_base.TIME_MS], indicator["label_indicator"]):
+        if value <= y_min:
+            continue
+        start, end = round(t - dt, 9), round(t, 9)
+        if intervals and intervals[-1][1] == start:
+            intervals[-1] = (intervals[-1][0], end)
+        else:
+            intervals.append((start, end))
+    return tuple(intervals)
+
+
+def stimulus_indicators(
+    df: pd.DataFrame,
+    hue_key: Optional[str],
+    y_range: tuple,
+    step_height: float = 0.25,
+    category: Optional[str] = None,
+) -> List[Tuple[Optional[str], pd.DataFrame]]:
+    """Stimulus step functions for one axis, one per distinct protocol.
+
+    Step k is recorded at ``time_ms = (k + 1) * dt`` and covers
+    ``(time_ms - dt, time_ms]``. Each hue's indicator gets a leading point at
+    t = 0, so ``drawstyle="steps-pre"`` draws every step over the interval it
+    integrates. Hues of different ``dt`` have different time grids: pooling
+    them into one indicator drew a comb. Hues whose stimuli cover the same ms
+    intervals share one indicator (returned with hue ``None``, on the finest
+    grid); otherwise each hue gets its own.
+
+    ``category`` is the column whose first value selects the rows of legacy
+    data without ``label_valid`` when ``hue_key`` is not a column (e.g. layer
+    hues); it defaults to ``hue_key``.
+
+    Returns:
+        List of ``(hue_value_or_None, indicator_df)`` with columns ``time_ms``
+        and ``label_indicator``.
+    """
+    require_time_ms(df)
+    y_min = y_range[0]
+
+    def _indicator(rows: pd.DataFrame, key: Optional[str]) -> pd.DataFrame:
+        indicator = calculate_label_indicator(rows, key, y_range, step_height)
+        indicator = indicator.sort_values(time_base.TIME_MS)
+        first = indicator.iloc[[0]].assign(**{time_base.TIME_MS: 0.0})
+        return pd.concat([first, indicator], ignore_index=True)
+
+    if not hue_key or hue_key not in df.columns:
+        return [(None, _indicator(df, category or hue_key))]
+
+    per_hue = []
+    for hue_value, group in df.groupby(hue_key, observed=True, sort=False):
+        if "dt" in group.columns:
+            dt = float(group["dt"].min())
+        else:  # the grid spacing; ensure_time_base always writes dt
+            dt = float(
+                np.diff(np.unique(group[time_base.TIME_MS])).min(initial=np.inf)
+            )
+        indicator = _indicator(group, hue_key)
+        intervals = _on_intervals(indicator.iloc[1:], dt, y_min)
+        # Hue values are keyed as the plots standardize them (see colors)
+        label = str(hue_value).strip()
+        label = label.lower() if label.lower() in ("true", "false") else label
+        per_hue.append((label, dt, indicator, intervals))
+
+    if len({intervals for *_, intervals in per_hue}) == 1:
+        finest = min(per_hue, key=lambda item: item[1])
+        return [(None, finest[2])]
+    return [(hue_value, indicator) for hue_value, _, indicator, _ in per_hue]
+
+
+def draw_stimulus_indicators(
+    ax: plt.Axes,
+    df: pd.DataFrame,
+    hue_key: Optional[str],
+    y_range: tuple,
+    step_height: float,
+    colors: Optional[Dict[str, Any]] = None,
+    linewidth: float = 1.0,
+    alpha: float = 1.0,
+    category: Optional[str] = None,
+) -> None:
+    """Draw :func:`stimulus_indicators` on ``ax``: a shared protocol in gray,
+    differing protocols in their hue's color."""
+    colors = colors or {}
+    indicators = stimulus_indicators(df, hue_key, y_range, step_height, category)
+    for hue_value, indicator in indicators:
+        ax.plot(
+            indicator[time_base.TIME_MS],
+            indicator["label_indicator"],
+            color="dimgray" if hue_value is None else colors.get(hue_value, "dimgray"),
+            linewidth=linewidth,
+            drawstyle="steps-pre",
+            alpha=alpha,
+        )
+
+
 def get_category_plotting_settings(
     category: str, category_values: List, config: Dict
 ) -> Tuple[List, Dict[str, str]]:

@@ -50,6 +50,7 @@ from dynvision.visualization.plot_responses import (  # noqa: F401
     _get_colors_for_dimension,
     _filter_data_for_column,
     _add_layer_circle,
+    shared_middle_value,
     FORMATTING as RESPONSES_FORMATTING,
     LAYOUT as RESPONSES_LAYOUT,
 )
@@ -737,9 +738,8 @@ def plot_unified_dynamics(
     # Get colors using plot_responses function
     colors = _get_colors_for_dimension(hue_values, category, config)
 
-    # Select middle parameter value
-    middle_idx = len(param_values) // 2
-    middle_param_value = param_values[middle_idx]
+    # Select the middle parameter value that every category was run with
+    middle_param_value = shared_middle_value(df, parameter, category, param_values)
     logger.info(f"Using middle parameter value: {middle_param_value}")
 
     # Create figure
