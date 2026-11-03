@@ -746,7 +746,54 @@ class ModelParams(BaseParams):
             if storage_info:
                 logging.info(f"Storage configuration: {', '.join(storage_info)}")
 
+        self._check_storage_caps()
         return self
+
+    def _check_storage_caps(self) -> None:
+        """Reject or warn where a storage setting would cut the test set short.
+
+        A positive ``store_test_records`` keeps the first n record batches and
+        a positive ``store_test_responses`` the first n response batches of the
+        test run. The records carry the predictions, so a records cap makes
+        every metric of the run describe a prefix of the test set rather than
+        the test set; early stopping keyed on a filled buffer ends the
+        evaluation there too. A responses cap leaves the metrics complete but
+        turns the stored activations into a prefix, and runs whose caps differ
+        are then not comparable. ``-1`` stores everything and is the default.
+
+        ``response_resolution: unit`` stores full per-unit tensors, which
+        cannot be kept for every sample; unlimited responses there is rejected
+        rather than allowed to exhaust memory or disk.
+        """
+        if (
+            self.store_test_responses is not None
+            and self.store_test_responses < 0
+            and self.response_resolution == "unit"
+        ):
+            raise DynVisionValidationError(
+                "store_test_responses=-1 (unlimited) with response_resolution='unit' "
+                "would store every per-unit activation of every sample. Use "
+                "response_resolution='layer' (one value per layer, sample and step), "
+                "or cap store_test_responses."
+            )
+
+        for name, batches in (
+            ("store_test_records", self.store_test_records),
+            ("store_test_responses", self.store_test_responses),
+        ):
+            if batches is None or batches <= 0:
+                continue
+            logging.warning(
+                "%s=%d stores only the first %d batches of the test set "
+                "(test_batch_size samples each). %s",
+                name,
+                batches,
+                batches,
+                "Every metric of this run then describes a prefix of the test set."
+                if name == "store_test_records"
+                else "The stored activations then rest on a prefix of the samples, "
+                "which differs from other runs as soon as their caps differ.",
+            )
 
     # ===== COMPUTED PROPERTIES (DERIVED PARAMETERS) =====
 

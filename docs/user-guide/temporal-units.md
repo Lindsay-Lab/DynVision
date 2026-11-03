@@ -197,8 +197,11 @@ store_test_records: -1     # a cap here truncates the evaluated set itself
 response_resolution: layer # keep: "unit" stores full tensors (~10^4 x larger)
 ```
 
-With `store_test_responses` unlimited, `early_test_stop` never triggers (it
-needs a finite buffer). A positive cap stores the *first* n batches of
+`early_test_stop` ends the *evaluation* when both buffers are full, so it is
+only active when both caps are positive; an unlimited buffer is never full.
+That guard was wrong until 2026-11-03: an unlimited records buffer
+(`len(records) >= -1`, always true) counted as full, so a capped response
+buffer still stopped the run early. A positive cap stores the *first* n batches of
 `test_batch_size`, so a capped run rests on a fixed prefix of the data, and a
 cap that changed between runs makes the runs of one experiment incomparable.
 
@@ -211,6 +214,12 @@ Measured cost of storing every sample (interval dt sweep, 1280 samples,
 | stage-1 `test_data.csv` | ~6 MB | ~10 MB |
 | `test_outputs.csv` (records) | ~3 MB | unchanged (records are already complete) |
 | stage-2 aggregate | 1x | ~1.9x |
+
+A positive cap also logs a warning naming the truncation (`store_test_records`
+describes a prefix of the test set, `store_test_responses` a prefix of the
+samples). `store_test_responses: -1` with `response_resolution: unit` is
+rejected: unlimited per-unit tensors cannot fit (V1 alone is 64 x 112 x 112
+values per sample and step).
 
 The three manuscript experiments hold 20.5 GB of aggregates today; storing all
 samples moves that to about 39 GB. Check `df -h` on the results partition

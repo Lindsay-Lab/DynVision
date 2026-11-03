@@ -102,6 +102,17 @@ All notable changes to DynVision will be documented in this file.
 - **`tests/base/test_recurrence_target_middle.py`**: the `'middle'` target guard.
 
 ### Fixed
+- **A capped response buffer stopped the test run early, silently**: an
+  unlimited records buffer (`-1`) is never full, but `len(records) >= -1` read
+  as full, so `early_test_stop` fired as soon as the response cap was reached
+  and the run's metrics then described a prefix of the test set. Early stopping
+  now requires a finite cap on both buffers.
+- **Storage defaults store every sample**: `store_test_responses` and
+  `store_test_records` default to `-1` (unlimited). A positive cap is now named
+  in a warning, because `store_test_records` truncates the *evaluated* set --
+  its records carry the predictions -- and `store_test_responses` truncates the
+  stored activations to a prefix of the samples. `store_test_responses: -1`
+  with `response_resolution: unit` is rejected as impossible to fit.
 - **`RecurrentConnectedConv2d` crashed on `recurrence_target='middle'` without
   `mid_channels`**: `_calculate_recurrence_output_dims` subscripts
   `kernel_size` / `stride` / `padding`, which are only normalised to `(y, x)`

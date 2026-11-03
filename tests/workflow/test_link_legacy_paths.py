@@ -207,29 +207,42 @@ class TestPlanAndApply:
         assert sorted(str(p) for p in root.rglob("*")) == before
 
 
-@pytest.mark.skipif(shutil.which("snakemake") is None and not Path(sys.executable).with_name("snakemake").exists(), reason="snakemake not installed")
+_TOY = """
+wildcard_constraints:
+    args=r":[^/_]+", seed=r"[0-9]+", tid=r"[0-9a-f]+"
+rule train:
+    output: "models/DyRCNNx8/DyRCNNx8{args}_{seed}/imagenette/trained-best.pt"
+    params: p=lambda w: w.args
+    shell: "echo {params.p} > {output}"
+rule test:
+    input: "models/DyRCNNx8/DyRCNNx8{args}_{seed}/imagenette/trained-best.pt"
+    output: "reports/interval/DyRCNNx8{args}_{seed}/imagenette:all_trained-best/{tid}/test_outputs.csv"
+    params: p=lambda w: w.args
+    shell: "cat {input} > {output}; echo {params.p} >> {output}"
+rule process:
+    input: "reports/interval/DyRCNNx8{args}_{seed}/imagenette:all_trained-best/{tid}/test_outputs.csv"
+    output: "reports/interval/DyRCNNx8{args}_{seed}/imagenette:all_trained-best/{tid}/test_data.csv"
+    shell: "cat {input} > {output}"
+"""
+
+
+def _toy_workflow(tmp_path):
+    """A train -> test -> process chain whose names carry the legacy keys."""
+    (tmp_path / "Snakefile").write_text(_TOY)
+
+
+SKIP_WITHOUT_SNAKEMAKE = pytest.mark.skipif(
+    shutil.which("snakemake") is None
+    and not Path(sys.executable).with_name("snakemake").exists(),
+    reason="snakemake not installed",
+)
+
+
+@SKIP_WITHOUT_SNAKEMAKE
 def test_snakemake_plans_nothing_for_linked_results(tmp_path):
     """Run a toy model/test/process chain under legacy names, link, dry-run new names."""
+    _toy_workflow(tmp_path)
     snakemake = str(Path(sys.executable).with_name("snakemake"))
-    model = "models/DyRCNNx8/DyRCNNx8{args}_{seed}/imagenette/trained-best.pt"
-    test_dir = "reports/interval/DyRCNNx8{args}_{seed}/imagenette:all_trained-best/{tid}"
-    (tmp_path / "Snakefile").write_text(textwrap.dedent(f'''
-        wildcard_constraints:
-            args=r":[^/_]+", seed=r"[0-9]+", tid=r"[0-9a-f]+"
-        rule train:
-            output: "{model}"
-            params: p=lambda w: w.args
-            shell: "echo {{params.p}} > {{output}}"
-        rule test:
-            input: "{model}"
-            output: "{test_dir}/test_outputs.csv"
-            params: p=lambda w: w.args
-            shell: "cat {{input}} > {{output}}; echo {{params.p}} >> {{output}}"
-        rule process:
-            input: "{test_dir}/test_outputs.csv"
-            output: "{test_dir}/test_data.csv"
-            shell: "cat {{input}} > {{output}}"
-    '''))
     old_hash = test_spec_hash("StimulusInterval", LEGACY_SPEC)
     old_target = f"reports/interval/DyRCNNx8:tsteps=20+dt=2_7000/imagenette:all_trained-best/{old_hash}/test_data.csv"
     new_target = (
@@ -252,6 +265,40 @@ def test_snakemake_plans_nothing_for_linked_results(tmp_path):
     helper.apply(tmp_path, outcome)
     after = run("-n", new_target)
     assert "Nothing to be done" in after.stdout + after.stderr, after.stdout + after.stderr
+
+
+
+@SKIP_WITHOUT_SNAKEMAKE
+def test_rerunning_a_test_never_retrains_the_model(tmp_path):
+    """The case that matters for a rerun: the checkpoint link satisfies train.
+
+    After the helper, deleting a linked test result (as the prune does) must
+    make Snakemake plan the evaluation under the new name, with the model
+    checkpoint taken from the link -- never a training job.
+    """
+    _toy_workflow(tmp_path)
+    old_hash = test_spec_hash("StimulusInterval", LEGACY_SPEC)
+    run = lambda *args: subprocess.run(
+        [str(Path(sys.executable).with_name("snakemake")), "-c1", *args],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    old_test = f"reports/interval/DyRCNNx8:tsteps=20+dt=2_7000/imagenette:all_trained-best/{old_hash}"
+    assert run(f"{old_test}/test_outputs.csv").returncode == 0
+    os.utime(tmp_path, None)
+    helper.apply(tmp_path, _plan(tmp_path))
+    assert (tmp_path / "models/DyRCNNx8/DyRCNNx8:tsim=40+dt=2_7000/imagenette/trained-best.pt").is_symlink()
+
+    new_test = (
+        "reports/interval/DyRCNNx8:tsim=40+dt=2_7000/imagenette:all_trained-best/"
+        + _new_interval_hash("2")
+    )
+    # The prune deletes the stale result; the evaluation must rerun, the model must not.
+    (tmp_path / new_test / "test_outputs.csv").unlink()
+    plan = run("-n", f"{new_test}/test_outputs.csv")
+    assert "rule test" in plan.stdout, plan.stdout
+    assert "rule train" not in plan.stdout, plan.stdout
 
 
 def test_spec_hash_equals_the_workflow_pipeline():

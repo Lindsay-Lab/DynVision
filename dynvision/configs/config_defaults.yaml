@@ -106,10 +106,11 @@ test:
 store_responses: 0  # DEPRECATED: use store_test_responses
 store_train_responses: 0  # n_batches
 store_val_responses: 0  # n_batches
-store_test_responses: 12  # n_batches
+store_test_responses: -1  # n_batches; -1 = every sample (a positive cap stores a prefix)
+store_test_records: -1  # n_batches; records carry the metrics, so a cap truncates the evaluated set
 store_responses_on_cpu: True  # Store on CPU to save GPU memory
-early_test_stop: True  # Stop testing early when buffer filled
-response_resolution: layer  # "unit" = full tensors, "layer" = spatially averaged (~100x smaller)
+early_test_stop: True  # Stop when the buffers fill; inert while they are unlimited (-1)
+response_resolution: layer  # "unit" = full tensors, "layer" = spatially averaged (~100x smaller); required for unlimited responses
 
 # ===== LOSS CONFIGURATION =====
 loss: CrossEntropyLoss  # Loss function name

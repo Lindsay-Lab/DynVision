@@ -267,6 +267,7 @@ def append_layer_metrics(
     memory_monitor: MemoryMonitor,
     test_df_with_first_label: pd.DataFrame,
     response_resolution: str = "unit",
+    responses: Optional[Dict[str, torch.Tensor]] = None,
 ) -> pd.DataFrame:
     """Attach layer-level metrics to result dataframe.
 
@@ -281,6 +282,8 @@ def append_layer_metrics(
         test_df_with_first_label: Original test dataframe with first_label_index
         response_resolution: "unit" or "layer" — when "layer", uses fast path
             for pre-averaged data
+        responses: Tensors already loaded by the caller; avoids a second
+            torch.load of the same file.
 
     Returns:
         DataFrame with layer metrics added
@@ -294,6 +297,7 @@ def append_layer_metrics(
             result_df=result_df,
             pt_file=pt_file,
             layer_measures=layer_measures,
+            responses=responses,
         )
 
     logger.info("  Calculating layer metrics at sample-level resolution...")
@@ -353,6 +357,7 @@ def _append_preaveraged_layer_metrics(
     result_df: pd.DataFrame,
     pt_file: Path,
     layer_measures: List[str],
+    responses: Optional[Dict[str, torch.Tensor]] = None,
 ) -> pd.DataFrame:
     """Fast path for layer-wise (pre-averaged) response data.
 
@@ -371,8 +376,10 @@ def _append_preaveraged_layer_metrics(
     """
     logger.info("  Using fast path for pre-averaged layer responses...")
 
-    responses = torch.load(pt_file, map_location="cpu", weights_only=True)
-    responses.pop("_metadata", None)
+    if responses is None:
+        responses = torch.load(pt_file, map_location="cpu", weights_only=True)
+    response_data = dict(responses)  # keep the caller's dict intact
+    response_data.pop("_metadata", None)
 
     # Check for measures that require full 5D tensors
     spatial_measures = {"spatial_variance", "feature_variance"}
@@ -393,7 +400,7 @@ def _append_preaveraged_layer_metrics(
     }
 
     metrics_added = 0
-    for key, tensor in responses.items():
+    for key, tensor in response_data.items():
         # Skip classifier — handled separately
         if key == "classifier":
             continue
@@ -485,6 +492,7 @@ def process_single_test(
         memory_monitor=memory_monitor,
         test_df_with_first_label=test_df_with_first_label,
         response_resolution=response_resolution,
+        responses=responses,
     )
 
     # Time base of the run, so the file is readable without its config
