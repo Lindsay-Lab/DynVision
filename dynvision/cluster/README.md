@@ -27,6 +27,7 @@ This folder contains example scripts for executing DynVision workflows on a comp
 | `snakejob.sh` | Submits a single SLURM job (with SBATCH directives inline) for direct execution |
 | `snakejob_example.sh` | Example SLURM submission script with extended time and GPU constraint |
 | `executor_wrapper.sh` | Singularity container wrapper for training — handles distributed env setup |
+| `interactive.sh` | Queues one interactive job (`srun --pty`) or a detached command (`--sbatch`) inside the same container and conda env a rule runs in |
 | `setup_distributed_execution.sh` | Distributed training setup: GPU detection, NCCL config, MASTER_ADDR/PORT |
 | `profiles/slurm/config.yaml` | Snakemake slurm profile: default resources, per-rule overrides |
 
@@ -59,6 +60,22 @@ Or with custom arguments to Snakemake (after editing the script to pass `$@`):
 ```bash
 sbatch snakejob.sh -- --config experiment=contrast
 ```
+
+### Interactive session
+
+Run a shell, or one command, in exactly the environment a rule runs in (same
+container image, overlays and conda env as `executor_wrapper.sh`):
+
+```bash
+dynvision/cluster/interactive.sh                    # shell in the container
+dynvision/cluster/interactive.sh python script.py   # one command
+TIME=4:00:00 dynvision/cluster/interactive.sh       # longer wall time
+```
+
+`PROJECT_DIR` (default: the `Modeling_Dynamical_Vision` checkout next to this
+repository) sets the working directory and the log directory;
+`PYTHONPATH_REPO=1` puts this checkout on `PYTHONPATH`; `ACCOUNT`, `MEM`,
+`CPUS`, `GRES`, `CONSTRAINT` override the resource request.
 
 ### Distributed training
 
