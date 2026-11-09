@@ -31,8 +31,7 @@ package_dir = Path(inspect.getfile(lambda: None)).parents[2].resolve()
 sys.path.insert(0, str(package_dir))
 
 from dynvision.project_paths import project_paths
-from dynvision.utils.string_utils import key_value_pattern
-from dynvision.workflow.snake_utils import args_product, test_spec_hash
+from dynvision.workflow.snake_utils import args_product, test_spec_hash, key_value_pattern
 
 pylogger = logging.getLogger('workflow.utils')
 

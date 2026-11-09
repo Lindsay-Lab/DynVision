@@ -2,6 +2,30 @@
 
 This module provides access to workflow functions for unit testing.
 """
+import re
+
+def key_value_pattern(
+    key: str, assigner: str = "=", key_chars: str = "A-Za-z0-9"
+) -> str:
+    """Return a regex that matches ``{key}{assigner}`` as a whole key.
+
+    Identifiers join ``key=value`` tokens with ``+``, ``:``, ``/`` and ``_``, and
+    keys never contain those characters. A bare ``re.search(f"{key}=")`` also
+    matches inside a longer key: ``stim`` inside ``tstim=10`` (a millisecond
+    value read as steps) and ``pattern`` inside ``shufflepattern=true``. The
+    lookbehind requires that the key is not preceded by a key character.
+
+    Args:
+        key: Parameter key, matched literally.
+        assigner: Character between key and value.
+        key_chars: Regex character-class body of the characters keys consist
+            of. Pass ``"A-Za-z0-9_"`` for snake_case keys such as W&B column
+            names, where ``_`` belongs to the key.
+
+    Returns:
+        The regex source for the key and assigner, without the value group.
+    """
+    return rf"(?<![{key_chars}]){re.escape(key)}{re.escape(assigner)}"
 
 
 def compute_hash(*args, length: int = 8) -> str:
