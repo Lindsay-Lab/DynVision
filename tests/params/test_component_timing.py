@@ -142,6 +142,11 @@ class TestRejection:
         with pytest.raises(Exception, match="t_stimulus=10 ms and stimulus_duration=4 disagree"):
             _test(["--dt", "2", "--tseq", "40", "--tstim", "10", "--stim", "4"])
 
+    def test_empty_sequence(self):
+        """t_sequence=0 would derive data_timesteps=0, which dsteps=0 cannot set."""
+        with pytest.raises(Exception, match="t_sequence"):
+            _test(["--dt", "2", "--tseq", "0"])
+
     def test_unconverted_ms_values_are_not_passed_on(self):
         """Without a composite nobody converts t_sequence; the loader must not guess."""
         data = _test(["--dt", "2", "--tseq", "40"]).data.model_copy()

@@ -174,7 +174,7 @@ class DataParams(BaseParams):
     )
     t_sequence: Optional[float] = Field(
         default=None,
-        ge=0,
+        gt=0,
         description="Duration of a loaded sequence (ms); derives data_timesteps",
     )
 
