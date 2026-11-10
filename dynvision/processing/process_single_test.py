@@ -499,7 +499,9 @@ def process_single_test(
     if config_file is None:
         config_file = Path(f"{test_output_file}.config.yaml")
     if config_file.exists():
-        dt, idle_steps = config_time_base(load_resolved_config(config_file), config_file)
+        dt, idle_steps = config_time_base(
+            load_resolved_config(config_file), config_file
+        )
         add_time_base(sample_level_df, dt, idle_steps)
         logger.info(f"  Time base: dt={dt:g} ms, idle_steps={idle_steps}")
     else:

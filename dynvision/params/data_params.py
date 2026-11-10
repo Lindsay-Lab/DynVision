@@ -191,13 +191,17 @@ class DataParams(BaseParams):
         default=None, ge=0, description="Blank period before the first stimulus (ms)"
     )
     intro_duration: Optional[int] = Field(
-        default=None, ge=0, description="Blank period before the first stimulus (steps; legacy 'intro')"
+        default=None,
+        ge=0,
+        description="Blank period before the first stimulus (steps; legacy 'intro')",
     )
     t_interval: Optional[float] = Field(
         default=None, ge=0, description="Inter-stimulus interval (ms)"
     )
     interval_duration: Optional[int] = Field(
-        default=None, ge=0, description="Inter-stimulus interval (steps; legacy 'interval')"
+        default=None,
+        ge=0,
+        description="Inter-stimulus interval (steps; legacy 'interval')",
     )
     non_input_value: int = Field(..., description="null input value")
     non_label_index: int = Field(..., description="label index to ignore")

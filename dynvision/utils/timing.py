@@ -512,5 +512,7 @@ def _as_steps(name: str, value: Any) -> int:
     except (TypeError, ValueError):
         raise ValueError(f"{name}={value!r} is not a step count") from None
     if number < 0 or not number.is_integer():
-        raise ValueError(f"{name}={value!r} is not a non-negative whole number of steps")
+        raise ValueError(
+            f"{name}={value!r} is not a non-negative whole number of steps"
+        )
     return int(number)

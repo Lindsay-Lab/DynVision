@@ -789,10 +789,12 @@ class ModelParams(BaseParams):
                 name,
                 batches,
                 batches,
-                "Every metric of this run then describes a prefix of the test set."
-                if name == "store_test_records"
-                else "The stored activations then rest on a prefix of the samples, "
-                "which differs from other runs as soon as their caps differ.",
+                (
+                    "Every metric of this run then describes a prefix of the test set."
+                    if name == "store_test_records"
+                    else "The stored activations then rest on a prefix of the samples, "
+                    "which differs from other runs as soon as their caps differ."
+                ),
             )
 
     # ===== COMPUTED PROPERTIES (DERIVED PARAMETERS) =====
