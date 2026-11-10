@@ -384,8 +384,7 @@ def apply(root: Path, outcome) -> int:
                 new_path.unlink()
                 raise SystemExit(
                     f"error: {mapping.old} does not resolve; nothing linked for it. "
-                    "Remove the misplaced directory first "
-                    "(scripts/prune_misplaced_model_dirs.py)."
+                    "Remove the misplaced directory first."
                 ) from None
             manifest.write(f"{mapping.new}\t{mapping.old}\n")
             created += 1

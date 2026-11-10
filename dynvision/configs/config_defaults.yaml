@@ -53,7 +53,7 @@ test:
     use_ffcv: false              # Use standard PyTorch for compatibility
     pin_memory: true             # Pin memory for faster GPU transfer
     drop_last: true              # Consistent batch sizes
-    prefetch_factor: 1           # Disable prefetching
+    prefetch_factor: 1           # One batch ahead per worker
     num_workers: 8               # Moderate parallelism
     batch_size: 32               # Smaller batch size for testing
   

@@ -72,8 +72,10 @@ dynvision/cluster/interactive.sh python script.py   # one command
 TIME=4:00:00 dynvision/cluster/interactive.sh       # longer wall time
 ```
 
-`PROJECT_DIR` (default: the `Modeling_Dynamical_Vision` checkout next to this
-repository) sets the working directory and the log directory;
+Fill in its `<YOUR_...>` placeholders with the values of `executor_wrapper.sh`,
+or set them per call (`PROJECT_DIR`, `ACCOUNT`, `CONTAINER_IMAGE`, `CONDA_ENV`,
+`OVERLAYS` as a space-separated list, `CONDA_SH`); the script stops while one
+is left. `PROJECT_DIR` sets the working directory and the log directory;
 `PYTHONPATH_REPO=1` puts this checkout on `PYTHONPATH`; `ACCOUNT`, `MEM`,
 `CPUS`, `GRES`, `CONSTRAINT` override the resource request.
 

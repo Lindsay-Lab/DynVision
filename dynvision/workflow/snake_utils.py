@@ -4,6 +4,7 @@ This module provides access to workflow functions for unit testing.
 """
 import re
 
+
 def key_value_pattern(
     key: str, assigner: str = "=", key_chars: str = "A-Za-z0-9"
 ) -> str:
