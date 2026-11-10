@@ -299,8 +299,8 @@ experiment_config:
     parameter: contrast
     data_loader: StimulusContrast
     data_args:
-      tsteps: 100
-      stim: 15
+      tseq: 200  # ms
+      tstim: 30
       contrast: [0.2, 0.3, 0.4, 0.5, 0.6, 0.8, 1.0]  
 ```
 

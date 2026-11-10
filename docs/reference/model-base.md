@@ -40,11 +40,31 @@ class BaseModel(
 
 - `input_dims` (Tuple[int]): Input tensor dimensions as (timesteps, channels, height, width). Default: `(20, 3, 224, 224)`
 - `n_classes` (Optional[int]): Number of output classes. Can be inferred from data if not specified
-- `n_timesteps` (int): Number of temporal processing steps. Default: `1`
+- `n_timesteps` (int): Number of temporal processing steps. Default: `1`.
+  In a configuration, set the window in milliseconds as `t_simulation`
+  (alias `tsim`); validation derives `n_timesteps = t_simulation / dt`.
+- `idle_timesteps` (int): Steps run with null input before the stimulus.
+  Default: `0`. In a configuration, set `t_idle` (alias `tidle`) in
+  milliseconds instead.
 - `dt` (float): Integration time step in milliseconds. Default: `2.0`
 - `tau` (float): Neural time constant in milliseconds. Default: `5.0`
 - `learning_rate` (float): Base learning rate for training. Default: `0.001`
-- `store_responses` (int): Number of responses to store during training. Default: `0`
+- `store_test_responses` (int): Batches of layer responses stored during
+  testing. `-1` stores every batch, `0` none; a positive cap stores a prefix of
+  the samples and logs a warning. Default (`config_defaults.yaml`): `-1`.
+  Unlimited storage requires `response_resolution: layer`.
+- `store_test_records` (int): Batches of records (inputs, labels, predictions)
+  stored during testing. The records carry the metrics, so a positive cap
+  truncates the *evaluated* set. Default (`config_defaults.yaml`): `-1`.
+- `store_train_responses`, `store_val_responses` (int): The same for training
+  and validation. Default: `0`. `store_train_records` and `store_val_records`
+  exist as well.
+- `early_test_stop` (bool): Stop testing once the buffers are full. Only takes
+  effect when both `store_test_responses` and `store_test_records` have a
+  finite cap.
+- `response_resolution` (`"unit"` | `"layer"`): Store full tensors or spatial
+  averages per layer (about 100x smaller).
+- `store_responses` (int): Deprecated alias of `store_test_responses`.
 - `**kwargs`: Additional parameters passed to component classes
 
 **Key Methods**:
@@ -84,7 +104,10 @@ class TemporalBase(nn.Module)
 
 - `input_dims` (Tuple[int]): Processed input dimensions
 - `n_classes` (int): Number of output classes
-- `n_timesteps` (int): Number of temporal processing steps
+- `n_timesteps` (int): Number of temporal processing steps (derived from
+  `t_simulation` in ms when configured through the parameter classes)
+- `idle_timesteps` (int): Steps with null input before the stimulus (derived
+  from `t_idle` in ms)
 - `dt` (float): Integration time step in milliseconds
 - `tau` (float): Neural time constant in milliseconds
 - `layer_names` (List[str]): Names of network layers in processing order
@@ -100,7 +123,7 @@ TemporalBase now handles sophisticated temporal presentation patterns and reacti
 - **`data_presentation_pattern`**: Controls which timesteps receive stimulus (1) vs null input (0)
   - String format: `"1011"` or `"1"` (auto-expanded)
   - List format: `[1, 0, 1, 1]`
-  - Pattern length must divide evenly into `n_timesteps`
+  - Pattern length must divide evenly into `n_timesteps` (an uneven split raises)
   - See [Temporal Data Presentation Guide](../user-guide/temporal-data-presentation.md) for details
 
 - **`shuffle_presentation_pattern`**: When `True`, randomly permutes pattern per batch
@@ -109,7 +132,8 @@ TemporalBase now handles sophisticated temporal presentation patterns and reacti
   - Provides temporal variability during training
 
 - **`loss_reaction_time`**: Masks labels after stimulus onset (in milliseconds)
-  - Converts to timesteps: `ceil(loss_reaction_time / dt)`
+  - Converts to timesteps exactly: `loss_reaction_time / dt`, which must be a
+    whole number of steps (an off-grid value raises)
   - Applied per stimulus chunk (not just first timestep)
   - Warnings issued when reaction window exceeds chunk duration
   - See [Loss Functions Reference](losses.md#temporal-masking-and-presentation-patterns)

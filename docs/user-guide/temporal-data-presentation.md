@@ -38,14 +38,14 @@ Each approach has different use cases and performance characteristics.
 
 ### Key Parameters
 
-**`data_timesteps` (alias: `dsteps`):**
+**`data_timesteps` (legacy alias: `dsteps`; set in ms as `t_sequence` / `tseq`):**
 
 - Controls temporal expansion in **dataloaders**
 - Applied during data loading, before model receives data
 - Used by both standard PyTorch dataloaders and FFCV loaders
 - Default: `1` (no temporal expansion)
 
-**`n_timesteps` (alias: `tsteps`):**
+**`n_timesteps` (legacy alias: `tsteps`; set in ms as `t_simulation` / `tsim`):**
 
 - Controls temporal expansion in **model forward pass**
 - Applied dynamically within TemporalBase._expand_timesteps()
@@ -55,7 +55,7 @@ Each approach has different use cases and performance characteristics.
 **Configuration location:** `dynvision/configs/config_data.yaml`
 
 ```yaml
-data_timesteps: 1  # DataLoader expansion
+# data_timesteps: 1  # default when neither t_sequence (tseq, ms) nor dsteps is given
 ```
 
 **Important:** Only one temporal expansion method should be active at a time:
@@ -425,7 +425,7 @@ If reaction window exceeds chunk duration, a warning is logged:
 
 **Purpose:** Warm up recurrent network dynamics before presenting actual stimuli
 
-**Parameter:** `idle_timesteps` (alias: `idle`) - number of timesteps to run before stimulus presentation
+**Parameter:** `idle_timesteps` (legacy alias: `idle`) - number of timesteps to run before stimulus presentation. In a configuration, set the period in milliseconds as `t_idle` (alias `tidle`); validation derives `idle_timesteps = t_idle / dt`.
 
 ### Overview
 
@@ -534,9 +534,9 @@ model = DyRCNNx4(
 )
 ```
 
-**In config file (`config_defaults.yaml`):**
+**In a config file or `model_args`:**
 ```yaml
-# idle_timesteps: 0  # Idle timesteps for convergence (0 = disabled)
+tidle: 20  # Idle period in ms (10 steps at dt=2; 0 = disabled)
 ```
 
 **Using alias:**

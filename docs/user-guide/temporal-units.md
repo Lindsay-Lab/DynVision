@@ -115,16 +115,8 @@ Two situations stop it instead of linking: a model or test directory **nested
 inside another one** (an `rsync` that copied a directory into a directory) and
 a **file that does not resolve** (a relative symlink copied one level deeper
 than it was created). Both are reported as `misplaced` and `broken` and left
-alone. Delete the misplaced copies with
-
-```bash
-python scripts/prune_misplaced_model_dirs.py .          # report
-python scripts/prune_misplaced_model_dirs.py . --apply  # delete
-```
-
-which names, for every directory it deletes, the files that have no copy at the
-model's normal path (`--keep-unique` keeps those instead). It skips
-and reports what has no single ms name: a legacy step key next to `dt=*` (a dt
+alone; move or delete the misplaced copies by hand and run the helper again.
+It also skips and reports what has no single ms name: a legacy step key next to `dt=*` (a dt
 sweep at a fixed step count), unknown hashes, and incomplete outputs.
 
 Then check with a dry run before running anything:

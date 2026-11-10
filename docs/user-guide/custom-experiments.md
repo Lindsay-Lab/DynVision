@@ -41,11 +41,11 @@ experiment_config:
     parameter: contrast         # the swept stimulus variable (the x-axis)
     data_loader: StimulusContrast   # which data loader presents the stimulus
     data_args:                  # arguments passed to that data loader
-      dsteps: 30                # total presentation timesteps
-      intro: 1                  # blank lead-in steps before stimulus onset
-      stim: 20                  # steps the stimulus is shown
+      tseq: 60                  # total presentation time (ms)
+      tintro: 2                 # blank lead-in before stimulus onset (ms)
+      tstim: 40                 # time the stimulus is shown (ms)
       contrast: [0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]   # swept values
-      idle: 20                  # model idle timesteps before recorded response (spontaneous warm-up)
+      tidle: 40                 # model idle period before the recorded response (ms, spontaneous warm-up)
 ```
 
 | Field | Required | Meaning |
@@ -56,8 +56,9 @@ experiment_config:
 | `status` | ⬜ | Optional override of which model checkpoint(s) to test, e.g. `[trained-epoch=99, trained-epoch=199]` to probe intermediate checkpoints. Defaults to `config.status` (typically `trained`). |
 
 !!! tip "Timestep budget"
-    For StimulusDuration/Contrast/Interval the recorded timeline is `intro + stim + (dsteps - intro - stim)` (the remainder is blank).
-    `idle` is separate: it maps to the model’s `idle_timesteps` warm-up before recorded timesteps.
+    For StimulusDuration/Contrast/Interval the recorded timeline is `tintro + tstim + (tseq - tintro - tstim)` (the remainder is blank).
+    All durations are in ms and must be whole multiples of the model's `dt`; see [Temporal Units](temporal-units.md).
+    `tidle` is separate: it maps to the model’s `t_idle` warm-up before the recorded timesteps.
 
 ### A minimal custom experiment
 
@@ -70,12 +71,12 @@ experiment_config:
   # ... existing experiments ...
 
   flash:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 80
-      intro: 5
-      stim: [1, 2, 4]      # three brief flash durations to compare (tail is derived from dsteps - intro - stim)
+      tseq: 160
+      tintro: 10
+      tstim: [2, 4, 8]     # three brief flash durations in ms (tail is derived from tseq - tintro - tstim)
 ```
 
 That is the entire definition — no code changes required.
@@ -90,7 +91,7 @@ An experiment varies the *stimulus*. To also vary the *model*, use a
 experiment_config:
   categories:
     rctype: ['depthpointwise', 'self', 'full', 'local', 'none']  # recurrence type
-    tsteps: [4, 8, 14, 20, 26]
+    tsim: [8, 16, 28, 40, 52]  # ms
     tau: [3, 5, 9]
     feedback: ['false', 'add', 'mul']
     # ...
@@ -172,7 +173,7 @@ per model variant.
 
 - [ ] Added a named block under `experiment_config` with `parameter`,
       `data_loader`, and `data_args`.
-- [ ] Confirmed `intro + stim <= dsteps` (blank tail is derived as `dsteps - intro - stim`).
+- [ ] Confirmed `tintro + tstim <= tseq` (blank tail is derived as `tseq - tintro - tstim`), all on the `dt` grid.
 - [ ] (Optional) Added or reused a `categories` entry for the model sweep.
 - [ ] Verified the chosen `data_loader` maps to a `*DataLoader` class in `dynvision/data/dataloader.py` (bare names like `StimulusDuration` are accepted).
 - [ ] Ran `test_model_variations` (or the `--allowed-rules` variant) and found

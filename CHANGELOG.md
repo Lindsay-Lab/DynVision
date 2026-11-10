@@ -39,7 +39,9 @@ All notable changes to DynVision will be documented in this file.
   normalization made the first-pulse height depend on later stimuli); the
   stimulus indicator is drawn per distinct protocol; dynamics Panel A uses a
   parameter value every model was run with.
-
+- **Loader defaults**: `num_workers` is 8 (was 4) for training and testing;
+  the test loader prefetches one batch per worker (`prefetch_factor: 1`, was
+  `null`).
 - **Delay validation now rejects off-grid durations (breaking)**: `t_feedforward`,
   `t_recurrence`, `t_feedback`, `t_skip` and `loss_reaction_time` are measured in
   milliseconds but integrated on a fixed `dt` grid, so each must be a whole
@@ -81,6 +83,13 @@ All notable changes to DynVision will be documented in this file.
   can rest on the same, largest sample set. `scripts/link_legacy_temporal_paths.py`
   now imports `dynvision` from its own checkout, so it runs without
   `PYTHONPATH` or an install.
+- **`dynvision/cluster/interactive.sh`**: queues an interactive job
+  (`srun --pty`) or a detached command (`--sbatch`) inside the container,
+  overlays and conda env that `executor_wrapper.sh` gives every rule, and
+  prints the environment it landed in. Placeholders as in the other cluster
+  scripts.
+- **Ridge response plots**: the `layers` dimension can take any of the three roles
+  (`column`, `subplot`, `hue`), not only the subplot.
 - **Guard test** `tests/utils/test_dt_arithmetic_guard.py`: fails on `dt`
   arithmetic outside `utils/timing.py` (two exempt sites: the integration step
   and the `dt/tau` diagnostics).
@@ -102,6 +111,9 @@ All notable changes to DynVision will be documented in this file.
 - **`tests/base/test_recurrence_target_middle.py`**: the `'middle'` target guard.
 
 ### Fixed
+- **Snakefiles import only the workflow helpers**: `key_value_pattern` moved
+  from `utils/string_utils.py` to `workflow/snake_utils.py` (re-exported), so
+  `snake_utils.smk` no longer imports `dynvision.utils` and its dependencies.
 - **The legacy-path link helper aborted on a misplaced model directory**:
   an `rsync` that copies a directory into a directory leaves
   `models/<class>/<idA>/<idB>/...`, and such a copy can hold a relative symlink
@@ -110,8 +122,6 @@ All notable changes to DynVision will be documented in this file.
   halfway through its manifest. Nested model/test directories are now reported
   as `misplaced` and unresolvable sources as `broken`, both skipped; a link
   that would dangle is removed instead of keeping a run alive.
-- **`scripts/prune_misplaced_model_dirs.py`** removes those misplaced copies,
-  reporting the files that have no counterpart at the model's normal path.
 - **A capped response buffer stopped the test run early, silently**: an
   unlimited records buffer (`-1`) is never full, but `len(records) >= -1` read
   as full, so `early_test_stop` fired as soon as the response cap was reached

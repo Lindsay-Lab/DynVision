@@ -303,7 +303,7 @@ The workflow uses wildcard-based path patterns to enable parameter sweeps:
 ```
 {model_name}{model_args}_{seed}_{data_name}_{status}.pt
 
-Example: DyRCNNx8:tsteps=20+rctype=full+tau=5_0040_imagenette_trained.pt
+Example: DyRCNNx8:tsim=40+rctype=full+tau=5_0040_imagenette_trained.pt
 ```
 
 **Workflow Files**:
@@ -422,7 +422,8 @@ Many parameters have shortened aliases (defined via `@alias_kwargs` decorator):
 - `tff` → `t_feedforward` (feedforward delay in ms)
 - `tsk` → `t_skip` (skip connection delay in ms)
 - `tfb` → `t_feedback` (feedback delay in ms)
-- `tsteps` → `n_timesteps`
+- `tsim` → `t_simulation` (simulated window in ms; legacy `tsteps` → `n_timesteps` in steps)
+- `tidle` → `t_idle` (idle period in ms; legacy `idle` in steps)
 - `dt` → integration time step (ms)
 - `tau` → neural time constant (ms)
 
@@ -490,12 +491,12 @@ Snakemake uses wildcards in file paths to generate parameter sweeps:
 Components:
 
 - model_name: DyRCNNx8, AlexNet, ResNet18
-- model_args: :tsteps=20+rctype=full+tau=5
+- model_args: :tsim=40+rctype=full+tau=5
 - seed: 0000, 0040 (for reproducibility)
 - data_name: imagenette, cifar100, mnist
 - status: init, trained, trained#minval (checkpoint selection)
 - data_loader: StimulusDuration, StimulusContrast
-- data_args: :stim=20+idle=10+dsteps=40
+- data_args: :tstim=40+tidle=20+tseq=80
 - data_group: all, snakes, mollusks (class subsets)
 ```
 
@@ -601,7 +602,7 @@ __all__ = [..., 'MyModel']
 ```yaml
 model_name: MyModel
 model_args:
-  tsteps: 20
+  tsim: 40  # ms
   dt: 2
   tau: 5
 ```
@@ -621,7 +622,7 @@ experiment_config:
     parameter: my_param  # which parameter varies
     data_loader: MyDataLoader
     data_args:
-      dsteps: 100
+      tseq: 200  # ms
       my_param: [1, 2, 3, 4, 5]
 ```
 

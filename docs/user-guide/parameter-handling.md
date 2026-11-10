@@ -375,7 +375,7 @@ snakemake train_model --config \
 **Complex Parameter Combinations**
 ```bash
 snakemake train_model --config \
-    model_args="{rctype:full,lr:0.001,tsteps:20}" \
+    model_args="{rctype:full,lr:0.001,tsim:40}" \
     trainer_args="{epochs:100,devices:2}"
 ```
 

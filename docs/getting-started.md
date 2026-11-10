@@ -103,7 +103,7 @@ Here's how to run a basic experiment:
 cd dynvision/workflow
 
 # Train a model on CIFAR100 and evaluate contrast sensitivity
-snakemake --config experiment=duration model_name=AlexNet model_args='{tsteps: 20, rctype: full}' data_name=cifar100 data_group=all
+snakemake --config experiment=duration model_name=AlexNet model_args='{tsim: 40, rctype: full}' data_name=cifar100 data_group=all
 ```
 
 This command:

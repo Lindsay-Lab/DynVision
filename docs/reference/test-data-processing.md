@@ -165,14 +165,14 @@ class FileMetadata:
 
 Parameters extracted from `.config.yaml` files using namespaced keys:
 
-- **Data namespace**: `data.{param_name}` (e.g., `data.dsteps`, `data.stim`)
+- **Data namespace**: `data.{param_name}` (e.g., `data.t_sequence`, `data.t_stimulus`)
 - **Model namespace**: `model.{param_name}` (e.g., `model.tau`, `model.dt`)
 - **Unscoped**: Direct key names as fallback
 
 **Example config.yaml:**
 ```yaml
-data.dsteps: 20
-data.stim: "gratings"
+data.t_sequence: 40
+data.t_stimulus: 10
 model.tau: 8
 model.dt: 2
 seed: 42
@@ -369,7 +369,7 @@ config_files = [
 df, successful = aggregate_test_data(
     test_data_files=test_files,
     config_files=config_files,
-    data_arg_key="dsteps",
+    data_arg_key="tseq",
     category="rctype",
     extra_parameters=["seed", "status", "epoch"],
     resolution="sample",
@@ -405,7 +405,7 @@ When `status` is included in `additional_parameters`:
 **Example DataFrame columns:**
 ```python
 # With status="trained-epoch=150"
-['sample_idx', 'true_label', 'times_index', 'dsteps', 'rctype',
+['sample_idx', 'true_label', 'times_index', 'time_ms', 'tseq', 'rctype',
  'seed', 'status', 'epoch', 'V1_response_avg', 'accuracy', ...]
 #                    ↑        ↑
 #     Auto-added: "trained-epoch=150"  and  150
@@ -483,7 +483,7 @@ python aggregate_experiment_data.py \
     --test_data results/exp1/model:rctype=*/data_trained/*/test_data.csv \
     --test_configs results/exp1/model:rctype=*/data_trained/*/config.yaml \
     --output results/exp1/aggregated.csv \
-    --parameter dsteps \
+    --parameter tseq \
     --category rctype \
     --additional_parameters seed
 ```
@@ -497,7 +497,7 @@ python aggregate_experiment_data.py \
     --test_data results/exp1/model/data_*/*/test_data.csv \
     --test_configs results/exp1/model/data_*/*/config.yaml \
     --output results/exp1/aggregated.csv \
-    --parameter dsteps \
+    --parameter tseq \
     --category rctype \
     --additional_parameters seed status epoch \
     --sample_resolution sample
@@ -515,7 +515,7 @@ python aggregate_experiment_data.py \
     --test_data results/exp1/model/data_trained-epoch=*/*/test_data.csv \
     --test_configs results/exp1/model/data_trained-epoch=*/*/config.yaml \
     --output results/exp1/training_dynamics.csv \
-    --parameter dsteps \
+    --parameter tseq \
     --category rctype \
     --additional_parameters seed status epoch
 ```
@@ -560,7 +560,7 @@ FileNotFoundError: Config file not found: .../config.yaml
 #### Parameter Not Found
 
 ```
-ValueError: Parameter 'data.dsteps' not found in config file
+ValueError: Parameter 'data.t_sequence' not found in config file
 ```
 
 **Solution:** Check that parameter exists in config with correct namespace (`data.*`, `model.*`, or unscoped)
@@ -618,7 +618,7 @@ python plot_training.py \
     --loss_csv results/exp1/loss.csv \
     --output figures/exp1_overview.pdf \
     --category rctype \
-    --parameter dsteps
+    --parameter tseq
 ```
 
 ## Related Documentation

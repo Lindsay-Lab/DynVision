@@ -118,7 +118,7 @@ accumulate_grad_batches: 4  # Effective batch size = 32 * 4 = 128
 
 3. **Reduce number of timesteps**:
 ```yaml
-n_timesteps: 10  # Instead of 20
+tsim: 20  # ms, instead of 40
 ```
 
 4. **Disable response storage during training**:
@@ -245,7 +245,7 @@ print(checkpoint.keys())  # See what's in the checkpoint
 
 1. **Ensure adequate timesteps**:
 ```yaml
-n_timesteps: 20  # Minimum 10-20 for observing dynamics
+tsim: 40  # ms; at least 10-20 steps (20-40 ms at dt=2) to observe dynamics
 ```
 
 2. **Check temporal parameters**:
@@ -458,13 +458,13 @@ Model name doesn't uniquely identify the configuration.
 Include all varying parameters in `model_args`:
 ```yaml
 model_name: DyRCNNx4
-model_args: "{rctype:full,dt:2,tau:8,tsteps:20}"
+model_args: "{rctype:full,dt:2,tau:8,tsim:40}"
 seed: 0001
 ```
 
 This creates unique filename:
 ```
-DyRCNNx4:rctype=full+dt=2+tau=8+tsteps=20_0001_cifar10_trained.pt
+DyRCNNx4:rctype=full+dt=2+tau=8+tsim=40_0001_cifar10_trained.pt
 ```
 
 ---

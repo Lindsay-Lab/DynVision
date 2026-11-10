@@ -32,20 +32,20 @@ Example excerpt:
 ```yaml
 duration:
   status: trained
-  parameter: stim
+  parameter: tstim
   data_loader: StimulusDuration
   data_args:
-    dsteps: 30
-    intro: 1
-    stim: [1, 3, 5, 10, 20]
-    idle: 20
+    tseq: 60    # ms
+    tintro: 2
+    tstim: [2, 6, 10, 20, 40]
+    tidle: 40
 ```
 Snakemake expands `data_args` and `status` to enumerate concrete runs. Category lists in `experiment_config.categories` (e.g., `rctype`, `trc`) provide wildcard values for comparisons.
 
 ### Extending Experiment Types
 To introduce a novel stimulus protocol:
 
-1. Implement a DataLoader subclass in `dynvision/data/dataloader.py` (use `StandardDataLoader` or the temporal loaders as templates). Provide aliases via `@alias_kwargs` so configuration keys (for example `stim`, `intro`) map cleanly onto constructor arguments.
+1. Implement a DataLoader subclass in `dynvision/data/dataloader.py` (use `StandardDataLoader` or the temporal loaders as templates). Provide aliases via `@alias_kwargs` so configuration keys (for example `tstim`, `tintro`) map cleanly onto constructor arguments.
 2. Register the class name in the `DATALOADER_CLASSES` dictionary so `get_data_loader` can resolve it during workflow execution.
 3. Reference the new loader in `config_experiments.yaml` by setting `data_loader` and supplying the required `data_args`. Snakemake will automatically expand the experiment combinations and pass them into the `test_model` rule.
 
@@ -79,7 +79,7 @@ snakemake process_test_data \
 Key parameters injected by the rule:
 
 - `--responses` / `--test_outputs`: glob-expanded lists of matching `.pt` and `.csv` files.
-- `--parameter`: experiment-level sweep key (e.g., `stim`).
+- `--parameter`: experiment-level sweep key (e.g., `tstim`).
 - `--category`: comparison axis taken from `experiment_config['categories']`.
 - `--additional_parameters`: optional metadata to extract from directory names (default `epoch`).
 - `--measures`: metrics to compute (layer statistics, confidence scores, top-k accuracy, classifier unit activations).
@@ -103,7 +103,7 @@ python dynvision/processing/process_test_data.py \
   --responses path/to/test_responses.pt \
   --test_outputs path/to/test_outputs.csv \
   --output reports/duration/run_01/test_data.csv \
-  --parameter stim \
+  --parameter tstim \
   --category rctype \
   --measures response_avg response_std accuracy_top3 \
   --additional_parameters epoch tau \
@@ -123,7 +123,7 @@ Downstream visualization rules (e.g., `plot_performance`, `plot_responses`) cons
 
 ### Metadata and Index Columns
 - **Index columns**: `sample_index` tracks individual images when `sample` resolution is selected; `times_index` marks timestep positions; `first_label_index` records the earliest valid class per sample (used for grouping and presentation-level aggregation).
-- **Parameter column**: named after the experiment’s `parameter` entry (e.g., `stim`, `contrast`) and repeats the sweep value extracted from the file path.
+- **Parameter column**: named after the experiment’s `parameter` entry (e.g., `tstim`, `contrast`) and repeats the sweep value extracted from the file path.
 - **Category column**: matches the Snakemake wildcard specified in the workflow invocation (e.g., `rctype`, `trc`), enabling comparisons across architectural variants.
 - **Additional parameters**: any names supplied via `--additional_parameters` are extracted from response directories and inserted verbatim, allowing downstream filters like `epoch == 99` or `tau == "5"`.
 

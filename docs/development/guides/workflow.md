@@ -44,7 +44,7 @@ models/
 **Example:**
 ```
 models/DyRCNNx8/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette/
       ├── init.pt
       ├── trained.pt
@@ -70,7 +70,7 @@ reports/
 **Example:**
 ```
 reports/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/                     # Full model identifier
+  DyRCNNx8:tsim=40+dt=2_0042/                     # Full model identifier
     imagenette:all_trained/
       StimulusNoise:noisetype=uniform+noiselevel=0.2/
         ├── test_outputs.csv
@@ -155,8 +155,8 @@ def parse_test_identifier(test_id: str) -> Tuple[str, str]:
 ```yaml
 data.noiselevel: 0.2
 data.noisetype: uniform
-data.stim: 50
-model.tsteps: 20
+data.t_stimulus: 100
+model.t_simulation: 40
 model.dt: 2
 seed: 42
 # ... etc
@@ -307,7 +307,7 @@ rule process_test_data:
 
 **Execution flow:**
 
-1. User requests: `reports/exp/DyRCNNx8:tsteps=20_42/mnist:all_trained/test_data.csv`
+1. User requests: `reports/exp/DyRCNNx8:tsim=40_42/mnist:all_trained/test_data.csv`
 2. Snakemake expands `models` input: triggers `train_model` checkpoint if needed
 3. After training completes, DAG re-evaluates
 4. Test outputs are generated (with possible test identifier compression)
@@ -473,7 +473,7 @@ python3 dynvision/migrate_to_hierarchical_layout.py
 snakemake --dag | dot -Tpdf > dag.pdf
 
 # Rule-specific graph
-snakemake --dag reports/exp/DyRCNNx8:tsteps=20_42/mnist:all_trained/test_data.csv | dot -Tpdf > dag.pdf
+snakemake --dag reports/exp/DyRCNNx8:tsim=40_42/mnist:all_trained/test_data.csv | dot -Tpdf > dag.pdf
 ```
 
 ### Checking Config Files
@@ -483,7 +483,7 @@ snakemake --dag reports/exp/DyRCNNx8:tsteps=20_42/mnist:all_trained/test_data.cs
 find reports/uniformnoise/ -name "*.config.yaml"
 
 # View config file contents
-cat reports/uniformnoise/DyRCNNx8:tsteps=20_42/mnist:all_trained/abc123ef/test_outputs.csv.config.yaml
+cat reports/uniformnoise/DyRCNNx8:tsim=40_42/mnist:all_trained/abc123ef/test_outputs.csv.config.yaml
 
 # Search for specific parameter value
 grep -r "data.noiselevel: 0.2" reports/uniformnoise/
@@ -493,10 +493,10 @@ grep -r "data.noiselevel: 0.2" reports/uniformnoise/
 
 ```bash
 # Force specific rule
-snakemake --forcerun train_model models/DyRCNNx8:tsteps=20_42/mnist/trained.pt
+snakemake --forcerun train_model models/DyRCNNx8:tsim=40_42/mnist/trained.pt
 
 # Force checkpoint and downstream
-snakemake --forcerun train_model reports/exp/DyRCNNx8:tsteps=20_42/mnist:all_trained/test_data.csv
+snakemake --forcerun train_model reports/exp/DyRCNNx8:tsim=40_42/mnist:all_trained/test_data.csv
 ```
 
 ### Common Issues

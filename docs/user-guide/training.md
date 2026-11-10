@@ -107,7 +107,7 @@ are passed directly:
 ```bash
 snakemake train_model \
   --config model_name=DyRCNNx4 data_name=cifar100 seed=0 \
-  model_args="{rctype:full+tsteps:20}" \
+  model_args="{rctype:full+tsim:40}" \
   epochs=200 \
   batch_size=192 \
   learning_rate=0.0008 \

@@ -205,9 +205,9 @@ Snakemake uses wildcards to generalize rules. In DynVision, wildcards are extens
 
 - `{model_name}`: Name of the model (e.g., DyRCNNx4, AlexNet)
 - `{data_name}`: Name of the dataset (e.g., cifar100, mnist)
-- `{model_args}`: Model arguments (e.g., `:rctype=full+tsteps=20`)
+- `{model_args}`: Model arguments (e.g., `:rctype=full+tsim=40`)
 - `{data_loader}`: Data loader name (e.g., StimulusDuration)
-- `{data_args}`: Data loader arguments (e.g., `:tsteps=100+stim=5`)
+- `{data_args}`: Data loader arguments (e.g., `:tseq=200+tstim=10`)
 - `{data_group}`: Named subset of classes for testing
 - `{seed}`: Random seed for reproducibility
 - `{status}`: Either `init` or `trained` 
@@ -336,7 +336,7 @@ To add a new experiment type:
        parameter: my_parameter
        data_loader: MyDataLoader
        data_args:
-         tsteps: 100
+         tseq: 200  # ms
          my_parameter: [1, 2, 3, 4]
    ```
 
