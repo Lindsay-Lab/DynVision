@@ -29,15 +29,16 @@ from dynvision.models.dyrcnn import DyRCNNx4, DyRCNNx8
 
 GOLDEN = Path(__file__).parent / "golden" / "dt_golden.pt"
 
-#: Tolerance for the forward output. A different platform's build of torch
-#: evaluates the same arithmetic in a different order: measured 1e-9 to 5e-5
-#: absolute between the cp311 and cp312 CPU builds of torch 2.15. A changed
-#: delay moves the output by 4e-6 to 2 in the cases measured (a one-step shift
-#: of t_recurrence), so the tolerance catches a shift except in the least
-#: sensitive case (dyrcnnx8_dt2, 5e-6); ``test_delay_indices_are_unchanged``
-#: pins the conversion itself.
-OUTPUT_RTOL = 1e-4
-OUTPUT_ATOL = 1e-5
+#: Tolerance for the forward output. A changed delay moves the output by at
+#: least 4e-6 in every recorded case (measured with a one-step shift of
+#: t_recurrence), so these values catch a shift everywhere, including
+#: dyrcnnx8_dt2, whose output is small (max 5e-3). The cost: a build that
+#: evaluates the same arithmetic in another order can exceed them -- 4.7e-5 was
+#: measured once between two CI runs of torch 2.15.0+cpu. Such a failure is
+#: reported with both differences by the warning below, and the golden file is
+#: regenerated for that platform only after checking the delay indices.
+OUTPUT_RTOL = 1e-6
+OUTPUT_ATOL = 1e-7
 
 N_TIMESTEPS = 24  # long enough for a 12-step recurrence (6 ms at dt=0.5) to act
 IMAGE_SIZE = 32
@@ -223,7 +224,14 @@ def test_a_tiny_difference_passes_and_warns(golden):
     """Rounding noise of another build passes the check, and is reported."""
     expected = golden["dyrcnnx8_dt2"]["output"]
     with pytest.warns(UserWarning, match="not bit-identical"):
-        _assert_output_matches(expected + 1e-7, expected, "dyrcnnx8_dt2")
+        _assert_output_matches(expected + 1e-8, expected, "dyrcnnx8_dt2")
+
+
+def test_a_one_step_delay_shift_fails(golden):
+    """The tolerance is below the output change a one-step delay shift makes."""
+    expected = golden["dyrcnnx8_dt2"]["output"]
+    with pytest.raises(AssertionError):
+        _assert_output_matches(expected + 5e-6, expected, "dyrcnnx8_dt2")
 
 
 def test_a_changed_output_fails(golden):

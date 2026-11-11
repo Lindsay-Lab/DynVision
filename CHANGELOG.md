@@ -24,9 +24,10 @@ All notable changes to DynVision will be documented in this file.
   off-grid value instead of rounding (reverses the rounding fallback of
   `942795a`). All model delay conversions go through it; on-grid models keep
   identical delay indices and reaction masks, and their forward output matches
-  within `rtol=1e-4, atol=1e-5` (`tests/models/test_dt_golden.py`), since
-  another torch build rounds the same computation differently. A difference
-  that is not bit-identical is reported as a warning.
+  within `rtol=1e-6, atol=1e-7` (`tests/models/test_dt_golden.py`) -- below the
+  4e-6 that a one-step delay shift moves every recorded case. A difference that
+  is not bit-identical is reported as a warning, since a build that evaluates
+  the arithmetic in another order rounds differently.
   `t_recurrence` must be at least `dt` (was compared with the step count 1).
 - **Presentation patterns stretch over whole chunks**: a pattern whose length
   does not divide the window raises instead of producing uneven chunks
