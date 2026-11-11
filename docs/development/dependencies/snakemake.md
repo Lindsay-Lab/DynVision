@@ -726,14 +726,14 @@ using the exisitng snakemake rule structure and tuning config settings
 ```bash
 # Train a DyRCNNx4 model with full recurrence
 snakemake \
-  --config model_name=DyRCNNx4 seed=0001 model_args="{rctype:full, tsteps=:20}"
+  --config model_name=DyRCNNx4 seed=0001 model_args="{rctype: full, tsim: 40}"
 ```
 
 or by explicitly requesting a certain output file
 
 ```bash
 snakemake \
-  /path/to/model_dir/DyRCNNx4/DyRCNNx4:tsteps=20+rctype:full_0001_cifar100_trained.pt"
+  /path/to/model_dir/DyRCNNx4/DyRCNNx4:tsim=40+rctype=full_0001_cifar100_trained.pt"
 ```
 
 ### 9.2 Parameter Sweep

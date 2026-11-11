@@ -135,7 +135,7 @@ Model uses: dt=1.0 (explicit), fixed_self_weight=1.0 (default)
 
 | Location | Purpose | Example |
 |----------|---------|---------|
-| **config_defaults.yaml** | Framework-wide defaults applicable to most models | `dt: 2`, `n_timesteps: 20` |
+| **config_defaults.yaml** | Framework-wide defaults applicable to most models | `dt: 2`, `loss_reaction_time: 0` |
 | **Model class `__init__`** | Model-specific defaults that may differ between architectures | `fixed_self_weight: 1.0` (CorNet-specific) |
 | **Pydantic classes** | No defaults! Use `Optional[T] = None` for model parameters | `dt: Optional[float] = None` |
 
@@ -169,10 +169,25 @@ Provides the foundational configuration layer with sensible defaults for all com
 
 **Key Temporal Parameters:**
 
-- `n_timesteps`: Number of temporal processing steps in the model (commented out by default, allowing model-specific defaults)
+Durations are given in milliseconds and must be whole multiples of `dt`;
+validation converts them to steps. The legacy step keys (`tsteps`, `idle`,
+`dsteps`, `stim`, `intro`, `interval`) are still accepted and translated with
+`ms = steps * dt`. See [Temporal Units](../user-guide/temporal-units.md).
+
+- `t_simulation` (`tsim`): Simulated window per sample in ms; derives the
+  model's `n_timesteps` (unset by default, allowing model-specific defaults)
+- `t_idle` (`tidle`): Idle period with null input before the stimulus in ms;
+  derives `idle_timesteps`
 - `data_presentation_pattern`: Controls stimulus/null presentation pattern (default: `[1]` for continuous stimulus)
-- `loss_reaction_time`: Reaction time window for loss masking in milliseconds (default: `0`)
-- `data_timesteps`: Number of timesteps for data loader temporal expansion (default: `1`)
+- `loss_reaction_time` (`lossrt`): Reaction time window for loss masking in milliseconds (default: `0`)
+- `t_sequence` (`tseq`), `t_stimulus` (`tstim`), `t_intro` (`tintro`),
+  `t_interval` (`tinterval`): Loader durations in ms. Without `t_sequence` or
+  `dsteps`, the loader expands data over `data_timesteps: 1` step.
+
+**Response storage** (`store_test_responses`, `store_test_records`, default
+`-1` = every sample): see
+[Temporal Units](../user-guide/temporal-units.md#comparing-runs-sample-selections)
+for the cost of storing everything and the effect of a cap.
 
 See [Temporal Data Presentation Guide](../user-guide/temporal-data-presentation.md) for detailed usage.
 
@@ -235,7 +250,7 @@ To make the expansion over `data_args` more compact for specific testing scenari
 ```yaml
 model_args:
 
-  - tsteps: [10, 20]
+  - tsim: [20, 40]  # ms
   - rctype: ["full", "self"]
 
 experiment:
@@ -253,7 +268,7 @@ data_group:
 would produce 4 model variants
 
 ```python
-[":rctype=full+tsteps=10", ":rctype=full+tsteps=20", ":rctype=self+tsteps=10", ":rctype=self+tsteps=20"]
+[":rctype=full+tsim=20", ":rctype=full+tsim=40", ":rctype=self+tsim=20", ":rctype=self+tsim=40"]
 ```
 
 that are each tested on two subsets of imagenet, the easier imagenette selection and the more demanding differentiation of insects, both with varying contrasts and varying durations of image presentation.

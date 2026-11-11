@@ -1075,6 +1075,27 @@ def get_data_loader(
 
 
 def get_data_loader_class(dataloader_name: str) -> torch.utils.data.DataLoader:
+    """Resolve a DataLoader class name against the loader registry.
+
+    Args:
+        dataloader_name: Registry name, with or without the ``DataLoader``
+            suffix (e.g. ``'Standard'`` or ``'StandardDataLoader'``).
+
+    Returns:
+        The resolved DataLoader class.
+
+    Raises:
+        ValueError: If ``dataloader_name`` is empty, or names no registered
+            loader. An empty name means the ``data_loader`` parameter was left
+            unset, which is reported here rather than as a ``TypeError`` from
+            the substring test below.
+    """
+    if not dataloader_name:
+        raise ValueError(
+            "A DataLoader class name is required, got "
+            f"{dataloader_name!r}. Set 'data_loader' in the data configuration "
+            f"to one of: {sorted(DATALOADER_CLASSES)}."
+        )
 
     if "DataLoader" not in dataloader_name:
         dataloader_name += "DataLoader"

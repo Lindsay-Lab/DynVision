@@ -31,6 +31,7 @@ package_dir = Path(inspect.getfile(lambda: None)).parents[2].resolve()
 sys.path.insert(0, str(package_dir))
 
 from dynvision.project_paths import project_paths
+from dynvision.workflow.snake_utils import args_product, test_spec_hash, key_value_pattern
 
 pylogger = logging.getLogger('workflow.utils')
 
@@ -286,42 +287,6 @@ def parse_arguments(
 
     return " ".join(f"--{key} {value}" for key, value in args_dict.items())
 
-def args_product(
-    args_dict: Optional[Dict] = None,
-    delimiter: str = '+',
-    assigner: str = '=',
-    prefix: str = ':'
-) -> List[str]:
-    """Generate product of argument combinations.
-
-    Args:
-        args_dict: Dictionary of argument options
-        delimiter: Character separating arguments
-        assigner: Character separating key and value
-        prefix: Prefix character for argument string
-
-    Returns:
-        List of argument combination strings
-    """
-    if not args_dict:
-        return ['']
-
-    # Convert single values to lists
-    args_dict = {
-        key: [value] if not isinstance(value, list) else value
-        for key, value in args_dict.items()
-    }
-
-    # Generate combinations
-    args_combinations = product(*args_dict.values())
-    return [
-        prefix + delimiter.join(
-            f'{key}{assigner}{value}'
-            for key, value in zip(args_dict.keys(), combo)
-        )
-        for combo in args_combinations
-    ]
-
 def replace_param_in_string(
     s: str,
     key: str = "contrast",
@@ -343,22 +308,23 @@ def replace_param_in_string(
         ValueError: If parameter not found or invalid value type
     """
     patterns = {
-        int: rf"{key}=(\d+)",
-        float: rf"{key}=(\d+(\.\d+)?)",
-        str: rf"{key}=([a-z]+)",
-        None: rf"{key}=([\da-z\.]+)"
+        int: r"(\d+)",
+        float: r"(\d+(\.\d+)?)",
+        str: r"([a-z]+)",
+        None: r"([\da-z\.]+)"
     }
 
     if value_type not in patterns:
         raise ValueError(f"Invalid value type: {value_type}")
 
-    pattern = patterns[value_type]
-    match = re.search(pattern, s)
-    
+    # Anchored: 'stim' must not match inside 'tstim=10' (see key_value_pattern).
+    match = re.search(key_value_pattern(key) + patterns[value_type], s)
+
     if not match:
         raise ValueError(f"No {key} value found in string: {s}")
-        
-    return s.replace(match.group(0), f"{key}={new_value}")
+
+    # Replace this occurrence only, not the same text inside another key.
+    return s[: match.start()] + f"{key}={new_value}" + s[match.end() :]
 
 def dict_poped(d: Dict, keys: Union[str, List[str]]) -> Dict:
     """Create new dictionary with specified keys removed.
@@ -549,8 +515,7 @@ if USE_COMPRESSED_MODE:
 
         for data_args in data_args_list:
             # Compute hash (strip prefix to get just hash value)
-            full_hash = compute_hash(data_loader, data_args)  # Returns ':hash=abc123'
-            test_hash = full_hash.lstrip(':hash=')  # Just 'abc123'
+            test_hash = test_spec_hash(data_loader, data_args)
 
             # Collision detection
             if test_hash in TEST_SPEC_HASH_MAP:
@@ -599,10 +564,7 @@ def get_test_specs_for_experiment(experiment):
 
     if USE_COMPRESSED_MODE:
         # Return just hash values (strip ':hash=' prefix)
-        return [
-            compute_hash(data_loader, args).lstrip(':hash=')
-            for args in data_args_list
-        ]
+        return [test_spec_hash(data_loader, args) for args in data_args_list]
     else:
         # Return full specs
         return [f"{data_loader}{args}" for args in data_args_list]

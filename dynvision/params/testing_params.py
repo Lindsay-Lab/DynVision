@@ -32,6 +32,7 @@ from dynvision.params.trainer_params import TrainerParams
 from dynvision.params.data_params import DataParams
 from dynvision.utils import SummaryItem, log_section, format_value
 from dynvision.utils.dtype_policy import coordinate_component_dtypes
+from dynvision.utils.timing import coordinate_component_timing
 
 import torch
 
@@ -114,6 +115,18 @@ class TestingParams(CompositeParams):
     def store_responses(self) -> str:
         """Extract store responses from model configuration."""
         return getattr(self.model, "store_responses", "-1")
+
+    @model_validator(mode="after")
+    def coordinate_component_timing(self) -> "TestingParams":
+        """Convert the data component's ms windows with the model's dt.
+
+        Defined before the other validators so that they see step counts.
+        """
+        try:
+            coordinate_component_timing(self)
+        except ValueError as error:
+            raise DynVisionValidationError(str(error)) from None
+        return self
 
     @model_validator(mode="after")
     def validate_testing_configuration(self) -> "TestingParams":
@@ -403,4 +416,4 @@ class TestingParams(CompositeParams):
             }
         )
 
-        return aliases
+        return cls.merge_component_aliases(aliases)

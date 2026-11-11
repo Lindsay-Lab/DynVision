@@ -94,15 +94,17 @@ class TestReactionTimeMasking:
     def test_reaction_time_with_pattern_containing_zeros(self, base_config):
         """Test reaction time masking with a pattern like '1011'.
 
-        Pattern '1011' expands to 10 timesteps as:
-        indices: [0, 0, 0, 1, 1, 2, 2, 2, 3, 3]
-        pattern: [T, T, T, F, F, T, T, T, T, T]
+        Pattern '1011' expands to 12 timesteps in equal chunks of 3:
+        indices: [0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 3, 3]
+        pattern: [T, T, T, F, F, F, T, T, T, T, T, T]
 
-        Rising edges at t=0 and t=5 (after the False gap).
+        Rising edges at t=0 and t=6 (after the False gap).
         With reaction_time=4ms, dt=2ms -> 2 timesteps masked after each onset.
+        The window must be a multiple of the pattern length; 10 steps would
+        give uneven chunks and is rejected.
         """
         model = DyRCNNx2(
-            **base_config,
+            **{**base_config, "n_timesteps": 12, "input_dims": (12, 3, 32, 32)},
             data_presentation_pattern="1011",  # On, off, on, on
             loss_reaction_time=4.0,  # Masks 2 timesteps after each onset
         )
@@ -119,7 +121,7 @@ class TestReactionTimeMasking:
         pattern = model._get_presentation_pattern()
 
         # Check that inputs are zeroed where pattern is 0
-        for t in range(10):
+        for t in range(model.n_timesteps):
             if not pattern[t]:
                 # Input should be non_input_value (default 0)
                 assert (
@@ -131,7 +133,7 @@ class TestReactionTimeMasking:
         pattern_mask = ~pattern
         expected_label_mask = pattern_mask | reaction_mask
 
-        for t in range(10):
+        for t in range(model.n_timesteps):
             if expected_label_mask[t]:
                 assert (
                     expanded_labels[:, t] == model.non_label_index
@@ -242,7 +244,7 @@ class TestPatternMasking:
     def test_pattern_zeros_mask_inputs(self, base_config):
         """Test that pattern zeros cause inputs to be set to non_input_value."""
         model = DyRCNNx2(
-            **base_config,
+            **{**base_config, "n_timesteps": 12, "input_dims": (12, 3, 32, 32)},
             data_presentation_pattern="1010",  # Alternating
         )
 
@@ -256,7 +258,7 @@ class TestPatternMasking:
 
         pattern = model._get_presentation_pattern()
 
-        for t in range(10):
+        for t in range(model.n_timesteps):
             if pattern[t]:
                 # Input should be preserved (expanded from original)
                 assert (
@@ -271,7 +273,7 @@ class TestPatternMasking:
     def test_pattern_zeros_also_mask_labels(self, base_config):
         """Test that pattern zeros cause labels to be set to non_label_index."""
         model = DyRCNNx2(
-            **base_config,
+            **{**base_config, "n_timesteps": 12, "input_dims": (12, 3, 32, 32)},
             data_presentation_pattern="1100",  # First half on, second half off
         )
 
@@ -285,7 +287,7 @@ class TestPatternMasking:
 
         pattern = model._get_presentation_pattern()
 
-        for t in range(10):
+        for t in range(model.n_timesteps):
             if pattern[t]:
                 assert (
                     expanded_labels[:, t] == 5
@@ -394,15 +396,34 @@ class TestEdgeCases:
         # Labels should be unchanged
         assert (expanded_labels == 5).all()
 
-    def test_fractional_reaction_steps(self):
-        """Test that fractional reaction time is rounded up."""
+    def test_fractional_reaction_steps_rejected(self):
+        """Test that a reaction time off the dt grid is rejected, not rounded.
+
+        ``loss_reaction_time=5.0`` with ``dt=2.0`` is 2.5 integration steps. It
+        used to be quietly rounded up to 3 steps (a 6 ms window), which ran a
+        different reaction time than the one configured.
+        """
+        with pytest.raises(ValueError, match="loss_reaction_time=5 ms"):
+            DyRCNNx2(
+                n_timesteps=10,
+                n_classes=10,
+                input_dims=(10, 3, 32, 32),
+                dt=2.0,
+                data_presentation_pattern="1",
+                loss_reaction_time=5.0,  # 5ms / 2ms = 2.5 -> not a whole step
+                recurrence_type="none",
+                shuffle_presentation_pattern=False,
+            )
+
+    def test_exact_reaction_steps_masked(self):
+        """Test that an on-grid reaction time masks exactly that many steps."""
         model = DyRCNNx2(
             n_timesteps=10,
             n_classes=10,
             input_dims=(10, 3, 32, 32),
             dt=2.0,
             data_presentation_pattern="1",
-            loss_reaction_time=5.0,  # 5ms / 2ms = 2.5, should round to 3
+            loss_reaction_time=6.0,  # 6ms / 2ms = 3 whole steps
             recurrence_type="none",
             shuffle_presentation_pattern=False,
         )
@@ -410,7 +431,6 @@ class TestEdgeCases:
         pattern = torch.ones(10, dtype=torch.bool)
         mask = model._compute_reaction_mask(pattern)
 
-        # Should mask 3 timesteps (ceil(2.5) = 3)
         assert mask[:3].all(), "First 3 timesteps should be masked"
         assert not mask[3:].any(), "Remaining timesteps should not be masked"
 

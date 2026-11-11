@@ -16,8 +16,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
+from dynvision.processing.time_base import TIME_MS
 from dynvision.utils.visualization_utils import (
     load_config_from_args,
+    load_result_data,
     get_display_name,
     save_plot,
 )
@@ -845,7 +847,6 @@ def _plot_category_legend(
     hue_values: List[str],
     colors: Dict[str, str],
     config: Dict,
-    dt: float = 2.0,
     **kwargs,
 ) -> None:
     """Add horizontal category legend between left panels.
@@ -860,7 +861,6 @@ def _plot_category_legend(
         hue_values: Ordered list of category values
         colors: Color mapping for category values
         config: Configuration dict with naming mappings
-        dt: Temporal resolution in ms per timestep
         **kwargs: Override FORMATTING defaults
     """
     fmt = {**TRAINING_FORMATTING, **kwargs}
@@ -886,7 +886,7 @@ def _plot_category_legend(
                     alpha=fmt["alpha_line"],
                 )
             )
-            legend_labels.append(_format_legend_label(category_key, val, config, dt))
+            legend_labels.append(_format_legend_label(category_key, val, config))
 
     if legend_elements:
         # Get symbol for title
@@ -968,8 +968,6 @@ def plot_training_overview(
     parameter_key: Optional[str] = None,
     confidence_measure: Optional[Union[str, List[str]]] = "first_label_confidence",
     accuracy_measure: Optional[Union[str, List[str]]] = "accuracy",
-    dt: float = 2.0,
-    time_offset: float = 0.0,
     validation_frequency: int = 10,
     config: Optional[Dict] = None,
     **kwargs,
@@ -988,8 +986,6 @@ def plot_training_overview(
         parameter_key: Column name for parameter dimension
         confidence_measure: Column name(s) for confidence metrics
         accuracy_measure: Column name(s) for accuracy metrics
-        dt: Temporal resolution in ms per timestep
-        time_offset: Time offset in ms from idle timesteps (shifts time axis)
         validation_frequency: Frequency of validation epochs (default: 10).
             Validation epochs are (epoch + 1) % validation_frequency == 0.
         config: Configuration dict with palette, naming, ordering
@@ -1027,14 +1023,8 @@ def plot_training_overview(
         **{k: v for k, v in kwargs.items() if k in TRAINING_FORMATTING},
     }
 
-    # Load test data
-    if isinstance(test_data, list):
-        logger.info(f"Loading and concatenating test data from {len(test_data)} files")
-        dfs = [pd.read_csv(path) for path in test_data]
-        test_df = pd.concat(dfs, ignore_index=True)
-    else:
-        logger.info(f"Loading test data from: {test_data}")
-        test_df = pd.read_csv(test_data)
+    # Load test data; every file gets its time base (dt, time_ms) from itself
+    test_df = load_result_data(test_data)
 
     logger.info(f"Test data: {len(test_df)} rows, {len(test_df.columns)} columns")
 
@@ -1212,7 +1202,6 @@ def plot_training_overview(
         hue_values=hue_values,
         colors=colors,
         config=config,
-        dt=dt,
         **fmt,
     )
 
@@ -1258,16 +1247,13 @@ def plot_training_overview(
     # Right column: performance panel + ridge plots
     # Calculate right column x-axis limits (time in ms)
     # Start at 0, round max up to next multiple of 10
-    if "times_index" in test_df.columns:
-        time_max = test_df["times_index"].max() * dt + time_offset
-        # Round up to next multiple of 10
-        right_xmax = math.ceil(time_max / 10) * 10
-        right_xmin = time_offset
-        logger.info(
-            f"Right column x-axis limits: [{right_xmin}, {right_xmax}] (data max: {time_max} ms)"
-        )
-    else:
-        right_xmin, right_xmax = time_offset, 120
+    time_max = test_df[TIME_MS].max()
+    # Round up to next multiple of 10
+    right_xmax = math.ceil(time_max / 10) * 10
+    right_xmin = 0
+    logger.info(
+        f"Right column x-axis limits: [{right_xmin}, {right_xmax}] (data max: {time_max} ms)"
+    )
 
     # Calculate positions
     right_top = 1 - layout["top_margin"]
@@ -1290,8 +1276,6 @@ def plot_training_overview(
         hue_key=hue_key,
         hue_values=hue_values,
         colors=colors,
-        dt=dt,
-        time_offset=time_offset,
         show_ylabel=True,
         show_legend=True,
         accuracy_cols=(
@@ -1350,8 +1334,6 @@ def plot_training_overview(
         hue_key=hue_key,
         hue_values=hue_values,
         colors=colors,
-        dt=dt,
-        time_offset=time_offset,
         show_ylabel=True,
         config=config,
         ridge_top=ridge_top,
@@ -1480,18 +1462,6 @@ def main():
         help="Parameter column name",
     )
     parser.add_argument(
-        "--dt",
-        type=float,
-        default=2.0,
-        help="Temporal resolution in ms per timestep",
-    )
-    parser.add_argument(
-        "--idle-timesteps",
-        type=int,
-        default=0,
-        help="Number of idle timesteps before recorded data (shifts time axis)",
-    )
-    parser.add_argument(
         "--validation-frequency",
         type=int,
         default=10,
@@ -1553,9 +1523,6 @@ def main():
     # Handle single vs multiple test data files
     test_data_input = args.test_data if len(args.test_data) > 1 else args.test_data[0]
 
-    # Compute time offset from idle timesteps
-    time_offset = args.idle_timesteps * args.dt
-
     # Plot
     plot_training_overview(
         test_data=test_data_input,
@@ -1569,8 +1536,6 @@ def main():
         parameter_key=args.parameter_key,
         confidence_measure=args.confidence_measure,
         accuracy_measure=args.accuracy_measure,
-        dt=args.dt,
-        time_offset=time_offset,
         validation_frequency=args.validation_frequency,
         config=config,
     )

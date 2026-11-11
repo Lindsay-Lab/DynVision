@@ -31,7 +31,7 @@ models/
 **Example:**
 ```
 models/DyRCNNx8/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette/
       ├── init.pt
       ├── trained.pt
@@ -41,7 +41,7 @@ models/DyRCNNx8/
 **Components:**
 
 - `{model_name}`: Model architecture (e.g., `DyRCNNx8`, `CorNetRT`)
-- `{model_args}`: Model parameters (e.g., `:tsteps=20+dt=2`)
+- `{model_args}`: Model parameters (e.g., `:tsim=40+dt=2`)
 - `{seed}`: Random seed (e.g., `0042`)
 - `{data_name}`: Training dataset (e.g., `imagenette`, `cifar10`)
 
@@ -52,9 +52,9 @@ For test protocols with very long parameter specifications, DynVision can option
 **Uncompressed form (default):**
 ```
 reports/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette:all_trained/
-      StimulusNoise:noisetype=uniform+noiselevel=0.2+stim=50/
+      StimulusNoise:noisetype=uniform+noiselevel=0.2+tstim=100/
         ├── test_outputs.csv
         ├── test_responses.pt
         └── test_outputs.csv.config.yaml
@@ -63,7 +63,7 @@ reports/uniformnoise/
 **Compressed form (when enabled):**
 ```
 reports/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette:all_trained/
       abc123ef/                    # Hash of test protocol
         ├── test_outputs.csv
@@ -96,7 +96,7 @@ reports/
 **Example:**
 ```
 reports/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette:all_trained/
       StimulusNoise:noisetype=uniform+noiselevel=0.2/
         ├── test_outputs.csv
@@ -126,7 +126,7 @@ reports/
 **Example:**
 ```
 reports/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette:all_trained/
       └── test_data.csv    # Combined results across noise levels
 ```
@@ -147,7 +147,7 @@ figures/
 **Example:**
 ```
 figures/uniformnoise/
-  DyRCNNx8:tsteps=20+dt=2_0042/
+  DyRCNNx8:tsim=40+dt=2_0042/
     imagenette:all_trained/
       ├── responses.png
       └── performance.png
@@ -164,7 +164,7 @@ DynVision uses a consistent syntax for paths:
 {model_name}{model_args}_{seed}
 ```
 - Arguments start with `:` and use `+` separators
-- Example: `DyRCNNx8:tsteps=20+dt=2_0042`
+- Example: `DyRCNNx8:tsim=40+dt=2_0042`
 
 **Training/test specifications:**
 ```
@@ -185,7 +185,7 @@ DynVision uses a consistent syntax for paths:
 
 **Model files:**
 ```
-models/DyRCNNx8:tsteps=20+dt=2_0042/imagenette/trained.pt
+models/DyRCNNx8:tsim=40+dt=2_0042/imagenette/trained.pt
 models/CorNetRT:dt=2_0000/cifar10/init.pt
 models/DyRCNNx4_0015/mnist/trained.pt
 ```
@@ -194,19 +194,19 @@ models/DyRCNNx4_0015/mnist/trained.pt
 ```
 reports/uniformnoise/DyRCNNx8:hash=a7f3c9d4/imagenette:all_trained/StimulusNoise:noisetype=uniform+noiselevel=0.2/test_outputs.csv
 
-reports/response/CorNetRT:dt=2_0000/cifar10:one_init/StimulusDuration:dsteps=50+stim=25/test_outputs.csv
+reports/response/CorNetRT:dt=2_0000/cifar10:one_init/StimulusDuration:tseq=100+tstim=50/test_outputs.csv
 ```
 
 **Processed results:**
 ```
-reports/uniformnoise/DyRCNNx8:tsteps=20+dt=2_0042/imagenette:all_trained/test_data.csv
+reports/uniformnoise/DyRCNNx8:tsim=40+dt=2_0042/imagenette:all_trained/test_data.csv
 
 reports/response/CorNetRT:dt=2_0000/cifar10:one_init/test_data.csv
 ```
 
 **Figures:**
 ```
-figures/uniformnoise/DyRCNNx8:tsteps=20+dt=2_0042/imagenette:all_trained/responses.png
+figures/uniformnoise/DyRCNNx8:tsim=40+dt=2_0042/imagenette:all_trained/responses.png
 
 figures/response/CorNetRT:dt=2_0000/cifar10:one_init/performance.png
 ```
@@ -242,10 +242,10 @@ uniformnoise/
   ...
 
   # Processed results
-  DyRCNNx8:tsteps=20+dt=2_0042/imagenette:all_trained/test_data.csv
+  DyRCNNx8:tsim=40+dt=2_0042/imagenette:all_trained/test_data.csv
 
   # Visualizations
-  DyRCNNx8:tsteps=20+dt=2_0042/imagenette:all_trained/responses.png
+  DyRCNNx8:tsim=40+dt=2_0042/imagenette:all_trained/responses.png
 ```
 
 ## Working with Files
@@ -292,7 +292,7 @@ To find the original test parameters when using compressed test identifiers:
 
 ```bash
 # Check the config file in the test output directory
-cat reports/uniformnoise/DyRCNNx8:tsteps=20_42/imagenette:all_trained/abc123ef/test_outputs.csv.config.yaml
+cat reports/uniformnoise/DyRCNNx8:tsim=40_42/imagenette:all_trained/abc123ef/test_outputs.csv.config.yaml
 
 # This contains all resolved parameters including data.* and model.* settings
 ```
@@ -331,7 +331,7 @@ PyTorch model state dictionaries containing:
 import torch
 
 # Load state dictionary
-state_dict = torch.load('models/DyRCNNx8:tsteps=20+dt=2_0042/imagenette/trained.pt')
+state_dict = torch.load('models/DyRCNNx8:tsim=40+dt=2_0042/imagenette/trained.pt')
 
 # Extract components
 model_state = state_dict['model_state']
@@ -397,7 +397,7 @@ with open('reports/uniformnoise/.../test_outputs.csv.config.yaml') as f:
 
 # Access parameters
 noise_level = config['data.noiselevel']
-model_tsteps = config['model.tsteps']
+model_window_ms = config['model.t_simulation']
 ```
 
 **Purpose:**

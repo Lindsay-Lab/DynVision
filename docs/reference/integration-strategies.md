@@ -43,6 +43,14 @@ signal is combined with the feedforward pathway:
 
 An unrecognized target raises `ValueError`.
 
+`middle` requires the layer to declare `mid_channels`, which is what creates the
+second convolution. Requesting it on a layer without a mid stage raises a
+`ValueError` naming the parameter, rather than failing inside the output-size
+arithmetic. `CorNetRT` and `DyRCNNx8` set `mid_channels` on their recurrent
+layers; `DyRCNNx2` and `DyRCNNx4` do not, so `rctarget=middle` is rejected for
+those two models. Setting it through a configuration is also validated: the
+field accepts only `input`, `middle` and `output` (case-insensitively).
+
 ## Feedback Mode
 
 Feedback connections select their integration strategy through the model's

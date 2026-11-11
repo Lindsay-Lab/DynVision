@@ -1399,10 +1399,15 @@ class StorageBufferMixin(LightningModule):
         if not self.early_test_stop:
             return False
 
-        # Skip for unlimited or non-fixed strategies
-        if max(
-            self.storage.responses.max_size, self.storage.records.max_size
-        ) <= 0 or self.storage.responses.strategy_name not in ["fixed"]:
+        # Both buffers must have a finite cap: an unlimited buffer is never
+        # full (len() >= -1 would read as full), and stopping on a filled
+        # response buffer while the records are unlimited would end the test
+        # run and leave its metrics describing a prefix of the test set.
+        if (
+            self.storage.responses.max_size <= 0
+            or self.storage.records.max_size <= 0
+            or self.storage.responses.strategy_name != "fixed"
+        ):
             return False
 
         # Check if buffer is filled

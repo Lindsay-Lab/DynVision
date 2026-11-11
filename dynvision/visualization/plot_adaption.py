@@ -8,6 +8,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
+from dynvision.processing.sample_selection import warn_on_sample_mismatch
 from dynvision.utils import replace_param_in_string
 from dynvision.utils.visualization_utils import (
     save_plot,
@@ -89,6 +90,9 @@ def plot_adaptation(
             raise ValueError(
                 f"Category column '{category}' not found in data. Available columns: {df.columns.tolist()}"
             )
+
+        # The plot compares these runs: they should rest on the same samples
+        warn_on_sample_mismatch(df, context="plotting adaptation")
 
         print(f"Using parameter column: {parameter}")
         if category:

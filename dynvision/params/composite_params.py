@@ -46,6 +46,7 @@ from dynvision.params.resolution import (
     resolve_aliases,
     separate_source,
 )
+from dynvision.utils.timing import warn_legacy_keys
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +116,54 @@ class CompositeParams(BaseParams):
         Default ordering is the declaration order of ``component_classes``.
         """
         return cls.get_component_classes().keys()
+
+    @classmethod
+    def get_component_aliases(cls) -> Dict[str, str]:
+        """Aliases declared by each component, scoped to that component.
+
+        A component's own ``get_aliases()`` returns targets valid inside that
+        component (``trc -> t_recurrence``); a composite needs them scoped
+        (``trc -> model.t_recurrence``). Deriving them here means an alias added
+        to a component routes through every composite containing that component,
+        instead of requiring a matching hand-written entry in each composite.
+
+        That omission is not hypothetical: ``TrainingParams`` and ``InitParams``
+        listed only a subset of ``ModelParams``' aliases, so the Snakemake
+        wildcards ``trc``, ``tff``, ``tsk`` and ``lossrt`` arrived as bare keys,
+        were routed to the model component unscoped, and were stored as inert
+        extra attributes by ``ModelParams`` (``extra="allow"``). The configured
+        value never became ``t_recurrence`` or ``loss_reaction_time``.
+
+        Where two components declare the same alias name, the first in
+        ``component_classes`` order wins.
+        """
+        scoped: Dict[str, str] = {}
+        for name, component_cls in cls.get_component_classes().items():
+            for alias, target in component_cls.get_aliases().items():
+                scoped.setdefault(alias, f"{name}.{target}")
+        return scoped
+
+    @classmethod
+    def merge_component_aliases(cls, aliases: Dict[str, str]) -> Dict[str, str]:
+        """Add component-declared aliases to ``aliases`` without overriding them.
+
+        Entries already present are kept, because a composite's own map records
+        deliberate cross-component choices that the components cannot make
+        themselves: ``log`` resolves to the composite's own ``log_level``, while
+        all three components independently alias ``log`` to their own
+        ``log_level``. Hand-written entries also cover names that are plain
+        component *fields* rather than aliases (``epochs``, ``batch_size``,
+        ``model_name``), which no component declares as an alias.
+
+        Args:
+            aliases: The composite's own alias map, mutated in place.
+
+        Returns:
+            The same mapping, extended with the component-declared aliases.
+        """
+        for alias, target in cls.get_component_aliases().items():
+            aliases.setdefault(alias, target)
+        return aliases
 
     def iter_components(self) -> Iterable[Tuple[str, BaseParams]]:
         """Iterate over instantiated component parameter objects."""
@@ -612,8 +661,18 @@ class CompositeParams(BaseParams):
             ParamsDict of instantiated components plus composite base fields.
         """
         sources = cls._build_config_sources(config_params, cli_params, mode_params)
-        resolved = resolve(sources, cls.build_config_schema())
-        return cls._instantiate_resolved(resolved)
+        return cls._instantiate_resolved(cls._resolve_sources(sources))
+
+    @classmethod
+    def _resolve_sources(cls, sources: List[ConfigSource]) -> ResolvedConfig:
+        """Resolve raw sources against this composite's schema.
+
+        The raw keys are the one place a legacy step key (``tsteps``, ``stim``)
+        is still visible, so the deprecation warning is raised here rather than
+        inside the pure resolution layer.
+        """
+        warn_legacy_keys(key for source in sources for key in source.params)
+        return resolve(sources, cls.build_config_schema())
 
     @classmethod
     def _build_config_sources(
@@ -697,10 +756,7 @@ class CompositeParams(BaseParams):
         unscoped precedence within the single parameter dict. For proper config vs
         CLI precedence, use :meth:`from_cli_and_config` instead.
         """
-        resolved = resolve(
-            [ConfigSource(label="config", params=params)],
-            cls.build_config_schema(),
-        )
+        resolved = cls._resolve_sources([ConfigSource(label="config", params=params)])
         return cls._instantiate_resolved(resolved)
 
     @staticmethod

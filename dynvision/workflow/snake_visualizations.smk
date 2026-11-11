@@ -188,8 +188,6 @@ rule plot_performance:
         category = lambda w: w.category,
         experiment = lambda w: ['uniformnoise', 'poissonnoise', 'gaussiannoise', 'gaussiancorrnoise'] if w.experiment == 'noise' else w.experiment,
         confidence_measure = getattr(config, 'plot_confidence_measure', "first_label_confidence"),
-        dt = getattr(config, 'dt', 2),
-        idle_timesteps = lambda w: config.experiment_config[w.experiment]["data_args"].get('idle', 0),
         palette = lambda w: json.dumps(config.palette),
         naming = lambda w: json.dumps(config.naming),
         ordering = lambda w: json.dumps(config.ordering),
@@ -213,8 +211,6 @@ rule plot_performance:
             --category-key {params.category} \
             --experiment {params.experiment} \
             --confidence-measure {params.confidence_measure} \
-            --dt {params.dt} \
-            --idle-timesteps {params.idle_timesteps} \
             --palette {params.palette:q} \
             --naming {params.naming:q} \
             --ordering {params.ordering:q} \
@@ -253,8 +249,6 @@ rule plot_training:
         hue = getattr(config, 'hue', 'category'),
         parameter = lambda w: config.experiment_config[w.experiment]['parameter'],
         category = lambda w: w.category,
-        dt = getattr(config, 'dt', 2),
-        idle_timesteps = lambda w: config.experiment_config[w.experiment]["data_args"].get('idle', 0),
         confidence_measure = getattr(config, 'plot_confidence_measure', "first_label_confidence"),
         accuracy_measure = getattr(config, 'plot_accuracy_measure', "accuracy"),
         palette = lambda w: json.dumps(config.palette),
@@ -275,8 +269,6 @@ rule plot_training:
             --parameter-key {params.parameter} \
             --confidence-measure {params.confidence_measure} \
             --accuracy-measure {params.accuracy_measure} \
-            --dt {params.dt} \
-            --idle-timesteps {params.idle_timesteps} \
             --palette {params.palette:q} \
             --naming {params.naming:q} \
             --ordering {params.ordering:q} \
@@ -299,8 +291,6 @@ rule plot_dynamics:
         script = SCRIPTS / 'visualization' / 'plot_dynamics.py'
     params:
         parameter = lambda w: config.experiment_config[w.experiment]['parameter'],
-        dt = getattr(config, 'dt', 2),
-        idle_timesteps = lambda w: config.experiment_config[w.experiment]["data_args"].get('idle', 0),
         palette = lambda w: json.dumps(config.palette),
         naming = lambda w: json.dumps(config.naming),
         ordering = lambda w: json.dumps(config.ordering),
@@ -320,8 +310,6 @@ rule plot_dynamics:
             --experiment {wildcards.experiment} \
             --category {wildcards.category} \
             --focus-layer {wildcards.focus_layer} \
-            --dt {params.dt} \
-            --idle-timesteps {params.idle_timesteps} \
             --palette {params.palette:q} \
             --naming {params.naming:q} \
             --ordering {params.ordering:q}
@@ -346,8 +334,6 @@ rule plot_responses:
         hue = getattr(config, 'hue', 'category'),
         parameter = lambda w: config.experiment_config[w.experiment]['parameter'],
         category = lambda w: w.category,
-        dt = getattr(config, 'dt', 2),
-        idle_timesteps = lambda w: config.experiment_config[w.experiment]["data_args"].get('idle', 0),
         confidence_measure = getattr(config, 'plot_confidence_measure', "first_label_confidence"),
         accuracy_measure = getattr(config, 'plot_accuracy_measure', "accuracy"),
         palette = lambda w: json.dumps(config.palette),
@@ -372,8 +358,6 @@ rule plot_responses:
             --experiment {wildcards.experiment} \
             --confidence-measure {params.confidence_measure} \
             --accuracy-measure {params.accuracy_measure} \
-            --dt {params.dt} \
-            --idle-timesteps {params.idle_timesteps} \
             --palette {params.palette:q} \
             --naming {params.naming:q} \
             --ordering {params.ordering:q} \
@@ -474,8 +458,6 @@ rule plot_responses_tripytch:
         data3_arg = lambda w, input: f"--data3 {' '.join(shlex.quote(str(f)) for f in input.data3)}" if input.data3 else "",
         category = lambda w: ' '.join([w.cat1, w.cat2, w.cat3]),
         default_category_values = lambda w: ' '.join([_get_triptych_value(cat) for cat in [w.cat1, w.cat2, w.cat3]]),
-        dt = getattr(config, 'dt', 2),
-        idle_timesteps = lambda w: config.experiment_config[w.experiment]["data_args"].get('idle', 0),
         palette = lambda w: json.dumps(config.palette),
         naming = lambda w: json.dumps(config.naming),
         ordering = lambda w: json.dumps(config.ordering),
@@ -506,8 +488,6 @@ rule plot_responses_tripytch:
             --experiment {wildcards.experiment} \
             --category {params.category:q} \
             --default-category-values {params.default_category_values:q} \
-            --dt {params.dt} \
-            --idle-timesteps {params.idle_timesteps} \
             --confidence-measure {params.confidence_measure} \
             --accuracy-measure {params.accuracy_measure} \
             --palette {params.palette:q} \

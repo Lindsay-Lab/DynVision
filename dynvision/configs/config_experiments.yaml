@@ -4,16 +4,16 @@ experiment_config:
     rctype: ['depthpointwise', 'pointdepthwise', 'self', 'full', 'local', 'localdepthwise', 'none']  # Recurrent connection type
     rctarget: ['output', 'input', 'middle']  # Target for recurrent connections
     pattern: ['1', '1011', '1001', '1000']
-    dsteps: [1, 20]
-    tsteps: [4, 8, 14, 20, 26]
-    dt: [2]
+    tseq: [2, 40]
+    tsim: [8, 16, 28, 40, 52]
+    dt: [0.5, 1, 2]
     tau: [3, 5, 9]
     tff: [0, 10]
     trc: [2, 6, 10]
     tsk: [0, 4, 8]
     # lossrt: [0, 4, 8, 20, 38]  # for pattern=1
     lossrt: [0, 4, 8, 18, 28]  # for pattern=1011 + shuffle
-    idle: [0, 1, 5, 10, 20]
+    tidle: [0, 2, 10, 20, 40]
     feedback: ['false', 'add', 'mul']
     skip: ['true', 'false']
     dloader: ['ffcv', 'torch']
@@ -24,233 +24,233 @@ experiment_config:
     pretrained: ['true']
     
   response:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 60
-      intro: 1
-      stim: 30
-      idle: 20
+      tseq: 120
+      tintro: 2
+      tstim: 60
+      tidle: 40
 
   responseffonly:
     parameter: ffonly
     data_loader: StimulusDuration
     data_args:
-      dsteps: 4
-      intro: 0
-      stim: 2
+      tseq: 8
+      tintro: 0
+      tstim: 4
       ffonly: ['true', 'false']
 
   responseintermediate:
     status: [trained-epoch=49, trained-epoch=99, trained-epoch=149, trained-epoch=199, trained-epoch=249, trained-epoch=299] #, trained-epoch=399, trained-epoch=499]
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 60
-      intro: 1
-      stim: 30
-      idle: 20
+      tseq: 120
+      tintro: 2
+      tstim: 60
+      tidle: 40
 
   stabilityintermediate:
     status: [trained-epoch=199, trained-epoch=249, trained-epoch=299, trained-epoch=349]
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 125
-      intro: 1
-      stim: 100
-      idle: 20
+      tseq: 250
+      tintro: 2
+      tstim: 200
+      tidle: 40
 
   stability:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 125
-      stim: [25, 100]
+      tseq: 250
+      tstim: [50, 200]
       # stim: 100
-      intro: 0
-      idle: 20
+      tintro: 0
+      tidle: 40
 
   nullcondition:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 200
-      intro: 95
-      stim: 10
+      tseq: 400
+      tintro: 190
+      tstim: 20
 
   idleresponse:
-    parameter: idle
+    parameter: tidle
     data_loader: StimulusDuration
     data_args:
-      dsteps: 30
-      intro: 5
-      stim: 15
-      idle: [0, 1, 5, 10, 20, 40]
+      tseq: 60
+      tintro: 10
+      tstim: 30
+      tidle: [0, 2, 10, 20, 40, 80]
 
   duration:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 30
-      intro: 1
-      stim: [1, 2, 3, 4, 5, 10, 15, 20]
-      idle: 20
+      tseq: 60
+      tintro: 2
+      tstim: [2, 4, 6, 8, 10, 20, 30, 40]
+      tidle: 40
 
   contrast:
     parameter: contrast
     data_loader: StimulusContrast
     data_args:
-      dsteps: 30
-      intro: 1
-      stim: 20
+      tseq: 60
+      tintro: 2
+      tstim: 40
       contrast: [0.1, 0.2, 0.3, 0.4, 0.6, 0.8, 1.0]
-      idle: 20
+      tidle: 40
 
   interval:
-    parameter: interval
+    parameter: tinterval
     data_loader: StimulusInterval
     data_args:
-      dsteps: 40
-      intro: 1
-      stim: 5
-      interval: [1, 2, 3, 4, 6, 8, 10]
-      idle: 20
+      tseq: 80
+      tintro: 2
+      tstim: 10
+      tinterval: [2, 4, 6, 8, 12, 16, 20]
+      tidle: 40
 
   uniformnoise:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: uniform
       ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   uniformnoiseffonly:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: uniform
       ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
       ffonly: 'true'
 
   saltpeppernoise:
     parameter: noiselevel
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: saltpepper
       ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   poissonnoise:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: poisson
       ssnr: [0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   poissonnoiseffonly:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: poisson
       ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
       ffonly: 'true'
 
   gaussiannoise:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: gaussian
       ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   gaussiancorrnoise:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: gaussian
       spatialcorr: 'true'
       ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   phasescramblednoise:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: phasescrambled
       ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
 
   gaussiannoiseffonly:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: gaussian
       ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
       ffonly: 'true'
 
   gaussiancorrnoiseffonly:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: gaussian
       spatialcorr: 'true'
       ssnr: [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
       ffonly: 'true'
 
   phasescramblednoiseffonly:
     parameter: ssnr
     data_loader: StimulusNoise
     data_args:
-      dsteps: 20
+      tseq: 40
       noisetype: phasescrambled
       ssnr: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
       tempmode: 'dynamic'
-      idle: 20
+      tidle: 40
       ffonly: 'true'
 
   noise:
     parameter: ssnr
 
   hundred:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 200
-      stim: 100
-      intro: 0
-      idle: 100
+      tseq: 400
+      tstim: 200
+      tintro: 0
+      tidle: 200
 
   ten:
-    parameter: stim
+    parameter: tstim
     data_loader: StimulusDuration
     data_args:
-      dsteps: 10
-      stim: 5
-      intro: 0
-      idle: 0
+      tseq: 20
+      tstim: 10
+      tintro: 0
+      tidle: 0

@@ -10,7 +10,8 @@
 2. Derived Parameters & Warnings → Pydantic Computed Properties
 
 - Calculated values like delay_ff = int(t_feedforward / dt)
-- Consistency warnings (t_feedforward not multiple of dt)
+- Rejection of durations that are not whole numbers of dt steps
+  (t_feedforward, t_recurrence, t_feedback, t_skip, loss_reaction_time)
 - Parameter preprocessing and normalization
 
 3. Architecture Implementation → Model Classes

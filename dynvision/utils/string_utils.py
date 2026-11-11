@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Union, List
 
 from .type_utils import guess_type
+from dynvision.workflow.snake_utils import key_value_pattern
 
 
 def path_to_index(path: Union[str, Path], non_index: int = -1) -> int:
@@ -60,13 +61,13 @@ def extract_param_from_string(
         -> 0.5
     """
     if value_type == int:
-        match = re.search(rf"{key}{assigner}(\d+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"(\d+)", s)
     elif value_type == float:
-        match = re.search(rf"{key}{assigner}(\d+(\.\d+)?)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"(\d+(\.\d+)?)", s)
     elif value_type == str:
-        match = re.search(rf"{key}{assigner}([a-z]+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"([a-z]+)", s)
     elif value_type is None:
-        match = re.search(rf"{key}{assigner}([\da-z\.]+)", s)
+        match = re.search(key_value_pattern(key, assigner) + r"([\da-z\.]+)", s)
         value_type = guess_type
     else:
         raise ValueError(f"Invalid value type: {value_type}")
@@ -101,17 +102,19 @@ def replace_param_in_string(
         -> "model_contrast=0.8"
     """
     if value_type == int:
-        match = re.search(rf"{key}=(\d+)", s)
+        match = re.search(key_value_pattern(key) + r"(\d+)", s)
     elif value_type == float:
-        match = re.search(rf"{key}=(\d+(\.\d+)?)", s)
+        match = re.search(key_value_pattern(key) + r"(\d+(\.\d+)?)", s)
     elif value_type == str:
-        match = re.search(rf"{key}=([a-z]+)", s)
+        match = re.search(key_value_pattern(key) + r"([a-z]+)", s)
     elif value_type is None:
-        match = re.search(rf"{key}=([\da-z\.]+)", s)
+        match = re.search(key_value_pattern(key) + r"([\da-z\.]+)", s)
     else:
         raise ValueError(f"Invalid value type: {value_type}")
     if match:
-        return s.replace(match.group(0), f"{key}={new_value}")
+        # Replace this occurrence only: str.replace() would also rewrite the
+        # same text inside another key (stim=5 inside tstim=5).
+        return s[: match.start()] + f"{key}={new_value}" + s[match.end() :]
     else:
         raise ValueError(f"No {key} value found in the string!")
 

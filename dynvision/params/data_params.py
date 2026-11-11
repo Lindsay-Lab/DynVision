@@ -70,6 +70,13 @@ class DataParams(BaseParams):
         ),
         "Processing": (
             SummaryItem("data_timesteps", always=True),
+            SummaryItem("t_sequence"),
+            SummaryItem("t_intro"),
+            SummaryItem("intro_duration"),
+            SummaryItem("t_stimulus"),
+            SummaryItem("stimulus_duration"),
+            SummaryItem("t_interval"),
+            SummaryItem("interval_duration"),
             SummaryItem("resolution"),
             SummaryItem("transform_backend", always=True),
             SummaryItem("transform_context", always=True),
@@ -140,6 +147,14 @@ class DataParams(BaseParams):
     resolution: Optional[int] = Field(
         default=None, ge=1, description="Image resolution"
     )
+    data_loader: Optional[str] = Field(
+        default=None,
+        description=(
+            "DataLoader class name, resolved against the loader registry in "
+            "dynvision.data.dataloader (e.g. 'StandardDataLoader', "
+            "'StimulusDurationDataLoader'). None means the dataset decides."
+        ),
+    )
     normalize: Optional[Tuple[List[float], List[float]]] = Field(
         default=None,
         description="Custom normalization (mean, std) as JSON string or tuple",
@@ -149,7 +164,45 @@ class DataParams(BaseParams):
     )
 
     # === Temporal Parameters ===
-    data_timesteps: int = Field(..., ge=1, description="number of timesteps to load")
+    data_timesteps: Optional[int] = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Number of timesteps to load (engine form of t_sequence; the legacy "
+            "key 'dsteps' sets it in steps). 1 when no sequence length is given."
+        ),
+    )
+    t_sequence: Optional[float] = Field(
+        default=None,
+        gt=0,
+        description="Duration of a loaded sequence (ms); derives data_timesteps",
+    )
+
+    # Stimulus protocol of the Stimulus* loaders. Each window is given in ms
+    # (t_*) or, legacy, in steps (*_duration); the composite converts one into
+    # the other with the model's dt, and the loaders receive steps.
+    t_stimulus: Optional[float] = Field(
+        default=None, ge=0, description="Stimulus duration (ms)"
+    )
+    stimulus_duration: Optional[int] = Field(
+        default=None, ge=0, description="Stimulus duration (steps; legacy 'stim')"
+    )
+    t_intro: Optional[float] = Field(
+        default=None, ge=0, description="Blank period before the first stimulus (ms)"
+    )
+    intro_duration: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Blank period before the first stimulus (steps; legacy 'intro')",
+    )
+    t_interval: Optional[float] = Field(
+        default=None, ge=0, description="Inter-stimulus interval (ms)"
+    )
+    interval_duration: Optional[int] = Field(
+        default=None,
+        ge=0,
+        description="Inter-stimulus interval (steps; legacy 'interval')",
+    )
     non_input_value: int = Field(..., description="null input value")
     non_label_index: int = Field(..., description="label index to ignore")
 
@@ -222,6 +275,14 @@ class DataParams(BaseParams):
             {
                 "use_distributed_mode": "use_distributed",
                 "dsteps": "data_timesteps",
+                "tseq": "t_sequence",
+                "tstim": "t_stimulus",
+                "tintro": "t_intro",
+                "tinterval": "t_interval",
+                "tisi": "t_interval",
+                "stim": "stimulus_duration",
+                "intro": "intro_duration",
+                "interval": "interval_duration",
             }
         )
         return aliases
@@ -378,6 +439,19 @@ class DataParams(BaseParams):
         return self
 
     @model_validator(mode="after")
+    def default_sequence_length(self) -> "DataParams":
+        """Load single frames when no sequence length is given in either unit.
+
+        ``t_sequence`` needs the model's dt, which only a composite knows; it is
+        converted there (``coordinate_component_timing``). Defaulting
+        ``data_timesteps`` here rather than in the config files keeps a
+        configured ``t_sequence`` from contradicting a default step count.
+        """
+        if self.data_timesteps is None and self.t_sequence is None:
+            self.update_field("data_timesteps", 1, mutation_tag="default")
+        return self
+
+    @model_validator(mode="after")
     def validate_transforms(self) -> "DataParams":
         """Derive transform parameters from other configuration fields.
 
@@ -440,6 +514,17 @@ class DataParams(BaseParams):
         kwargs = {k: v for k, v in kwargs.items() if v is not None}
         return kwargs
 
+    def _steps_or_raise(self, ms_field: str, steps_field: str) -> Optional[int]:
+        """Return a window in steps, refusing an ms value nobody converted."""
+        steps = getattr(self, steps_field)
+        if steps is None and getattr(self, ms_field) is not None:
+            raise ValueError(
+                f"{ms_field}={getattr(self, ms_field):g} ms has not been converted "
+                f"to {steps_field}: that needs the model's dt. Resolve the data "
+                "parameters through TrainingParams, TestingParams or InitParams."
+            )
+        return steps
+
     def get_dataloader_kwargs(self, dataloader_class=None) -> Dict[str, Any]:
         """
         Get standardized dataloader kwargs with automatic optimization.
@@ -482,7 +567,7 @@ class DataParams(BaseParams):
                 "batches_ahead": self.batches_ahead,
                 "order": self.order,
                 "os_cache": self.os_cache,
-                "data_timesteps": self.data_timesteps,
+                "data_timesteps": self._steps_or_raise("t_sequence", "data_timesteps"),
                 "distributed": self.use_distributed,
                 "train": self.train,
                 "shuffle": self.shuffle,
@@ -490,6 +575,17 @@ class DataParams(BaseParams):
                 "non_input_value": self.non_input_value,
             }
         )
+
+        # Stimulus protocol, in steps. Unset windows are left to the loader's
+        # defaults, as the undeclared extras used to be.
+        for ms_field, steps_field in (
+            ("t_stimulus", "stimulus_duration"),
+            ("t_intro", "intro_duration"),
+            ("t_interval", "interval_duration"),
+        ):
+            steps = self._steps_or_raise(ms_field, steps_field)
+            if steps is not None:
+                kwargs[steps_field] = steps
 
         # Add custom dataloader kwargs
         if self.dataloader_kwargs:

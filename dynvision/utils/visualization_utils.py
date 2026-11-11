@@ -21,8 +21,13 @@ import numpy as np
 import pandas as pd
 import torch
 
+# Module import, not names: dynvision.processing.time_base imports this
+# package, so its names are read at call time.
+from dynvision.processing import sample_selection, time_base
+
 from .data_utils import load_df
 from .string_utils import extract_param_from_string
+from .timing import format_ms, is_legacy_step_key, is_ms_name, quantity_for
 
 
 def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -39,23 +44,105 @@ def tensor_to_numpy(tensor: torch.Tensor) -> np.ndarray:
 
 logger = logging.getLogger(__name__)
 
-# Parameters that need dt conversion from timesteps to milliseconds
-DT_CONVERT_PARAMS = ["tau", "trc", "tsk", "lossrt", "duration", "interval"]
+#: Parameters given in milliseconds that are not windowed quantities: the
+#: integration step, the time constant, the delays and the loss reaction time.
+#: The windowed quantities (``tstim``, ``tsim``, ...) are named in
+#: :data:`dynvision.utils.timing.TEMPORAL_QUANTITIES`.
+MS_PARAMETERS = frozenset({"dt", "tau", "tff", "trc", "tsk", "tfb", "lossrt"})
 
 
-def format_parameter_value(value, parameter, dt=None):
+def is_ms_parameter(parameter: str) -> bool:
+    """Return True when ``parameter`` holds a value in milliseconds."""
+    name = str(parameter).lower()
+    return name in MS_PARAMETERS or is_ms_name(name)
+
+
+def ms_parameter_key(df: pd.DataFrame, key: Optional[str]) -> Optional[str]:
+    """Return the millisecond column that carries a legacy step parameter.
+
+    Results tested with legacy step keys (``stim``, ``interval``) name their
+    parameter in steps, and ``ensure_time_base`` adds its millisecond column
+    (``tstim``, ``tinterval``) converted with each row's ``dt``. Plots group
+    and label by that column, so rows of different ``dt`` share one axis.
+
+    Args:
+        df: Result table after :func:`load_result_data`.
+        key: Parameter or category column name.
+
+    Returns:
+        The millisecond column when ``key`` is a legacy step key and the
+        column exists, else ``key`` unchanged.
+    """
+    if not key or not is_legacy_step_key(key):
+        return key
+    ms_key = quantity_for(key).key
+    return ms_key if ms_key in df.columns else key
+
+
+def load_result_data(
+    paths, *, t_idle: Optional[float] = None, read: Callable = pd.read_csv
+) -> pd.DataFrame:
+    """Read result tables and give each its time base before concatenating.
+
+    Every plot reads time from the data: each table gets ``dt``, ``time_ms``
+    and the millisecond columns of its step parameters from
+    :func:`dynvision.processing.time_base.ensure_time_base`, using its own
+    path to find ``dt`` when the table does not carry it. Tables of different
+    ``dt`` thereby share one millisecond axis.
+
+    Args:
+        paths: A path or a sequence of paths to result CSV files.
+        t_idle: Idle period in ms, for tables that do not record it.
+        read: Reader for one path.
+
+    Returns:
+        The concatenated table.
+
+    Raises:
+        ValueError: If the ``dt`` of a table cannot be determined.
+    """
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    frames = []
+    for path in paths:
+        logger.info("Loading %s", path)
+        frames.append(time_base.ensure_time_base(read(path), path, t_idle=t_idle))
+    if not frames:
+        raise ValueError("No result files given.")
+    combined = pd.concat(frames, ignore_index=True)
+    # A plot compares these runs: they should rest on the same samples
+    sample_selection.warn_on_sample_mismatch(combined, context="plotting")
+    return combined
+
+
+def require_time_ms(df: pd.DataFrame) -> None:
+    """Raise unless ``df`` carries the ``time_ms`` column plots draw on."""
+    if time_base.TIME_MS not in df.columns:
+        raise KeyError(
+            f"The result table has no '{time_base.TIME_MS}' column. Load it with "
+            f"load_result_data() or dynvision.processing.time_base.ensure_time_base()."
+        )
+
+
+def format_parameter_value(value, parameter):
     """Format parameter values with appropriate units.
+
+    Millisecond parameters (:func:`is_ms_parameter`) get the unit ``ms``. A
+    value is never converted with a ``dt``: a step-valued parameter is plotted
+    by its millisecond column instead (:func:`ms_parameter_key`).
 
     Args:
         value: Parameter value to format
         parameter: Parameter name
-        dt: Optional temporal resolution for converting timesteps to ms
 
     Returns:
         Formatted string with value and unit
     """
-    if dt is not None and parameter.lower() in DT_CONVERT_PARAMS:
-        return f"{int(float(value) * dt)} ms"
+    if is_ms_parameter(parameter):
+        try:
+            return f"{format_ms(float(value))} ms"
+        except (TypeError, ValueError):
+            return f"{value} ms"
     elif str(value).lower() in ["true", "false"]:
         return str(value).capitalize()
     elif parameter.lower() in ["contrast", "noiselevel"]:
@@ -667,7 +754,7 @@ def order_layers(layer_names: List[str], config: Dict) -> List[str]:
 def calculate_label_indicator(
     df: pd.DataFrame, category: str, y_range: tuple, step_height: float = 0.25
 ) -> pd.DataFrame:
-    """Calculate label indicator (step function) at each time step.
+    """Calculate label indicator (step function) at each recorded time.
 
     Args:
         df: DataFrame containing classifier responses
@@ -675,18 +762,21 @@ def calculate_label_indicator(
         y_range: Tuple of (y_min, y_max) for the current subplot
 
     Returns:
-        DataFrame with times_index and label_indicator (relative to subplot height)
+        DataFrame with the time column and label_indicator (relative to subplot
+        height). The time column is ``time_ms`` when ``df`` has it, else
+        ``times_index``.
     """
     y_min, y_max = y_range
+    time_col = time_base.TIME_MS if time_base.TIME_MS in df.columns else "times_index"
 
     if "label_valid" in df.columns:
         indicator_source = (
-            df.groupby("times_index", observed=True)["label_valid"].max().reset_index()
+            df.groupby(time_col, observed=True)["label_valid"].max().reset_index()
         )
         indicator_source["label_indicator"] = indicator_source["label_valid"].apply(
             lambda flag: y_min + ((y_max - y_min) * step_height) if flag else y_min
         )
-        return indicator_source[["times_index", "label_indicator"]]
+        return indicator_source[[time_col, "label_indicator"]]
 
     # Fallback for legacy datasets that still require label_index logic
     # Get first model's data to determine label validity at each time step
@@ -705,18 +795,116 @@ def calculate_label_indicator(
         raise ValueError("step_height must be positive")
 
     indicator_data = []
-    for time_step in sorted(model_data.times_index.unique()):
-        time_data = model_data[model_data.times_index == time_step]
+    for time_step in sorted(model_data[time_col].unique()):
+        time_data = model_data[model_data[time_col] == time_step]
 
         # Check if any labels are valid (>= 0) at this time step
         valid_labels = (time_data.label_index >= 0).any()
         indicator_value = y_min + step_height if valid_labels else y_min
 
         indicator_data.append(
-            {"times_index": time_step, "label_indicator": indicator_value}
+            {time_col: time_step, "label_indicator": indicator_value}
         )
 
     return pd.DataFrame(indicator_data)
+
+
+def _on_intervals(indicator: pd.DataFrame, dt: float, y_min: float) -> tuple:
+    """Merged (start, end] intervals in ms during which the indicator is on."""
+    intervals = []
+    for t, value in zip(indicator[time_base.TIME_MS], indicator["label_indicator"]):
+        if value <= y_min:
+            continue
+        start, end = round(t - dt, 9), round(t, 9)
+        if intervals and intervals[-1][1] == start:
+            intervals[-1] = (intervals[-1][0], end)
+        else:
+            intervals.append((start, end))
+    return tuple(intervals)
+
+
+def stimulus_indicators(
+    df: pd.DataFrame,
+    hue_key: Optional[str],
+    y_range: tuple,
+    step_height: float = 0.25,
+    category: Optional[str] = None,
+) -> List[Tuple[Optional[str], pd.DataFrame]]:
+    """Stimulus step functions for one axis, one per distinct protocol.
+
+    Step k is recorded at ``time_ms = (k + 1) * dt`` and covers
+    ``(time_ms - dt, time_ms]``. Each hue's indicator gets a leading point at
+    t = 0, so ``drawstyle="steps-pre"`` draws every step over the interval it
+    integrates. Hues of different ``dt`` have different time grids: pooling
+    them into one indicator drew a comb. Hues whose stimuli cover the same ms
+    intervals share one indicator (returned with hue ``None``, on the finest
+    grid); otherwise each hue gets its own.
+
+    ``category`` is the column whose first value selects the rows of legacy
+    data without ``label_valid`` when ``hue_key`` is not a column (e.g. layer
+    hues); it defaults to ``hue_key``.
+
+    Returns:
+        List of ``(hue_value_or_None, indicator_df)`` with columns ``time_ms``
+        and ``label_indicator``.
+    """
+    require_time_ms(df)
+    y_min = y_range[0]
+
+    def _indicator(rows: pd.DataFrame, key: Optional[str]) -> pd.DataFrame:
+        indicator = calculate_label_indicator(rows, key, y_range, step_height)
+        indicator = indicator.sort_values(time_base.TIME_MS)
+        first = indicator.iloc[[0]].assign(**{time_base.TIME_MS: 0.0})
+        return pd.concat([first, indicator], ignore_index=True)
+
+    if not hue_key or hue_key not in df.columns:
+        return [(None, _indicator(df, category or hue_key))]
+
+    per_hue = []
+    for hue_value, group in df.groupby(hue_key, observed=True, sort=False):
+        if "dt" in group.columns:
+            dt = float(group["dt"].min())
+        else:  # the grid spacing; ensure_time_base always writes dt
+            dt = float(
+                np.diff(np.unique(group[time_base.TIME_MS])).min(initial=np.inf)
+            )
+        indicator = _indicator(group, hue_key)
+        intervals = _on_intervals(indicator.iloc[1:], dt, y_min)
+        # Hue values are keyed as the plots standardize them (see colors)
+        label = str(hue_value).strip()
+        label = label.lower() if label.lower() in ("true", "false") else label
+        per_hue.append((label, dt, indicator, intervals))
+
+    if len({intervals for *_, intervals in per_hue}) == 1:
+        finest = min(per_hue, key=lambda item: item[1])
+        return [(None, finest[2])]
+    return [(hue_value, indicator) for hue_value, _, indicator, _ in per_hue]
+
+
+def draw_stimulus_indicators(
+    ax: plt.Axes,
+    df: pd.DataFrame,
+    hue_key: Optional[str],
+    y_range: tuple,
+    step_height: float,
+    colors: Optional[Dict[str, Any]] = None,
+    linewidth: float = 1.0,
+    alpha: float = 1.0,
+    category: Optional[str] = None,
+) -> None:
+    """Draw :func:`stimulus_indicators` on ``ax``: a shared protocol in gray,
+    differing protocols in their hue's color."""
+    colors = colors or {}
+    indicators = stimulus_indicators(df, hue_key, y_range, step_height, category)
+    for hue_value, indicator in indicators:
+        ax.plot(
+            indicator[time_base.TIME_MS],
+            indicator["label_indicator"],
+            color="dimgray" if hue_value is None else colors.get(hue_value, "dimgray"),
+            linewidth=linewidth,
+            drawstyle="steps-pre",
+            alpha=alpha,
+        )
 
 
 def get_category_plotting_settings(

@@ -31,6 +31,7 @@ from dynvision.model_components import (
 )
 from dynvision.base import BaseModel
 from dynvision.utils import alias_kwargs, str_to_bool
+from dynvision.utils.timing import to_timesteps
 
 __all__ = ["DyRCNNx2", "DyRCNNx4", "DyRCNNx8"]
 
@@ -137,6 +138,28 @@ class DyRCNN(BaseModel):
 
     def _define_architecture(self) -> None:
         raise NotImplementedError("Define the model architecture!")
+
+    def _set_connection_delay_indices(self) -> None:
+        """Set the buffer indices the skip and feedback connections read from.
+
+        A buffer index is not a delay: index 1 is the newest stored state. A
+        skip source is an earlier layer that has already stored the current
+        step before ``addskip`` runs, so a delay of ``t_skip`` steps needs index
+        ``steps + 1``. A feedback source is a later layer that has not been
+        updated yet, so index ``steps`` already reaches ``steps`` back, and
+        ``t_feedback`` is at least one step (checked in TemporalBase).
+
+        A disabled connection gets no index: its duration is inert and may lie
+        off the dt grid.
+        """
+        self.delay_index_skip = (
+            to_timesteps(self.t_skip, self.dt, "t_skip") + 1 if self.skip else None
+        )
+        self.delay_index_feedback = (
+            to_timesteps(self.t_feedback, self.dt, "t_feedback")
+            if self.feedback
+            else None
+        )
 
     def _parse_feedback_mode(self, feedback) -> None:
         if str(feedback).lower() == "add":
@@ -288,16 +311,7 @@ class DyRCNNx4(DyRCNN):
                 fixed_weight=self.input_adaption_weight
             )
 
-        # +1 because the source layer's delay already stored the current timestep
-        # before addskip runs (source is an earlier layer, fully processed this step)
-        self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
-        )
-        self.delay_index_feedback = (
-            int(round(float(self.t_feedback) / float(self.dt)))
-            if self.t_feedback
-            else 0
-        )
+        self._set_connection_delay_indices()
 
         # V1 layer
         in_channels = self.retina.out_channels if self.use_retina else self.n_channels
@@ -472,16 +486,7 @@ class DyRCNNx8(DyRCNNx4):
                 bias=self.bias,
             )
 
-        # +1 because the source layer's delay already stored the current timestep
-        # before addskip runs (source is an earlier layer, fully processed this step)
-        self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
-        )
-        self.delay_index_feedback = (
-            int(round(float(self.t_feedback) / float(self.dt)))
-            if self.t_feedback
-            else 0
-        )
+        self._set_connection_delay_indices()
 
         # Common layer parameters
         layer_params = dict(
@@ -687,16 +692,7 @@ class DyRCNNx2(DyRCNN):
             feedforward_only=self.feedforward_only,
         )
 
-        # +1 because the source layer's delay already stored the current timestep
-        # before addskip runs (source is an earlier layer, fully processed this step)
-        self.delay_index_skip = (
-            int(round(float(self.t_skip) / float(self.dt))) + 1 if self.t_skip else 1
-        )
-        self.delay_index_feedback = (
-            int(round(float(self.t_feedback) / float(self.dt)))
-            if self.t_feedback
-            else 0
-        )
+        self._set_connection_delay_indices()
 
         # Define the convolutional layers
         self.layer1 = RecurrentConnectedConv2d(

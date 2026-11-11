@@ -80,8 +80,9 @@ Typical values: 5-20 ms
 ### 3. Delay Parameters
 
 DynVision implements separate, per-connection-type delays. Each delay must be an
-integer multiple of `dt`. The delays are specified in milliseconds (aliases in
-parentheses):
+integer multiple of `dt`, and a configuration that violates this is rejected
+with a `DynVisionValidationError` rather than rounded. The delays are specified
+in milliseconds (aliases in parentheses):
 
 - `t_feedforward` (`tff`, $\Delta_{FF}$): feedforward delay between layers. Default `0 ms` (engineering-time unrolling).
 - `t_recurrence` (`trc`, $\Delta_{RC}$): lateral recurrent delay. Default `6 ms`.

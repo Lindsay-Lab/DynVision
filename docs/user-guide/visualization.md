@@ -95,6 +95,19 @@ When analyzing response time courses, you can observe:
 snakemake --config experiment=response plot_adaption
 ```
 
+**Dimension mapping**. The `plot_responses` rule takes three `--config` keys:
+`column` (outer panels, default `parameter`), `subplot` (vertical ridges,
+default `layers`), and `hue` (line colour, default `category`). The keys are
+exactly those three names: Snakemake ignores a config key a rule does not read,
+so `subplots` or `rows` falls back to the default without any warning.
+Values are `category`, `parameter`, `layers`, `classifier_topk`, `experiment`,
+or any categorical column of `test_data.csv`. `layers` may be assigned to any
+one of the three roles; it picks the per-layer `*_response_avg` column the panel
+draws from, so it subplots, colours, or splits the figure into per-layer panels
+rather than filtering rows. Assign it to exactly one role, and not together with
+`classifier_topk`, which selects an activation column instead of a layer
+response.
+
 ### 2. Weight Distributions
 
 These visualizations show the distribution of weights in different parts of the model.

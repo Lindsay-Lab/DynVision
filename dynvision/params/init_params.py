@@ -11,10 +11,12 @@ import logging
 
 from pydantic import Field, model_validator, ConfigDict
 
+from dynvision.params.base_params import DynVisionValidationError
 from dynvision.params.composite_params import CompositeParams
 from dynvision.params.model_params import ModelParams
 from dynvision.params.data_params import DataParams
 from dynvision.utils import log_section, format_value
+from dynvision.utils.timing import coordinate_component_timing
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,19 @@ class InitParams(CompositeParams):
             }
         )
 
-        return aliases
+        return cls.merge_component_aliases(aliases)
+
+    @model_validator(mode="after")
+    def coordinate_component_timing(self) -> "InitParams":
+        """Convert the data component's ms windows with the model's dt.
+
+        Defined before the other validators so that they see step counts.
+        """
+        try:
+            coordinate_component_timing(self)
+        except ValueError as error:
+            raise DynVisionValidationError(str(error)) from None
+        return self
 
     @model_validator(mode="after")
     def validate_initialization_config(self) -> "InitParams":

@@ -6,6 +6,7 @@ from typing import Union, Callable, Optional, Any, Tuple
 import logging
 from fractions import Fraction
 from dynvision.utils import apply_parametrization
+from dynvision.utils.timing import to_timesteps
 from dynvision.model_components.integration_strategy import setup_integration_strategy
 
 import torch
@@ -110,7 +111,9 @@ class ConnectionBase(LightningModule):
             return
         elif self.t_connection is not None and self.dt is not None:
             # for skip connections, +1 accounts that previous layers already had their hidden state updated this timestep
-            self.delay_index = int(self.t_connection / self.dt) + 1
+            self.delay_index = (
+                to_timesteps(self.t_connection, self.dt, "t_connection") + 1
+            )
         else:
             raise ValueError(
                 "Either delay_index or both t_connection and dt must be provided."

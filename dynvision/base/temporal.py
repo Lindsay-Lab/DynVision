@@ -1,7 +1,6 @@
 """Core neural network functionality for biologically-inspired models."""
 
 import logging
-import math
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -10,6 +9,14 @@ import torch.nn as nn
 from dynvision import losses
 from dynvision.data.operations import _adjust_data_dimensions, _adjust_label_dimensions
 from dynvision.utils import alias_kwargs, str_to_bool
+from dynvision.utils.timing import (
+    format_ms,
+    is_integer_multiple,
+    multiple_error_message,
+    require_min_steps,
+    to_ms,
+    to_timesteps,
+)
 from .storage import DataBuffer
 
 logger = logging.getLogger(__name__)
@@ -113,6 +120,11 @@ class TemporalBase(nn.Module):
         self.feedforward_only = str_to_bool(feedforward_only)
         self.truncated_bptt_timesteps = int(truncated_bptt_timesteps)
 
+        # Durations are integrated on the dt grid and define integer delay and
+        # offset indices, so a non-multiple would silently run with a different
+        # delay than the one configured.
+        self._validate_dt_multiples()
+
         # Set operation selections (use defaults if not provided)
         self.non_feedforward_operations = (
             non_feedforward_operations
@@ -125,7 +137,9 @@ class TemporalBase(nn.Module):
             else list(self.DEFAULT_OPERATIONS_SKIPPED_ON_NULL_INPUT)
         )
 
-        self.delay_feedforward = int(t_feedforward / dt)
+        self.delay_feedforward = to_timesteps(
+            self.t_feedforward, self.dt, "t_feedforward"
+        )
 
         # Optional override applied to every layer's delay() call, regardless
         # of that layer's own t_feedforward. Used by shape-inference forward
@@ -167,6 +181,61 @@ class TemporalBase(nn.Module):
                 self.dim_x,
             )
             self.reset(input_shape)
+
+    def _validate_dt_multiples(self) -> None:
+        """Reject durations that are not a whole number of ``dt`` steps.
+
+        Runs on the effective values, so a duration left unset still gets
+        checked against the model class default that supply it. ``t_feedback``
+        and ``t_skip`` are checked only when the connection they parameterise
+        is enabled, since they are otherwise inert and a non-multiple there
+        changes no computation.
+
+        Raises:
+            ValueError: If a used duration is not a multiple of ``dt``.
+        """
+        if self.dt is None:
+            return
+        if self.dt <= 0:
+            raise ValueError(f"dt must be positive, got dt={self.dt:g} ms")
+
+        durations = [
+            ("t_feedforward", self.t_feedforward),
+            ("t_recurrence", self.t_recurrence),
+            ("loss_reaction_time", self.loss_reaction_time),
+        ]
+        if self.feedback:
+            durations.append(("t_feedback", self.t_feedback))
+        if self.skip:
+            durations.append(("t_skip", self.t_skip))
+
+        for name, value in durations:
+            if value is None:
+                continue
+            if not is_integer_multiple(value, self.dt):
+                raise ValueError(multiple_error_message(name, value, self.dt))
+
+        # Recurrence and feedback read a source that has not been updated yet
+        # in the current step, so their delay spans at least one step.
+        recurrence_active = (
+            self.recurrence_type != "none" and not self.feedforward_only
+        )
+        if recurrence_active and self.t_recurrence is not None:
+            require_min_steps(
+                "t_recurrence",
+                self.t_recurrence,
+                self.dt,
+                min_steps=1,
+                reason="A recurrent connection reads its layer's state from an earlier step.",
+            )
+        if self.feedback and self.t_feedback is not None:
+            require_min_steps(
+                "t_feedback",
+                self.t_feedback,
+                self.dt,
+                min_steps=1,
+                reason="Feedback reads a later layer that has not been updated yet in this step.",
+            )
 
     # Data processing
     #################
@@ -489,11 +558,11 @@ class TemporalBase(nn.Module):
             # Flag for activity loss hooks to skip accumulation
             self._in_idle_period = True
 
-            for t_idle in range(idle_steps):
+            for idle_step in range(idle_steps):
                 # Forward pass with null input - populates hidden states
                 x, _ = self._forward(
                     null_input,
-                    t=t_idle,
+                    t=idle_step,
                     feedforward_only=self.feedforward_only,
                     store_responses=False,  # Don't store responses during idle
                 )
@@ -815,7 +884,17 @@ class TemporalBase(nn.Module):
         self._cached_presentation_pattern = self._expand_pattern(base_pattern)
 
     def _expand_pattern(self, pattern: torch.Tensor) -> torch.Tensor:
-        """Expand a base pattern tensor to match self.n_timesteps."""
+        """Expand a base pattern tensor to match self.n_timesteps.
+
+        Every pattern entry becomes one chunk of ``n_timesteps / len(pattern)``
+        steps. The window must divide evenly: floor indexing used to stretch
+        ``1011`` over 10 steps into chunks of 3, 2, 3 and 2 steps, so the
+        presentation and blank periods silently differed in duration.
+
+        Raises:
+            ValueError: If ``n_timesteps`` is not a positive multiple of the
+                pattern length.
+        """
         if pattern.numel() == 1:
             return pattern.expand(self.n_timesteps)
 
@@ -824,13 +903,27 @@ class TemporalBase(nn.Module):
                 "n_timesteps must be positive to expand presentation pattern"
             )
 
-        device = pattern.device
+        n_chunks = pattern.numel()
+        if self.n_timesteps % n_chunks != 0:
+            uneven = torch.bincount(
+                torch.arange(self.n_timesteps) * n_chunks // self.n_timesteps,
+                minlength=n_chunks,
+            ).tolist()
+            lower = (self.n_timesteps // n_chunks) * n_chunks
+            raise ValueError(
+                f"data_presentation_pattern {pattern.int().tolist()} has {n_chunks} "
+                f"chunks, which do not divide n_timesteps={self.n_timesteps} "
+                f"({format_ms(to_ms(self.n_timesteps, self.dt))} ms at dt="
+                f"{self.dt:g} ms): the chunks would last {uneven} steps. Use a "
+                f"simulation window of {lower} or {lower + n_chunks} steps "
+                f"({format_ms(to_ms(lower, self.dt))} or "
+                f"{format_ms(to_ms(lower + n_chunks, self.dt))} ms)."
+            )
+
+        steps_per_chunk = self.n_timesteps // n_chunks
         indices = (
-            torch.arange(self.n_timesteps, device=device)
-            * pattern.numel()
-            // self.n_timesteps
+            torch.arange(self.n_timesteps, device=pattern.device) // steps_per_chunk
         )
-        indices = torch.clamp(indices, 0, pattern.numel() - 1)
         return pattern[indices]
 
     def _compute_reaction_mask(self, pattern: torch.Tensor) -> torch.Tensor:
@@ -847,7 +940,7 @@ class TemporalBase(nn.Module):
         if pattern.numel() == 0:
             return torch.zeros_like(pattern, dtype=torch.bool)
 
-        reaction_steps = max(1, math.ceil(self.loss_reaction_time / self.dt))
+        reaction_steps = max(1, to_timesteps(self.loss_reaction_time, self.dt))
 
         # Detect rising edges (stimulus onsets) - where pattern goes from False to True
         padded = torch.cat(

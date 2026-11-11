@@ -170,6 +170,13 @@ DynVision implements different delays for different connection types
 ($\Delta_{FF}$, $\Delta_{RC}$, $\Delta_{SK}$, $\Delta_{FB}$). Each delay is an
 integer multiple of the integration step `dt`:
 
+> **Constraint, enforced:** a delay, or a `loss_reaction_time` window, that is
+> not a whole number of `dt` steps is rejected at validation and at model
+> construction. It used to be rounded silently, and the conversion sites
+> disagreed — truncating for the feedforward and recurrent delays while
+> rounding up for the reaction window — so `dt=3` with `t_recurrence=4` and
+> `loss_reaction_time=4` ran a 3 ms recurrence and a 6 ms window.
+
 - **Feedforward delay** ($\Delta_{FF}$): `0 ms` in the default engineering-time
   unrolling; set to a positive value (e.g. `10 ms`) for biological-time unrolling.
 

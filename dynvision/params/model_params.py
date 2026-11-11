@@ -20,6 +20,14 @@ from dynvision.utils import (
     filter_kwargs,
     resolve_signature_defaults,
 )
+from dynvision.utils.timing import (
+    is_integer_multiple,
+    multiple_error_message,
+    require_min_steps,
+    resolve_time_window,
+    to_ms,
+    to_timesteps,
+)
 
 
 class ModelParams(BaseParams):
@@ -48,7 +56,15 @@ class ModelParams(BaseParams):
         description="Input dimensions (timesteps, channels, height, width)",
     )
     n_timesteps: Optional[int] = Field(
-        default=None, description="Number of timesteps for model processing"
+        default=None,
+        description=(
+            "Number of simulated steps per sample (engine form of t_simulation; "
+            "the legacy key 'tsteps' sets it in steps)"
+        ),
+    )
+    t_simulation: Optional[float] = Field(
+        default=None,
+        description="Simulated duration per sample (ms); derives n_timesteps",
     )
     data_presentation_pattern: Optional[List[int]] = Field(
         default=None,
@@ -77,7 +93,14 @@ class ModelParams(BaseParams):
     )
     idle_timesteps: Optional[int] = Field(
         default=None,
-        description="Number of idle timesteps for spontaneous activity to converge",
+        description=(
+            "Number of idle steps for spontaneous activity to converge (engine "
+            "form of t_idle; the legacy key 'idle' sets it in steps)"
+        ),
+    )
+    t_idle: Optional[float] = Field(
+        default=None,
+        description="Idle period before the input (ms); derives idle_timesteps",
     )
     feedforward_only: Optional[bool] = Field(
         default=None, description="Use only feedforward connections"
@@ -103,6 +126,14 @@ class ModelParams(BaseParams):
     ] = Field(default=None, description="Type of recurrent connections")
 
     # ===== CONNECTIVITY =====
+    recurrence_target: Optional[Literal["output", "input", "middle"]] = Field(
+        default=None,
+        description=(
+            "Where the recurrent connection is applied within a layer: 'input' "
+            "before the feedforward convolution, 'output' after it, 'middle' "
+            "between the two stages (requires mid_channels on the layer)"
+        ),
+    )
     skip: Optional[bool] = Field(
         default=None, description="Enable skip connections between layers"
     )
@@ -236,12 +267,30 @@ class ModelParams(BaseParams):
         validate_by_name=True,  # Allow validation using field names and aliases
     )
 
+    #: Windowed quantities owned by the model, as (ms field, step field). The
+    #: step field is what the engine consumes; the ms field is the interface.
+    time_window_fields: ClassVar[Tuple[Tuple[str, str], ...]] = (
+        ("t_simulation", "n_timesteps"),
+        ("t_idle", "idle_timesteps"),
+    )
+
+    #: Durations measured in milliseconds that are integrated on the ``dt``
+    #: grid and must therefore be whole numbers of ``dt`` steps.
+    dt_multiple_fields: ClassVar[Tuple[str, ...]] = (
+        "t_feedforward",
+        "t_recurrence",
+        "t_feedback",
+        "t_skip",
+        "loss_reaction_time",
+    )
+
     summary_sections: ClassVar[Dict[str, Sequence[SummaryItem]]] = {
         "Architecture": (
             SummaryItem("model_name", always=True),
             SummaryItem("input_dims"),
             SummaryItem("n_classes"),
             SummaryItem("n_timesteps"),
+            SummaryItem("t_simulation"),
             SummaryItem("data_presentation_pattern"),
         ),
         "Temporal": (
@@ -253,6 +302,7 @@ class ModelParams(BaseParams):
             SummaryItem("t_feedback"),
             SummaryItem("t_skip"),
             SummaryItem("idle_timesteps"),
+            SummaryItem("t_idle"),
             SummaryItem("truncated_bptt_timesteps"),
         ),
         "Connectivity": (
@@ -302,6 +352,8 @@ class ModelParams(BaseParams):
                 "steps": "n_timesteps",
                 "tsteps": "n_timesteps",
                 "idle": "idle_timesteps",
+                "tsim": "t_simulation",
+                "tidle": "t_idle",
                 "ffonly": "feedforward_only",
                 "inadapt": "input_adaption_weight",
                 "tbptt": "truncated_bptt_timesteps",
@@ -585,29 +637,27 @@ class ModelParams(BaseParams):
                     "for numerical stability (typically dt < tau/10)"
                 )
 
+        # dt is the grid every duration is integrated on; a non-positive step
+        # makes the multiple checks below undefined.
+        if self.dt is not None and self.dt <= 0:
+            raise DynVisionValidationError(
+                f"dt must be positive (got dt={self.dt:g} ms)"
+            )
+
         # Delay constraints (only validate if set)
         if self.t_feedforward is not None and self.t_feedforward < 0:
             raise DynVisionValidationError("t_feedforward must be non-negative")
 
-        if self.t_recurrence is not None and self.t_recurrence < 1:
-            raise DynVisionValidationError("t_recurrence must be at least 1")
+        if self.t_recurrence is not None and self.t_recurrence < 0:
+            raise DynVisionValidationError("t_recurrence must be non-negative")
 
-        # Check if delays are exact multiples of dt (informational, only if both set)
-        if self.dt is not None and self.t_feedforward is not None:
-            if self.t_feedforward % self.dt != 0:
-                steps = int(self.t_feedforward / self.dt)
-                logging.info(
-                    f"t_feedforward ({self.t_feedforward}ms) rounds to {steps} timesteps "
-                    f"(dt={self.dt}ms)"
-                )
-
-        if self.dt is not None and self.t_recurrence is not None:
-            if self.t_recurrence % self.dt != 0:
-                steps = int(self.t_recurrence / self.dt)
-                logging.info(
-                    f"t_recurrence ({self.t_recurrence}ms) rounds to {steps} timesteps "
-                    f"(dt={self.dt}ms)"
-                )
+        # Durations must be whole numbers of dt steps. They are converted to
+        # integer timestep counts for the delay buffers and the reaction mask,
+        # so a non-multiple would silently run with a different delay than the
+        # one configured.
+        self._validate_dt_multiples()
+        self._validate_min_delays()
+        self._resolve_time_windows()
 
         # Architecture consistency checks (only if both set)
         if (
@@ -696,23 +746,222 @@ class ModelParams(BaseParams):
             if storage_info:
                 logging.info(f"Storage configuration: {', '.join(storage_info)}")
 
+        self._check_storage_caps()
         return self
 
+    def _check_storage_caps(self) -> None:
+        """Reject or warn where a storage setting would cut the test set short.
+
+        A positive ``store_test_records`` keeps the first n record batches and
+        a positive ``store_test_responses`` the first n response batches of the
+        test run. The records carry the predictions, so a records cap makes
+        every metric of the run describe a prefix of the test set rather than
+        the test set; early stopping keyed on a filled buffer ends the
+        evaluation there too. A responses cap leaves the metrics complete but
+        turns the stored activations into a prefix, and runs whose caps differ
+        are then not comparable. ``-1`` stores everything and is the default.
+
+        ``response_resolution: unit`` stores full per-unit tensors, which
+        cannot be kept for every sample; unlimited responses there is rejected
+        rather than allowed to exhaust memory or disk.
+        """
+        if (
+            self.store_test_responses is not None
+            and self.store_test_responses < 0
+            and self.response_resolution == "unit"
+        ):
+            raise DynVisionValidationError(
+                "store_test_responses=-1 (unlimited) with response_resolution='unit' "
+                "would store every per-unit activation of every sample. Use "
+                "response_resolution='layer' (one value per layer, sample and step), "
+                "or cap store_test_responses."
+            )
+
+        for name, batches in (
+            ("store_test_records", self.store_test_records),
+            ("store_test_responses", self.store_test_responses),
+        ):
+            if batches is None or batches <= 0:
+                continue
+            logging.warning(
+                "%s=%d stores only the first %d batches of the test set "
+                "(test_batch_size samples each). %s",
+                name,
+                batches,
+                batches,
+                (
+                    "Every metric of this run then describes a prefix of the test set."
+                    if name == "store_test_records"
+                    else "The stored activations then rest on a prefix of the samples, "
+                    "which differs from other runs as soon as their caps differ."
+                ),
+            )
+
     # ===== COMPUTED PROPERTIES (DERIVED PARAMETERS) =====
+
+    def _validate_dt_multiples(self) -> None:
+        """Reject durations that are not a whole number of ``dt`` steps.
+
+        Only fields that are explicitly set are checked, so a duration left at
+        ``None`` -- meaning "use the model class default" -- is not rejected on
+        the strength of a default that has not been resolved yet. The model
+        classes re-check the effective values in ``TemporalBase``.
+
+        Raises:
+            DynVisionValidationError: If a set duration is not a multiple of
+                ``dt``.
+        """
+        if self.dt is None:
+            return
+        for name in self.dt_multiple_fields:
+            value = getattr(self, name)
+            if value is None:
+                continue
+            if not is_integer_multiple(value, self.dt):
+                raise DynVisionValidationError(
+                    multiple_error_message(name, value, self.dt)
+                )
+
+    def _resolve_time_windows(self) -> None:
+        """Derive each window's step count from its ms value, or the reverse.
+
+        ``t_simulation``/``n_timesteps`` and ``t_idle``/``idle_timesteps`` name
+        one quantity each, in milliseconds and in steps. Whichever is given
+        derives the other; both given must agree. The step value of a legacy
+        configuration (``tsteps=20``) is translated with ``dt`` and keeps its
+        step meaning.
+
+        Raises:
+            DynVisionValidationError: If an ms value lies off the dt grid, is
+                given without dt, or contradicts a step value given with it.
+        """
+        for ms_field, steps_field in self.time_window_fields:
+            try:
+                resolve_time_window(self, ms_field, steps_field, self.dt)
+            except ValueError as error:
+                raise DynVisionValidationError(str(error)) from None
+
+    def _time_window_partner(self, name: str) -> Optional[str]:
+        for ms_field, steps_field in self.time_window_fields:
+            if name == ms_field:
+                return steps_field
+            if name == steps_field:
+                return ms_field
+        return None
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Assigning one side of a time window re-derives the other.
+
+        With ``validate_assignment`` the model validators run on the new state;
+        the stale partner would read as a contradiction, so it is cleared first.
+        Pydantic applies the assignment before an after-validator can reject
+        it, so on failure both sides are restored explicitly.
+        """
+        partner = self._time_window_partner(name)
+        if partner is None:
+            super().__setattr__(name, value)
+            return
+        previous = (getattr(self, name), getattr(self, partner))
+        object.__setattr__(self, partner, None)
+        try:
+            super().__setattr__(name, value)
+        except Exception:
+            object.__setattr__(self, name, previous[0])
+            object.__setattr__(self, partner, previous[1])
+            raise
+
+    def update_field(
+        self,
+        field_name: str,
+        new_value: Any,
+        verbose: bool = False,
+        validate: bool = False,
+        *,
+        mutation_tag: Optional[str] = "runtime",
+    ) -> None:
+        """Update a field; a time-window field also updates its partner.
+
+        Components update ``n_timesteps`` from the data's input dimensions
+        (``update_field(..., mutation_tag="derived")``) without re-running
+        validation. Keeping ``t_simulation`` in step here means every such
+        call site stays consistent without knowing about the ms form.
+        """
+        super().update_field(
+            field_name,
+            new_value,
+            verbose=verbose,
+            validate=validate,
+            mutation_tag=mutation_tag,
+        )
+        partner = self._time_window_partner(field_name)
+        if partner is None or self.dt is None:
+            return
+        value = getattr(self, field_name)
+        if value is None:
+            partner_value = None
+        elif field_name.startswith("t_"):
+            partner_value = to_timesteps(value, self.dt, field_name)
+        else:
+            partner_value = to_ms(value, self.dt)
+        super().update_field(partner, partner_value, mutation_tag="derived")
+
+    def _validate_min_delays(self) -> None:
+        """Reject recurrent and feedback delays shorter than one ``dt`` step.
+
+        Both connections read a source that has not been updated yet in the
+        current step, so one step is the shortest delay they can represent.
+        The check runs only where the connection is known to be active here;
+        ``TemporalBase`` re-checks the effective values of the built model.
+
+        Raises:
+            DynVisionValidationError: If an active delay is shorter than dt.
+        """
+        if self.dt is None:
+            return
+        recurrence_active = (
+            self.recurrence_type is not None
+            and self.recurrence_type != "none"
+            and not self.feedforward_only
+        )
+        feedback_active = self.feedback is not None and str(
+            self.feedback
+        ).lower() not in ("false", "0", "none")
+        checks = []
+        if recurrence_active and self.t_recurrence is not None:
+            checks.append(
+                (
+                    "t_recurrence",
+                    self.t_recurrence,
+                    "A recurrent connection reads its layer's state from an earlier step.",
+                )
+            )
+        if feedback_active and self.t_feedback is not None:
+            checks.append(
+                (
+                    "t_feedback",
+                    self.t_feedback,
+                    "Feedback reads a later layer that has not been updated yet in this step.",
+                )
+            )
+        for name, value, reason in checks:
+            try:
+                require_min_steps(name, value, self.dt, min_steps=1, reason=reason)
+            except ValueError as error:
+                raise DynVisionValidationError(str(error)) from None
 
     @property
     def delay_feedforward(self) -> Optional[int]:
         """Number of timesteps for feedforward delay."""
         if self.t_feedforward is None or self.dt is None:
             return None
-        return int(self.t_feedforward / self.dt)
+        return to_timesteps(self.t_feedforward, self.dt)
 
     @property
     def delay_recurrence(self) -> Optional[int]:
         """Number of timesteps for recurrence delay."""
         if self.t_recurrence is None or self.dt is None:
             return None
-        return int(self.t_recurrence / self.dt)
+        return to_timesteps(self.t_recurrence, self.dt)
 
     @property
     def stability_ratio(self) -> Optional[float]:
@@ -720,6 +969,13 @@ class ModelParams(BaseParams):
         if self.dt is None or self.tau is None:
             return None
         return self.dt / self.tau
+
+    @property
+    def effective_tau_steps(self) -> Optional[float]:
+        """Number of integration steps per neural time constant (tau / dt)."""
+        if self.dt is None or self.tau is None:
+            return None
+        return self.tau / self.dt
 
     @property
     def criterion_params(self) -> Optional[List[Tuple[str, Dict[str, Any]]]]:
@@ -730,29 +986,50 @@ class ModelParams(BaseParams):
             self.loss = [self.loss]
         return [(layer, self.loss_configs[layer]) for layer in self.loss]
 
+    def _delays_are_exact_multiples(self) -> Optional[bool]:
+        """Whether every set duration is a whole number of ``dt`` steps.
+
+        Returns None when ``dt`` is unset, since the question is then
+        undefined. Validation rejects non-multiples, so this reports the
+        invariant rather than discovering a violation.
+        """
+        if self.dt is None:
+            return None
+        return all(
+            getattr(self, name) is None
+            or is_integer_multiple(getattr(self, name), self.dt)
+            for name in self.dt_multiple_fields
+        )
+
     def get_timing_summary(self) -> Dict[str, Any]:
-        """Get comprehensive timing parameter summary."""
+        """Get comprehensive timing parameter summary.
+
+        Unset durations are reported as None, and no field requires ``dt`` or
+        ``tau`` to be set: derived values whose inputs are missing are None
+        rather than raising.
+        """
+        stability_ratio = self.stability_ratio
         return {
             "base_parameters": {
                 "dt": self.dt,
                 "tau": self.tau,
                 "t_feedforward": self.t_feedforward,
                 "t_recurrence": self.t_recurrence,
+                "t_feedback": self.t_feedback,
+                "t_skip": self.t_skip,
+                "loss_reaction_time": self.loss_reaction_time,
             },
             "derived_parameters": {
                 "delay_feedforward": self.delay_feedforward,
                 "delay_recurrence": self.delay_recurrence,
                 "effective_tau_steps": self.effective_tau_steps,
-                "total_processing_time": self.total_processing_time,
-                "total_processing_steps": self.total_processing_steps,
-                "stability_ratio": self.stability_ratio,
+                "stability_ratio": stability_ratio,
             },
             "assessment": {
-                "is_stable": self.stability_ratio < 0.2,
-                "delays_are_exact_multiples": (
-                    self.t_feedforward % self.dt == 0
-                    and self.t_recurrence % self.dt == 0
+                "is_stable": (
+                    None if stability_ratio is None else stability_ratio < 0.2
                 ),
+                "delays_are_exact_multiples": self._delays_are_exact_multiples(),
             },
         }
 
@@ -792,6 +1069,7 @@ class ModelParams(BaseParams):
             "feedforward_only": self.feedforward_only,
             "truncated_bptt_timesteps": self.truncated_bptt_timesteps,
             "recurrence_type": self.recurrence_type,
+            "recurrence_target": self.recurrence_target,
             "skip": self.skip,
             "feedback": self.feedback,
             "supralinearity": self.supralinearity,

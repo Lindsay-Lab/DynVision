@@ -1,4 +1,4 @@
-data_timesteps: 1
+# data_timesteps: 1  # default when neither t_sequence (tseq, ms) nor dsteps is given
 # data_presentation_pattern: [1]  # use model default
 
 mounted_datasets:

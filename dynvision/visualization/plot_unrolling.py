@@ -6,6 +6,13 @@ import seaborn as sns
 import numpy as np
 import torch
 
+from dynvision.processing.time_base import (
+    dt_from_path,
+    config_parameter,
+    config_time_base,
+    load_resolved_config,
+)
+from dynvision.utils.timing import step_end_ms, to_timesteps
 from dynvision.utils.visualization_utils import (
     save_plot,
     load_config_from_args,
@@ -51,22 +58,10 @@ parser.add_argument(
     help="Path to biological time response .pt file",
 )
 parser.add_argument(
-    "--t_feedforward",
-    type=int,
-    required=True,
-    help="Feedforward delay per layer in timesteps (already converted from ms)",
-)
-parser.add_argument(
-    "--dt",
+    "--t-feedforward-ms",
     type=float,
-    default=1.0,
-    help="Temporal resolution in ms per timestep (for axis labels)",
-)
-parser.add_argument(
-    "--idle-timesteps",
-    type=int,
-    default=0,
-    help="Number of idle timesteps before recorded data (shifts time axis)",
+    required=True,
+    help="Feedforward delay per layer in ms (of the biological-time run)",
 )
 parser.add_argument(
     "--output", type=Path, required=True, help="Path to output plot file"
@@ -244,12 +239,40 @@ def _add_layer_circle(x, y, layer_name, ax=None, config=None):
     )
 
 
+#: Resolved config that test_model writes beside its outputs.
+RUN_CONFIG = "test_outputs.csv.config.yaml"
+
+
+def run_time_base(response_file):
+    """Return ``(dt, stimulus_steps)`` of the test run that wrote ``response_file``.
+
+    ``dt`` comes from the resolved config beside the file, else from ``dt=`` in
+    the path; it is never assumed. ``stimulus_steps`` is None when the config
+    is missing or does not name the stimulus duration.
+
+    Raises:
+        ValueError: If ``dt`` cannot be determined.
+    """
+    config_file = Path(response_file).parent / RUN_CONFIG
+    if config_file.exists():
+        config = load_resolved_config(config_file)
+        dt, _ = config_time_base(config, config_file)
+        return dt, config_parameter(config, "stim")
+    dt = dt_from_path(response_file)
+    if dt is None:
+        raise ValueError(
+            f"Cannot determine dt for {response_file}: no {RUN_CONFIG} beside it "
+            f"and no 'dt=' in its path."
+        )
+    return dt, None
+
+
 def plot_unrolling(
     engineering_responses,
     biological_responses,
     t_feedforward,
-    dt=1.0,
-    time_offset=0.0,
+    dt,
+    stimulus_steps=None,
     config=None,
     output_path=None,
 ):
@@ -259,8 +282,9 @@ def plot_unrolling(
         engineering_responses: Dict of layer_name -> response arrays from engineering time
         biological_responses: Dict of layer_name -> response arrays from biological time
         t_feedforward: Time shift amount per layer in timesteps
-        dt: Temporal resolution in ms per timestep (for axis labels)
-        time_offset: Time offset in ms to shift the time axis (e.g., from idle timesteps)
+        dt: Integration step of the runs in ms. Step k is drawn at its end,
+            (k + 1) * dt, with t = 0 at the end of the idle period.
+        stimulus_steps: Steps during which a label is shown; defaults to 20.
         config: Configuration dictionary for styling
         output_path: Path to save the plot
 
@@ -330,7 +354,7 @@ def plot_unrolling(
         shifted_eng_mean = np.mean(shifted_eng_data, axis=0)
 
         # Create time axis in ms
-        time_steps = np.arange(len(eng_mean)) * dt + time_offset
+        time_steps = step_end_ms(np.arange(len(eng_mean)), dt)
 
         # Plot the three traces with different markers
         ax.plot(
@@ -386,7 +410,7 @@ def plot_unrolling(
     # Add label indicator to the bottom subplot
     ax_bottom = axes[-1]
     y_min, y_max = ax_bottom.get_ylim()
-    stimulus_duration = 20  # labels present for first 20 timesteps
+    stimulus_duration = 20 if stimulus_steps is None else int(stimulus_steps)
     label_indicator = np.full(len(time_steps), y_min)
     label_indicator[:stimulus_duration] = y_min + 0.1 * (y_max - y_min)
     ax_bottom.plot(
@@ -440,8 +464,15 @@ def plot_unrolling(
 if __name__ == "__main__":
     args = parser.parse_args()
 
-    # Compute time offset from idle timesteps
-    time_offset = args.idle_timesteps * args.dt
+    # Time base of the runs, read from their resolved configs
+    dt, stimulus_steps = run_time_base(args.engineering_time_data)
+    bio_dt, _ = run_time_base(args.biological_time_data)
+    if bio_dt != dt:
+        raise ValueError(
+            f"The runs differ in dt ({dt:g} vs {bio_dt:g} ms); the unrolling "
+            f"plot compares them step by step."
+        )
+    t_feedforward = to_timesteps(args.t_feedforward_ms, dt, "t_feedforward")
 
     # Load configuration from command line arguments
     config = load_config_from_args(
@@ -464,9 +495,9 @@ if __name__ == "__main__":
         fig = plot_unrolling(
             engineering_responses,
             biological_responses,
-            args.t_feedforward,
-            dt=args.dt,
-            time_offset=time_offset,
+            t_feedforward,
+            dt=dt,
+            stimulus_steps=stimulus_steps,
             config=config,
             output_path=args.output,
         )

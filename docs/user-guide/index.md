@@ -79,7 +79,7 @@ Below are step-by-step instructions for common tasks in DynVision:
      data_group=invertebrates \
      store_responses=100 \
      data_loader=StimulusDuration \
-     data_args="{tsteps:100,stim:15}"
+     data_args="{tseq:200,tstim:30}"
    ```
 2. Load and analyze the responses in Python:
    ```python
@@ -87,7 +87,7 @@ Below are step-by-step instructions for common tasks in DynVision:
    import matplotlib.pyplot as plt
    
    # Load responses
-   responses = torch.load('models/DyRCNNx4/DyRCNNx4:rctype=full_0001_cifar100_trained_StimulusDuration:tsteps=100+stim=15_invertebrates_test_responses.pt')
+   responses = torch.load('models/DyRCNNx4/DyRCNNx4:rctype=full_0001_cifar100_trained_StimulusDuration:tseq=200+tstim=30_invertebrates_test_responses.pt')
    
    # Extract layer responses
    v1_response = responses['V1'].mean(dim=(0, 2, 3, 4))  # Average over all dimensions except time
