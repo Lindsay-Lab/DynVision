@@ -27,7 +27,10 @@ All notable changes to DynVision will be documented in this file.
   within `rtol=1e-6, atol=1e-7` (`tests/models/test_dt_golden.py`) -- below the
   4e-6 that a one-step delay shift moves every recorded case. A difference that
   is not bit-identical is reported as a warning, since a build that evaluates
-  the arithmetic in another order rounds differently.
+  the arithmetic in another order rounds differently. `cornetrt_dt2` is
+  compared with `1e-4`: CorNetRT amplifies a one-ulp input change to 2e-5 in
+  178 of its 480 outputs, while a one-step delay shift there moves the output
+  by 2.0.
   `t_recurrence` must be at least `dt` (was compared with the step count 1).
 - **Presentation patterns stretch over whole chunks**: a pattern whose length
   does not divide the window raises instead of producing uneven chunks

@@ -29,16 +29,27 @@ from dynvision.models.dyrcnn import DyRCNNx4, DyRCNNx8
 
 GOLDEN = Path(__file__).parent / "golden" / "dt_golden.pt"
 
-#: Tolerance for the forward output. A changed delay moves the output by at
-#: least 4e-6 in every recorded case (measured with a one-step shift of
-#: t_recurrence), so these values catch a shift everywhere, including
-#: dyrcnnx8_dt2, whose output is small (max 5e-3). The cost: a build that
-#: evaluates the same arithmetic in another order can exceed them -- 4.7e-5 was
-#: measured once between two CI runs of torch 2.15.0+cpu. Such a failure is
-#: reported with both differences by the warning below, and the golden file is
-#: regenerated for that platform only after checking the delay indices.
+#: Tolerance for the forward output. It sits below the 4e-6 that a one-step
+#: shift of t_recurrence moves the output in every recorded case, including
+#: dyrcnnx8_dt2, whose output is small (max 5e-3, shift 5e-6).
 OUTPUT_RTOL = 1e-6
 OUTPUT_ATOL = 1e-7
+
+#: Cases that need their own tolerance, because their output is chaotic rather
+#: than merely rounded differently. CorNetRT amplifies the smallest possible
+#: input change: one ulp on one pixel moves 178 of its 480 outputs, the largest
+#: by 2e-5, and two CI runs of the same torch build differed by 4.7e-5. The
+#: tolerance is set below neither signal: a one-step delay shift moves this
+#: case's output by 2.0, four orders of magnitude above it.
+OUTPUT_TOLERANCES: Dict[str, Tuple[float, float]] = {
+    "cornetrt_dt2": (1e-4, 1e-4),
+}
+
+
+def tolerance_for(case_id: str) -> Tuple[float, float]:
+    """Return ``(rtol, atol)`` for a case's forward-output comparison."""
+    return OUTPUT_TOLERANCES.get(case_id, (OUTPUT_RTOL, OUTPUT_ATOL))
+
 
 N_TIMESTEPS = 24  # long enough for a 12-step recurrence (6 ms at dt=0.5) to act
 IMAGE_SIZE = 32
@@ -164,7 +175,8 @@ def _assert_output_matches(current, expected, case_id: str) -> None:
         AssertionError: if the output differs by more than the tolerance, which
             is a changed computation rather than another build's rounding.
     """
-    torch.testing.assert_close(current, expected, rtol=OUTPUT_RTOL, atol=OUTPUT_ATOL)
+    rtol, atol = tolerance_for(case_id)
+    torch.testing.assert_close(current, expected, rtol=rtol, atol=atol)
     if torch.equal(current, expected):
         return
     difference = (current - expected).abs()
@@ -173,7 +185,7 @@ def _assert_output_matches(current, expected, case_id: str) -> None:
         f"{case_id}: the forward output is not bit-identical to the golden file. "
         f"Greatest absolute difference {difference.flatten()[index].item():.3e}, "
         f"greatest relative {((difference / expected.abs().clamp(min=1e-30)).max()).item():.3e}; "
-        f"the check allows rtol={OUTPUT_RTOL:g}, atol={OUTPUT_ATOL:g}. Another torch "
+        f"the check allows rtol={rtol:g}, atol={atol:g}. Another torch "
         "build rounds differently; a delay that moved a step would exceed the check.",
         stacklevel=2,
     )
@@ -225,6 +237,13 @@ def test_a_tiny_difference_passes_and_warns(golden):
     expected = golden["dyrcnnx8_dt2"]["output"]
     with pytest.warns(UserWarning, match="not bit-identical"):
         _assert_output_matches(expected + 1e-8, expected, "dyrcnnx8_dt2")
+
+
+def test_a_delay_shift_fails_for_a_case_with_its_own_tolerance(golden):
+    """The looser tolerance of a chaotic case is still far below a shift."""
+    expected = golden["cornetrt_dt2"]["output"]
+    with pytest.raises(AssertionError):
+        _assert_output_matches(expected + 1e-2, expected, "cornetrt_dt2")
 
 
 def test_a_one_step_delay_shift_fails(golden):
