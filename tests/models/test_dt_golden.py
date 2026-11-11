@@ -3,8 +3,11 @@
 Routing every ms -> step conversion through ``utils.timing.to_timesteps`` must
 not change any model whose delays are whole numbers of ``dt`` steps -- which is
 every model trained so far. This test pins, for each case, the integer delay
-indices, the buffer lengths, the reaction mask and the exact forward output,
-recorded from the code before the change.
+indices, the buffer lengths, the reaction mask and the forward output. The
+indices, buffer lengths and the mask must match exactly. The forward output is
+compared within a floating-point tolerance, because a different torch build
+rounds the same computation differently; a difference that is not
+bit-identical is reported as a warning.
 
 Regenerate the golden file only for a deliberate behaviour change::
 
@@ -25,6 +28,16 @@ from dynvision.models.cornet_rt import CorNetRT
 from dynvision.models.dyrcnn import DyRCNNx4, DyRCNNx8
 
 GOLDEN = Path(__file__).parent / "golden" / "dt_golden.pt"
+
+#: Tolerance for the forward output. A different platform's build of torch
+#: evaluates the same arithmetic in a different order: measured 1e-9 to 5e-5
+#: absolute between the cp311 and cp312 CPU builds of torch 2.15. A changed
+#: delay moves the output by 4e-6 to 2 in the cases measured (a one-step shift
+#: of t_recurrence), so the tolerance catches a shift except in the least
+#: sensitive case (dyrcnnx8_dt2, 5e-6); ``test_delay_indices_are_unchanged``
+#: pins the conversion itself.
+OUTPUT_RTOL = 1e-4
+OUTPUT_ATOL = 1e-5
 
 N_TIMESTEPS = 24  # long enough for a 12-step recurrence (6 ms at dt=0.5) to act
 IMAGE_SIZE = 32
@@ -143,6 +156,28 @@ def run_case(case_id: str) -> Dict[str, Any]:
     }
 
 
+def _assert_output_matches(current, expected, case_id: str) -> None:
+    """Compare a forward output with the golden one, and warn if not bit-identical.
+
+    Raises:
+        AssertionError: if the output differs by more than the tolerance, which
+            is a changed computation rather than another build's rounding.
+    """
+    torch.testing.assert_close(current, expected, rtol=OUTPUT_RTOL, atol=OUTPUT_ATOL)
+    if torch.equal(current, expected):
+        return
+    difference = (current - expected).abs()
+    index = difference.argmax().item()
+    warnings.warn(
+        f"{case_id}: the forward output is not bit-identical to the golden file. "
+        f"Greatest absolute difference {difference.flatten()[index].item():.3e}, "
+        f"greatest relative {((difference / expected.abs().clamp(min=1e-30)).max()).item():.3e}; "
+        f"the check allows rtol={OUTPUT_RTOL:g}, atol={OUTPUT_ATOL:g}. Another torch "
+        "build rounds differently; a delay that moved a step would exceed the check.",
+        stacklevel=2,
+    )
+
+
 def write_golden() -> None:
     GOLDEN.parent.mkdir(parents=True, exist_ok=True)
     torch.save({case_id: run_case(case_id) for case_id in CASES}, GOLDEN)
@@ -179,9 +214,23 @@ def test_reaction_mask_is_unchanged(golden, case_id):
 
 @pytest.mark.parametrize("case_id", sorted(CASES))
 def test_forward_output_is_unchanged(golden, case_id):
-    torch.testing.assert_close(
-        run_case(case_id)["output"], golden[case_id]["output"], rtol=0, atol=0
+    _assert_output_matches(
+        run_case(case_id)["output"], golden[case_id]["output"], case_id
     )
+
+
+def test_a_tiny_difference_passes_and_warns(golden):
+    """Rounding noise of another build passes the check, and is reported."""
+    expected = golden["dyrcnnx8_dt2"]["output"]
+    with pytest.warns(UserWarning, match="not bit-identical"):
+        _assert_output_matches(expected + 1e-7, expected, "dyrcnnx8_dt2")
+
+
+def test_a_changed_output_fails(golden):
+    """A difference beyond the tolerance is a changed computation, not noise."""
+    expected = golden["dyrcnnx8_dt2"]["output"]
+    with pytest.raises(AssertionError):
+        _assert_output_matches(expected + 1e-2, expected, "dyrcnnx8_dt2")
 
 
 if __name__ == "__main__":

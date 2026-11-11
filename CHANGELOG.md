@@ -23,7 +23,10 @@ All notable changes to DynVision will be documented in this file.
 - **Strict ms -> step conversion**: `utils/timing.to_timesteps` raises on an
   off-grid value instead of rounding (reverses the rounding fallback of
   `942795a`). All model delay conversions go through it; on-grid models keep
-  identical delay indices and forward outputs (`tests/models/test_dt_golden.py`).
+  identical delay indices and reaction masks, and their forward output matches
+  within `rtol=1e-4, atol=1e-5` (`tests/models/test_dt_golden.py`), since
+  another torch build rounds the same computation differently. A difference
+  that is not bit-identical is reported as a warning.
   `t_recurrence` must be at least `dt` (was compared with the step count 1).
 - **Presentation patterns stretch over whole chunks**: a pattern whose length
   does not divide the window raises instead of producing uneven chunks
